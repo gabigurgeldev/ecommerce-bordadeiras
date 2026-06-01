@@ -9,8 +9,8 @@ const PLACEHOLDER_IMAGE = (seed: string) =>
 async function main() {
   console.log("🌱 Seeding Ecommerce Bordadeiras…");
 
-  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@bordadeiras.com.br";
-  const adminPassword = process.env.ADMIN_PASSWORD ?? "Admin@123456";
+  const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@bordadeiras.com.br").trim().toLowerCase();
+  const adminPassword = (process.env.ADMIN_PASSWORD ?? "Admin@123456").trim();
   const passwordHash = await hash(adminPassword, 12);
 
   const admin = await prisma.user.upsert({

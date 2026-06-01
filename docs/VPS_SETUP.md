@@ -175,6 +175,8 @@ Seed manual (se precisar):
 node prisma/seed.bundle.cjs
 ```
 
+**Login admin (`/login`):** a senha válida é a do **MySQL** (hash gravado no seed). O `.env` local não vale na VPS — use as variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD` no **EasyPanel da app**. Após o deploy, um login com esse par sincroniza o hash no banco (útil se o seed falhou). Confira também `AUTH_SECRET` e `AUTH_URL=https://loja.bordadeiras.com.br` no painel.
+
 ---
 
 ## 6. Redis
