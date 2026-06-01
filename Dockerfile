@@ -7,7 +7,8 @@ RUN apk add --no-cache libc6-compat openssl
 
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci
+# Requer package-lock.json commitado e em sync (rode npm install localmente após mudar deps)
+RUN npm ci --no-audit --no-fund
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
