@@ -6,8 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 
 FROM base AS deps
-COPY package.json package-lock.json ./
-# Requer package-lock.json commitado e em sync (rode npm install localmente após mudar deps)
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci --no-audit --no-fund
 
 FROM base AS builder
