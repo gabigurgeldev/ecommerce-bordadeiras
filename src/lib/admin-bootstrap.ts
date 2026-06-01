@@ -2,18 +2,23 @@ import { Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
-/** Credenciais de bootstrap definidas no painel (EasyPanel) — usadas no seed e no login. */
+function stripEnvValue(value: string | undefined) {
+  if (!value) return "";
+  return value.trim().replace(/^["']|["']$/g, "");
+}
+
+/** Credenciais de bootstrap (EasyPanel) — mesmos defaults do seed. */
 export function readAdminEnv() {
-  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const password = process.env.ADMIN_PASSWORD?.trim();
-  if (!email || !password) return null;
+  const email = stripEnvValue(process.env.ADMIN_EMAIL).toLowerCase() || "admin@bordadeiras.com.br";
+  const password = stripEnvValue(process.env.ADMIN_PASSWORD) || "Admin@123456";
   return { email, password };
 }
 
 export function credentialsMatchAdminEnv(email: string, password: string) {
   const admin = readAdminEnv();
-  if (!admin) return false;
-  return email.trim().toLowerCase() === admin.email && password === admin.password;
+  const normalized = email.trim().toLowerCase();
+  if (normalized !== admin.email) return false;
+  return password === admin.password || password.trim() === admin.password;
 }
 
 /** Garante usuário ADMIN com hash alinhado ao env (idempotente). */

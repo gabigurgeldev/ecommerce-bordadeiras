@@ -1,8 +1,8 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { loginAdminAction } from "@/actions/auth/login";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,17 +19,17 @@ export function LoginForm() {
     setLoading(true);
     setError(null);
     const form = new FormData(e.currentTarget);
-    const res = await signIn("credentials", {
-      email: form.get("email") as string,
-      password: form.get("password") as string,
-      redirect: false,
-      callbackUrl,
-    });
+    const email = form.get("email") as string;
+    const password = form.get("password") as string;
+
+    const result = await loginAdminAction(email, password);
     setLoading(false);
-    if (res?.error) {
-      setError("Credenciais inválidas");
+
+    if (!result.ok) {
+      setError(result.message);
       return;
     }
+
     window.location.href = callbackUrl;
   }
 
