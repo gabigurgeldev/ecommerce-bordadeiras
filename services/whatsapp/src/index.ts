@@ -14,6 +14,8 @@ app.use(express.json());
 const PORT = Number(process.env.PORT ?? 4001);
 const SECRET = process.env.WHATSAPP_SERVICE_SECRET ?? "";
 
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
 function authMiddleware(
   req: express.Request,
   res: express.Response,
@@ -108,9 +110,9 @@ app.post("/messages/send", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
-
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
   console.log(`WhatsApp service on :${PORT}`);
-  await startBaileys();
+  void startBaileys().catch((err) => {
+    console.error("[whatsapp] Initial Baileys start failed:", err);
+  });
 });

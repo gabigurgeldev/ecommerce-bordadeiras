@@ -11,6 +11,7 @@ export type LoginAdminResult =
 export async function loginAdminAction(
   email: string,
   password: string,
+  callbackUrl = "/admin",
 ): Promise<LoginAdminResult> {
   if (!process.env.AUTH_SECRET?.trim()) {
     return {
@@ -20,23 +21,27 @@ export async function loginAdminAction(
     };
   }
 
+  const safeCallback =
+    callbackUrl.startsWith("/") && !callbackUrl.startsWith("//") ? callbackUrl : "/admin";
+
   try {
     await signIn("credentials", {
       email,
       password,
-      redirect: false,
+      redirectTo: safeCallback,
     });
     return { ok: true };
   } catch (error) {
     if (isRedirectError(error)) {
-      return { ok: true };
+      throw error;
     }
     if (error instanceof AuthError) {
       if (error.type === "CredentialsSignin") {
         return {
           ok: false,
           code: "credentials",
-          message: "Credenciais inválidas. Confira ADMIN_EMAIL/ADMIN_PASSWORD no EasyPanel ou rode o seed.",
+          message:
+            "Credenciais inválidas. Confira ADMIN_EMAIL/ADMIN_PASSWORD no EasyPanel ou rode o seed.",
         };
       }
       return {

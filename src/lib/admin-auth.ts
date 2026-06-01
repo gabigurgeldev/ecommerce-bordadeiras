@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
-import { getSession } from "@/lib/auth";
+import { auth } from "@/auth";
 
 export type AdminActor = {
   id: string;
@@ -15,14 +15,15 @@ function isAdminEmail(email: string) {
 }
 
 export async function getAdminActor(): Promise<AdminActor | null> {
-  const session = await getSession();
-  if (!session?.user?.email) return null;
+  const session = await auth();
+  const user = session?.user;
+  if (!user?.email) return null;
 
-  const role = session.user.role as Role;
-  if (role === Role.ADMIN || isAdminEmail(session.user.email)) {
+  const role = user.role as Role;
+  if (role === Role.ADMIN || isAdminEmail(user.email)) {
     return {
-      id: session.user.id || "admin-stub",
-      email: session.user.email,
+      id: user.id || "",
+      email: user.email,
       role: Role.ADMIN,
     };
   }

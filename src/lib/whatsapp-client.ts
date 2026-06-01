@@ -1,4 +1,6 @@
-const baseUrl = process.env.WHATSAPP_SERVICE_URL ?? "http://localhost:4001";
+import { getWhatsappServiceBaseUrl } from "@/lib/whatsapp-service-url";
+
+const baseUrl = getWhatsappServiceBaseUrl();
 const secret = process.env.WHATSAPP_SERVICE_SECRET ?? "";
 
 async function whatsappFetch(path: string, body: Record<string, unknown>) {

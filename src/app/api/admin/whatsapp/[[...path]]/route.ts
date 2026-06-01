@@ -6,9 +6,10 @@ import {
   reconnectWhatsapp,
 } from "@/lib/whatsapp-client";
 import { jsonError } from "@/lib/api-utils";
+import { getWhatsappServiceBaseUrl } from "@/lib/whatsapp-service-url";
 
 const secret = process.env.WHATSAPP_SERVICE_SECRET ?? "";
-const baseUrl = process.env.WHATSAPP_SERVICE_URL ?? "http://localhost:4001";
+const baseUrl = getWhatsappServiceBaseUrl();
 
 async function requireAdminApi() {
   const actor = await getAdminActor();

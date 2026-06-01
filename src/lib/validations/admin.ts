@@ -82,5 +82,5 @@ export const smtpSettingsSchema = z.object({
   port: z.coerce.number().int().min(1).max(65535),
   user: z.string().min(1),
   password: z.string().min(1),
-  from: z.string().email(),
+  from: z.string().min(1, "Remetente obrigatório"),
 });

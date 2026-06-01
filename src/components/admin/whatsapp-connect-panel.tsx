@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,14 +90,8 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
 
         {session.qr ? (
           <div className="flex flex-col items-center gap-3 rounded-lg border bg-white p-4">
-            <Image
-              src={session.qr}
-              alt="QR Code WhatsApp"
-              width={256}
-              height={256}
-              unoptimized
-              className="h-64 w-64"
-            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={session.qr} alt="QR Code WhatsApp" width={256} height={256} className="h-64 w-64" />
             <p className="text-center text-xs text-muted-foreground">
               WhatsApp → Aparelhos conectados → Conectar aparelho
             </p>

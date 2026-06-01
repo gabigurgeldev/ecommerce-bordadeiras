@@ -248,7 +248,9 @@ WHATSAPP_SERVICE_URL=http://NOME_SERVICO_WHATSAPP:4001
 WHATSAPP_SERVICE_SECRET=...
 ```
 
-Substitua `NOME_SERVICO_WHATSAPP` pelo nome do serviço no EasyPanel (ex.: `whatsapp`).
+Substitua `NOME_SERVICO_WHATSAPP` pelo nome do serviço no EasyPanel (ex.: `ecommerce_whatsapp-ecommerce`).
+
+**Sem barra no final** em `WHATSAPP_SERVICE_URL` (evita `//session/qr` e falhas de proxy). O secret deve ser **idêntico** na app e no serviço whatsapp.
 
 ### Painel admin
 
@@ -418,6 +420,7 @@ docker exec -it CONTAINER_APP npx prisma migrate deploy
 | Webhook MP 401 | Webhook secret em Admin → Configurações e header `x-signature` |
 | Imagens quebradas | `S3_PUBLIC_URL` com HTTPS; bucket existe |
 | WhatsApp 401 | `WHATSAPP_SERVICE_SECRET` igual na app e no serviço |
+| QR não aparece | URL sem `/` final; logs do container whatsapp; volume `/app/data/auth`; use “Novo número (logout)” se sessão corrompida |
 | WhatsApp desconecta | `POST /api/admin/whatsapp/reconnect` |
 
 ---

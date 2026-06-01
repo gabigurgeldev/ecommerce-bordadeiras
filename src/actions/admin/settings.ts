@@ -1,7 +1,7 @@
 "use server";
 
-import nodemailer from "nodemailer";
-import { getSettings, setSettings } from "@/lib/settings";
+import { getSettings, setSettings, getMailSettings } from "@/lib/settings";
+import { formatMailError, MailNotConfiguredError, sendTestEmail } from "@/lib/mail";
 import { SETTING_KEYS } from "@/lib/settings-keys";
 import { mercadoPagoSettingsSchema, smtpSettingsSchema } from "@/lib/validations/admin";
 import { prisma } from "@/lib/prisma";
@@ -54,14 +54,15 @@ export async function saveMercadoPagoSettings(data: unknown): Promise<ActionResu
 }
 
 export async function getSmtpSettings() {
-  const keys = Object.values(SETTING_KEYS.smtp);
-  const values = await getSettings(keys);
+  const cfg = await getMailSettings();
+  const values = await getSettings(Object.values(SETTING_KEYS.smtp));
+  const hasDbPassword = Boolean(values[SETTING_KEYS.smtp.password]);
   return {
-    host: values[SETTING_KEYS.smtp.host] ?? "",
-    port: Number(values[SETTING_KEYS.smtp.port] ?? "587") || 587,
-    user: values[SETTING_KEYS.smtp.user] ?? "",
-    password: values[SETTING_KEYS.smtp.password] ?? "",
-    from: values[SETTING_KEYS.smtp.from] ?? "",
+    host: cfg.host,
+    port: cfg.port,
+    user: cfg.user,
+    password: hasDbPassword ? cfg.pass : "",
+    from: cfg.from || cfg.user,
   };
 }
 
@@ -86,26 +87,26 @@ export async function saveSmtpSettings(data: unknown): Promise<ActionResult> {
 
 export async function sendSmtpTest(toEmail: string): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    const smtp = await getSmtpSettings();
-    const parsed = smtpSettingsSchema.safeParse({
-      ...smtp,
-      port: Number(smtp.port),
-    });
-    if (!parsed.success) return { success: false, error: "Configure o SMTP antes de testar" };
+    if (!toEmail?.includes("@")) {
+      return { success: false, error: "E-mail de destino inválido" };
+    }
 
-    const transport = nodemailer.createTransport({
-      host: parsed.data.host,
-      port: parsed.data.port,
-      secure: parsed.data.port === 465,
-      auth: { user: parsed.data.user, pass: parsed.data.password },
-    });
-
-    await transport.sendMail({
-      from: parsed.data.from,
-      to: toEmail,
-      subject: "Teste SMTP — Bordadeiras Admin",
-      text: "E-mail de teste enviado pelo painel administrativo.",
-    });
+    try {
+      await sendTestEmail({
+        to: toEmail,
+        subject: "Teste SMTP — Bordadeiras Admin",
+        text: "E-mail de teste enviado pelo painel administrativo.",
+      });
+    } catch (err) {
+      if (err instanceof MailNotConfiguredError) {
+        return { success: false, error: err.message };
+      }
+      console.error("[sendSmtpTest]", formatMailError(err));
+      return {
+        success: false,
+        error: `Falha ao enviar teste: ${formatMailError(err)}`,
+      };
+    }
 
     await auditMutation(actor, {
       action: "SETTINGS_CHANGE",

@@ -1,18 +1,8 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/password";
 import { rateLimitAuth } from "@/lib/rate-limit";
-import { sanitizeEmail, sanitizeText } from "@/lib/sanitize";
-import { getClientIp, jsonError, parseBody } from "@/lib/api-utils";
-import { sendRegistrationEmail } from "@/lib/mail";
 import { validateCsrfToken, CSRF_HEADER } from "@/lib/csrf";
-
-const schema = z.object({
-  name: z.string().min(2).max(120),
-  email: z.string().email(),
-  password: z.string().min(8).max(128),
-});
+import { getClientIp, jsonError } from "@/lib/api-utils";
+import { registerUser } from "@/lib/register-user";
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
@@ -29,28 +19,23 @@ export async function POST(request: Request) {
     return jsonError("Invalid JSON");
   }
 
-  const parsed = parseBody(schema, body);
-  if (!parsed.success) return parsed.response;
+  if (!body || typeof body !== "object") {
+    return jsonError("Invalid body");
+  }
 
-  const email = sanitizeEmail(parsed.data.email);
-  const name = sanitizeText(parsed.data.name);
+  const { name, email, password } = body as Record<string, unknown>;
+  if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string") {
+    return jsonError("Validation failed", 422);
+  }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return jsonError("Email already registered", 409);
-
-  const passwordHash = await hashPassword(parsed.data.password);
-  const user = await prisma.user.create({
-    data: { email, name, passwordHash, role: "USER" },
-  });
-
-  try {
-    await sendRegistrationEmail({ to: email, name });
-  } catch (err) {
-    console.error("[register] email failed", err);
+  const result = await registerUser({ name, email, password });
+  if (!result.ok) {
+    if (result.code === "exists") return jsonError("Email already registered", 409);
+    return jsonError(result.message, 422);
   }
 
   return NextResponse.json(
-    { id: user.id, email: user.email, message: "Account created" },
-    { status: 201 }
+    { id: result.userId, email, message: "Account created" },
+    { status: 201 },
   );
 }

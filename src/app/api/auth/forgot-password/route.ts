@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { rateLimitAuth } from "@/lib/rate-limit";
 import { sanitizeEmail } from "@/lib/sanitize";
 import { getClientIp, jsonError, parseBody } from "@/lib/api-utils";
-import { sendPasswordResetEmail } from "@/lib/mail";
+import { formatMailError, MailNotConfiguredError, sendPasswordResetEmail } from "@/lib/mail";
 import { validateCsrfToken, CSRF_HEADER } from "@/lib/csrf";
 
 const schema = z.object({ email: z.string().email() });
@@ -53,7 +53,11 @@ export async function POST(request: Request) {
       resetUrl,
     });
   } catch (err) {
-    console.error("[forgot-password] email failed", err);
+    if (err instanceof MailNotConfiguredError) {
+      console.error("[forgot-password]", err.message);
+    } else {
+      console.error("[forgot-password] email failed", formatMailError(err));
+    }
   }
 
   return NextResponse.json({ message: "If the email exists, a reset link was sent." });

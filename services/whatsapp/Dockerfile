@@ -21,5 +21,7 @@ ENV PORT=4001
 ENV NODE_ENV=production
 EXPOSE 4001
 
+RUN mkdir -p /app/data/auth
+
 # Sessão Baileys — volume persistente em /app/data/auth
 CMD ["npx", "tsx", "src/index.ts"]
