@@ -1,10 +1,15 @@
-# Build context: raiz do repositório (EasyPanel → Dockerfile: services/whatsapp/Dockerfile, path: /)
+# Build context: raiz do repositório (EasyPanel)
+# Fonte: Github | Caminho: / | Dockerfile: services/whatsapp/Dockerfile
+
 FROM node:22-alpine
 WORKDIR /app
-RUN apk add --no-cache openssl libc6-compat
+
+# git: Baileys e dependências podem instalar via repositório Git
+RUN apk add --no-cache openssl libc6-compat git python3 make g++
 
 COPY services/whatsapp/package.json ./
-RUN npm install --omit=dev --no-audit --no-fund
+# prisma + tsx necessários em runtime (CMD usa tsx; generate usa prisma)
+RUN npm install --no-audit --no-fund
 
 COPY prisma ./prisma
 COPY services/whatsapp/tsconfig.json ./
@@ -13,7 +18,8 @@ COPY services/whatsapp/src ./src
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
 ENV PORT=4001
+ENV NODE_ENV=production
 EXPOSE 4001
 
-# Sessão Baileys — monte volume em /app/data/auth (não commitar no Git)
+# Sessão Baileys — volume persistente em /app/data/auth
 CMD ["npx", "tsx", "src/index.ts"]
