@@ -1,9 +1,15 @@
 import { GlassCard } from "@/components/ui/glass-card";
 import { CreditCard, QrCode, Receipt } from "lucide-react";
 
-/** Mercado Pago UI placeholder — integrations agent */
-export function PaymentPlaceholder() {
+/** Mercado Pago UI — publicKey from server (DB), never from NEXT_PUBLIC env */
+export function PaymentPlaceholder({ publicKey }: { publicKey: string | null }) {
   return (
+    <div className="space-y-4">
+      {publicKey ? (
+        <p className="text-xs text-zinc-500" data-mp-configured="true">
+          Gateway ativo (chave pública carregada no servidor).
+        </p>
+      ) : null}
     <div className="grid gap-4 sm:grid-cols-3">
       {[
         { icon: QrCode, label: "PIX", desc: "Aprovação instantânea" },
@@ -19,6 +25,7 @@ export function PaymentPlaceholder() {
           <p className="text-xs text-zinc-500">{m.desc}</p>
         </GlassCard>
       ))}
+    </div>
     </div>
   );
 }

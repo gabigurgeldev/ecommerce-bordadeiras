@@ -46,7 +46,7 @@ Crie os serviços abaixo (Docker Compose ou apps individuais).
 
 - Build: repositório Git, Dockerfile `services/whatsapp/Dockerfile`
 - Porta: `4001`
-- Env: `DATABASE_URL`, `WHATSAPP_SERVICE_SECRET`, `WHATSAPP_ADMIN_NUMBER`
+- Env: `DATABASE_URL`, `WHATSAPP_SERVICE_SECRET`
 - Volume: `/app/data/auth` (sessão Baileys)
 
 ### App Next.js
@@ -64,8 +64,7 @@ Crie os serviços abaixo (Docker Compose ou apps individuais).
 | `AUTH_SECRET` | string aleatória 32+ chars |
 | `AUTH_URL` | `https://loja.seudominio.com` |
 | `NEXT_PUBLIC_APP_URL` | idem |
-| `MERCADOPAGO_ACCESS_TOKEN` | token produção MP |
-| `MERCADOPAGO_WEBHOOK_SECRET` | secret do painel MP |
+| Mercado Pago | Admin → Configurações (MySQL) |
 | `WHATSAPP_SERVICE_URL` | `http://whatsapp-service:4001` |
 | `S3_ENDPOINT` | URL interna MinIO |
 | `REDIS_URL` | `redis://redis:6379` |
@@ -87,7 +86,7 @@ No [painel Mercado Pago](https://www.mercadopago.com.br/developers):
 
 - URL: `https://loja.seudominio.com/api/webhooks/mercadopago`
 - Eventos: `payment`
-- Configure `MERCADOPAGO_WEBHOOK_SECRET` conforme documentação de assinatura `x-signature`
+- Configure webhook secret em Admin → Configurações → Mercado Pago
 
 ## 7. Postal SMTP (opcional)
 
@@ -99,7 +98,7 @@ Atualize settings no banco (`mail.*`) ou variáveis `SMTP_*`.
 
 1. Acesse como ADMIN: `GET /api/admin/whatsapp/qr`
 2. Escaneie o QR com o WhatsApp do número administrativo
-3. Confirme `WHATSAPP_ADMIN_NUMBER` (DDI + DDD + número, só dígitos)
+3. Cadastre destinatários em Admin → WhatsApp; conecte emissor via QR
 
 ## 9. Checklist pós-deploy
 
@@ -124,6 +123,6 @@ npx prisma migrate deploy
 | Problema | Ação |
 |----------|------|
 | 502 na app | Ver logs do container; `DATABASE_URL` correto |
-| Webhook MP 401 | Conferir `MERCADOPAGO_WEBHOOK_SECRET` e headers |
+| Webhook MP 401 | Conferir webhook secret em Admin → Configurações |
 | WhatsApp desconecta | `POST /api/admin/whatsapp/reconnect` |
 | E-mail não envia | Testar SMTP; settings `mail.*` no banco |

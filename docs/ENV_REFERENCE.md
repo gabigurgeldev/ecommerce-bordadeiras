@@ -32,15 +32,22 @@ Lista completa para desenvolvimento (`env.example`) e produção (`env.productio
 | `S3_ACCESS_KEY` | Access key MinIO | usuário gerado | MinIO root ou IAM |
 | `S3_SECRET_KEY` | Secret key MinIO | *** | MinIO |
 | `S3_PUBLIC_URL` | URL pública dos arquivos | `https://storage.bordadeiras.com.br` | DNS + proxy MinIO |
-| `MERCADOPAGO_ACCESS_TOKEN` | Token privado MP produção | `APP_USR-...` | [Mercado Pago Developers](https://www.mercadopago.com.br/developers) |
-| `MERCADOPAGO_WEBHOOK_SECRET` | Validação `x-signature` | secret do webhook | Painel MP → Webhooks |
-| `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` | Chave pública checkout | `APP_USR-...` | Painel MP |
 | `WHATSAPP_SERVICE_URL` | Base URL do serviço Baileys | `http://whatsapp-service:4001` | Rede Docker |
 | `WHATSAPP_SERVICE_SECRET` | Bearer token app → WhatsApp | string aleatória | `openssl rand -base64 32` |
-| `WHATSAPP_ADMIN_NUMBER` | Número admin (só dígitos, DDI) | `5511999999999` | Seu WhatsApp Business |
 | `PORT` | Porta do serviço WhatsApp | `4001` | Padrão do Dockerfile |
 | `GOOGLE_CLIENT_ID` | OAuth Google (opcional) | `....apps.googleusercontent.com` | Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | OAuth Google (opcional) | *** | Google Cloud Console |
+
+## Configurações no MySQL (não usar env)
+
+| Chave `Setting` | Uso |
+|-----------------|-----|
+| `mercadopago.public_key` | Chave pública MP (checkout; carregada no servidor) |
+| `mercadopago.access_token` | Token privado MP (somente server) |
+| `mercadopago.webhook_secret` | Validação webhook `x-signature` |
+| Tabela `WhatsappRecipient` | Números que **recebem** alertas (admin → WhatsApp) |
+
+Configure em **Admin → Configurações** (MP) e **Admin → WhatsApp** (destinatários + QR do emissor).
 
 ## Aliases e inconsistências
 

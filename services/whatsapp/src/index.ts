@@ -1,5 +1,12 @@
 import express from "express";
-import { startBaileys, reconnect, getQrPayload, sendAdminMessage, getConnectionStatus } from "./baileys.js";
+import {
+  startBaileys,
+  reconnect,
+  logoutSession,
+  getQrPayload,
+  sendAdminMessage,
+  getConnectionStatus,
+} from "./baileys.js";
 
 const app = express();
 app.use(express.json());
@@ -39,6 +46,11 @@ app.get("/session/qr", async (_req, res) => {
 app.post("/session/reconnect", async (_req, res) => {
   await reconnect();
   res.json({ status: "reconnecting" });
+});
+
+app.post("/session/logout", async (_req, res) => {
+  await logoutSession();
+  res.json({ status: "disconnected" });
 });
 
 app.post("/notify/new-order", async (req, res) => {

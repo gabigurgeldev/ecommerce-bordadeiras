@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getMercadoPagoSettingsFromDb } from "@/lib/mercadopago-config";
 import { getPaymentById, verifyWebhookSignature } from "@/lib/mercadopago";
 import { rateLimitWebhook } from "@/lib/rate-limit";
 import { getClientIp, jsonError } from "@/lib/api-utils";
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
   if (!limited.success) return jsonError("Too many requests", 429);
 
   const rawBody = await request.text();
-  const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET ?? "";
+  const { webhookSecret: secret } = await getMercadoPagoSettingsFromDb();
 
   if (secret && !(await verifyWebhookSignature(request.headers, rawBody, secret))) {
     return jsonError("Invalid signature", 401);

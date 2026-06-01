@@ -35,9 +35,10 @@ S3_SECRET_KEY=[gere]
 
 WHATSAPP_SERVICE_URL=http://whatsapp-service:4001
 WHATSAPP_SERVICE_SECRET=[openssl rand -base64 32]
-WHATSAPP_ADMIN_NUMBER=5511999999999
 
 AUTH_SECRET=[openssl rand -base64 32]
+# Mercado Pago: Admin -> Configuracoes (MySQL)
+# Destinatarios WhatsApp: Admin -> WhatsApp
 ADMIN_EMAIL=admin@${DOMAIN}
 ADMIN_PASSWORD=[altere antes do seed]
 

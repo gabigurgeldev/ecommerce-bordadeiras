@@ -1,18 +1,13 @@
 import { MercadoPagoConfig, Payment, Preference } from "mercadopago";
 import type { PaymentMethod } from "@prisma/client";
+import { getMercadoPagoSettingsFromDb } from "@/lib/mercadopago-config";
 
-const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-if (!accessToken) {
-  console.warn("[mercadopago] MERCADOPAGO_ACCESS_TOKEN is not set");
-}
-
-const client = accessToken
-  ? new MercadoPagoConfig({ accessToken })
-  : null;
-
-export function getMercadoPagoClient(): MercadoPagoConfig {
-  if (!client) throw new Error("Mercado Pago is not configured");
-  return client;
+export async function getMercadoPagoClient(): Promise<MercadoPagoConfig> {
+  const { accessToken } = await getMercadoPagoSettingsFromDb();
+  if (!accessToken) {
+    throw new Error("Mercado Pago is not configured. Set credentials in Admin → Configurações.");
+  }
+  return new MercadoPagoConfig({ accessToken });
 }
 
 export type CreatePreferenceInput = {
@@ -24,7 +19,7 @@ export type CreatePreferenceInput = {
 };
 
 export async function createPaymentPreference(input: CreatePreferenceInput) {
-  const mp = getMercadoPagoClient();
+  const mp = await getMercadoPagoClient();
   const preference = new Preference(mp);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const amount = input.amountCents / 100;
@@ -78,7 +73,7 @@ export async function createPaymentPreference(input: CreatePreferenceInput) {
 }
 
 export async function getPaymentById(paymentId: string | number) {
-  const mp = getMercadoPagoClient();
+  const mp = await getMercadoPagoClient();
   const payment = new Payment(mp);
   return payment.get({ id: String(paymentId) });
 }

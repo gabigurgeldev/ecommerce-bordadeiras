@@ -65,8 +65,16 @@ export const blogTagSchema = z.object({
 
 export const mercadoPagoSettingsSchema = z.object({
   publicKey: z.string().min(1),
-  accessToken: z.string().min(1),
+  accessToken: z.string().optional(),
   webhookSecret: z.string().optional(),
+});
+
+export const whatsappRecipientSchema = z.object({
+  label: z.string().max(120).optional(),
+  phone: z
+    .string()
+    .regex(/^\d{10,13}$/, "Telefone: somente dígitos (DDI+DDD+número)"),
+  active: z.boolean().optional(),
 });
 
 export const smtpSettingsSchema = z.object({

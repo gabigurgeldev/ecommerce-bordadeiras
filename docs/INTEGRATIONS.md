@@ -5,8 +5,9 @@
 See `env.example` (dev) and `env.production.example` (prod). Full table: [ENV_REFERENCE.md](./ENV_REFERENCE.md). Required for production:
 
 - `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_APP_URL`
-- `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`
-- `WHATSAPP_SERVICE_URL`, `WHATSAPP_SERVICE_SECRET`, `WHATSAPP_ADMIN_NUMBER`
+- `WHATSAPP_SERVICE_URL`, `WHATSAPP_SERVICE_SECRET`
+- Mercado Pago: **Admin → Configurações** (MySQL, not env)
+- WhatsApp destinatários: **Admin → WhatsApp** (`WhatsappRecipient` table)
 - `S3_*` (MinIO)
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (if using Google login)
 

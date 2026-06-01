@@ -21,3 +21,29 @@ export async function saveSession(
     update: data,
   });
 }
+
+export async function clearSession(sessionId = "default") {
+  return prisma.whatsappSession.upsert({
+    where: { sessionId },
+    create: {
+      sessionId,
+      status: "disconnected",
+      creds: null,
+      keys: null,
+      qrCode: null,
+    },
+    update: {
+      status: "disconnected",
+      creds: null,
+      keys: null,
+      qrCode: null,
+    },
+  });
+}
+
+export async function getActiveRecipients() {
+  return prisma.whatsappRecipient.findMany({
+    where: { active: true },
+    orderBy: { createdAt: "asc" },
+  });
+}

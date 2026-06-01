@@ -216,38 +216,43 @@ S3_BUCKET=bordadeiras-uploads
 
 ## 8. WhatsApp (Baileys)
 
-### Container
+### EasyPanel — serviço separado (código no repositório)
 
-- Dockerfile: `services/whatsapp/Dockerfile`
-- Porta interna: **4001**
-- Volume: `whatsapp_auth` → `/app/data/auth`
+| Campo | Valor |
+|-------|--------|
+| Fonte | **Dockerfile** |
+| Caminho de build | `/` (raiz do repo) |
+| Arquivo Dockerfile | `services/whatsapp/Dockerfile` |
+| Porta | **4001** |
+| Volume persistente | `/app/data/auth` (sessão QR — **não** vai no Git) |
 
-Variáveis:
+Variáveis no serviço **whatsapp**:
 
 ```env
-DATABASE_URL=mysql://...@mysql:3306/bordadeiras
-WHATSAPP_SERVICE_SECRET=mesmo_valor_na_app
-WHATSAPP_ADMIN_NUMBER=5511999999999
-WHATSAPP_SERVICE_URL=http://whatsapp-service:4001
+DATABASE_URL=mysql://bordadeiras:SENHA@NOME_SERVICO_MYSQL:3306/bordadeiras
+WHATSAPP_SERVICE_SECRET=mesmo_secret_da_app
+PORT=4001
 ```
 
-Na **app**:
+Na **ecommerce-app**:
 
 ```env
-WHATSAPP_SERVICE_URL=http://whatsapp-service:4001
+WHATSAPP_SERVICE_URL=http://NOME_SERVICO_WHATSAPP:4001
 WHATSAPP_SERVICE_SECRET=...
 ```
 
-### QR Code (admin)
+Substitua `NOME_SERVICO_WHATSAPP` pelo nome do serviço no EasyPanel (ex.: `whatsapp`).
 
-1. Login como administrador na loja.
-2. `GET https://loja.seudominio.com.br/api/admin/whatsapp/qr` (ou painel admin se existir UI).
-3. Escaneie com o WhatsApp do número em `WHATSAPP_ADMIN_NUMBER`.
+### Painel admin
+
+1. Acesse `https://loja.seudominio.com.br/admin/whatsapp`.
+2. **QR:** escaneie com o número que **envia** as mensagens.
+3. **Destinatários:** cadastre manualmente os números que **recebem** alertas (salvos no MySQL).
+4. **Novo número:** use “Novo número (logout)” para gerar outro QR.
 
 ### Expor `whatsapp.seudominio.com.br`?
 
-- **Recomendado:** não expor; apenas rede interna + app como proxy (`/api/admin/whatsapp/*`).
-- Se expuser: proteja com IP allowlist no EasyPanel, `WHATSAPP_SERVICE_SECRET` obrigatório, e firewall.
+- **Recomendado:** não expor; apenas rede interna + proxy admin na loja (`/api/admin/whatsapp/*`).
 
 ---
 
@@ -264,7 +269,8 @@ Copie de `env.production.example` — **Seções A e C**:
 
 - URLs públicas: `https://loja.seudominio.com.br`
 - URLs internas: `mysql`, `redis`, `minio`, `whatsapp-service`
-- `AUTH_SECRET`, Mercado Pago, SMTP, etc.
+- `AUTH_SECRET`, SMTP, etc.
+- **Mercado Pago:** Admin → Configurações (MySQL), não variáveis `MERCADOPAGO_*` no env
 
 ### Domínio e SSL
 
@@ -306,7 +312,7 @@ Descomente `postal` em `docker-compose.prod.yml` ou instale Postal como app sepa
 |------|-------|
 | Webhook URL | `https://loja.seudominio.com.br/api/webhooks/mercadopago` |
 | Eventos | `payment` |
-| Env | `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`, `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` |
+| Credenciais | Admin → **Configurações → Mercado Pago** (MySQL). Webhook secret também no painel admin. |
 
 Não é obrigatório subdomínio `api.*` — a API fica em `/api` na mesma loja.
 
@@ -402,7 +408,7 @@ docker exec -it CONTAINER_APP npx prisma migrate deploy
 |---------|-------------|
 | 502 na loja | Logs do container app; `DATABASE_URL` com host `mysql` |
 | App não alcança MySQL | App na rede `bordadeiras_internal`? |
-| Webhook MP 401 | `MERCADOPAGO_WEBHOOK_SECRET` e header `x-signature` |
+| Webhook MP 401 | Webhook secret em Admin → Configurações e header `x-signature` |
 | Imagens quebradas | `S3_PUBLIC_URL` com HTTPS; bucket existe |
 | WhatsApp 401 | `WHATSAPP_SERVICE_SECRET` igual na app e no serviço |
 | WhatsApp desconecta | `POST /api/admin/whatsapp/reconnect` |
@@ -430,11 +436,9 @@ S3_SECRET_KEY=***
 
 WHATSAPP_SERVICE_URL=http://whatsapp-service:4001
 WHATSAPP_SERVICE_SECRET=***
-WHATSAPP_ADMIN_NUMBER=5511999999999
 
 AUTH_SECRET=***
-MERCADOPAGO_ACCESS_TOKEN=APP_USR-...
-MERCADOPAGO_WEBHOOK_SECRET=...
+# Mercado Pago: configurar no painel admin (não colocar tokens no .env)
 ```
 
 Gere um rascunho completo:

@@ -78,7 +78,6 @@ services:
       PORT: "4001"
       DATABASE_URL: ${DATABASE_URL}
       WHATSAPP_SERVICE_SECRET: ${WHATSAPP_SERVICE_SECRET}
-      WHATSAPP_ADMIN_NUMBER: ${WHATSAPP_ADMIN_NUMBER}
     volumes:
       - whatsapp_auth:/app/data/auth
     networks:

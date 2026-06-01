@@ -435,6 +435,17 @@ model Setting {
   @@index([group])
 }
 
+model WhatsappRecipient {
+  id        String   @id @default(cuid())
+  label     String?
+  phone     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+}
+
 model WhatsappSession {
   id        String   @id @default(cuid())
   sessionId String   @unique @default("default")

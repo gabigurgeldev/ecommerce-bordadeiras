@@ -10,10 +10,14 @@ import { auditMutation, revalidateAdmin, withAdmin, type ActionResult } from "./
 export async function getMercadoPagoSettings() {
   const keys = Object.values(SETTING_KEYS.mercadoPago);
   const values = await getSettings(keys);
+  const accessToken = values[SETTING_KEYS.mercadoPago.accessToken] ?? "";
+  const webhookSecret = values[SETTING_KEYS.mercadoPago.webhookSecret] ?? "";
   return {
     publicKey: values[SETTING_KEYS.mercadoPago.publicKey] ?? "",
-    accessToken: values[SETTING_KEYS.mercadoPago.accessToken] ?? "",
-    webhookSecret: values[SETTING_KEYS.mercadoPago.webhookSecret] ?? "",
+    accessToken: "",
+    webhookSecret: "",
+    hasAccessToken: accessToken.length > 0,
+    hasWebhookSecret: webhookSecret.length > 0,
   };
 }
 
@@ -22,10 +26,25 @@ export async function saveMercadoPagoSettings(data: unknown): Promise<ActionResu
     const parsed = mercadoPagoSettingsSchema.safeParse(data);
     if (!parsed.success) return { success: false, error: "Dados inválidos" };
 
+    const existing = await getSettings(Object.values(SETTING_KEYS.mercadoPago));
+    const accessToken =
+      parsed.data.accessToken?.trim() ||
+      existing[SETTING_KEYS.mercadoPago.accessToken] ||
+      "";
+    if (!accessToken) {
+      return { success: false, error: "Access Token é obrigatório na primeira configuração" };
+    }
+
+    const webhookIncoming = parsed.data.webhookSecret?.trim();
+    const webhookSecret =
+      webhookIncoming !== undefined && webhookIncoming !== ""
+        ? webhookIncoming
+        : existing[SETTING_KEYS.mercadoPago.webhookSecret] ?? "";
+
     await setSettings({
       [SETTING_KEYS.mercadoPago.publicKey]: parsed.data.publicKey,
-      [SETTING_KEYS.mercadoPago.accessToken]: parsed.data.accessToken,
-      [SETTING_KEYS.mercadoPago.webhookSecret]: parsed.data.webhookSecret ?? "",
+      [SETTING_KEYS.mercadoPago.accessToken]: accessToken,
+      [SETTING_KEYS.mercadoPago.webhookSecret]: webhookSecret,
     });
 
     await auditMutation(actor, { action: "SETTINGS_CHANGE", entity: "MercadoPago" });

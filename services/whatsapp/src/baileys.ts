@@ -1,3 +1,5 @@
+import { existsSync } from "fs";
+import { rm } from "fs/promises";
 import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
@@ -6,14 +8,16 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import P from "pino";
 import QRCode from "qrcode";
-import { loadSession, saveSession } from "./db.js";
+import { clearSession, getActiveRecipients, loadSession, saveSession } from "./db.js";
 
 const logger = P({ level: "warn" });
 const SESSION_ID = "default";
+const AUTH_DIR = "./data/auth";
 
 let sock: WASocket | null = null;
 let currentQr: string | null = null;
 let connectionStatus = "disconnected";
+let starting = false;
 
 export function getConnectionStatus() {
   return { status: connectionStatus, qr: currentQr };
@@ -29,8 +33,11 @@ async function persistAuthState(creds: object, keys: object, status: string, qr?
 }
 
 export async function startBaileys(): Promise<WASocket> {
+  if (starting && sock) return sock;
+  starting = true;
+
   const existing = await loadSession(SESSION_ID);
-  const { state, saveCreds } = await useMultiFileAuthState("./data/auth");
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
   if (existing?.creds) {
     try {
@@ -52,12 +59,7 @@ export async function startBaileys(): Promise<WASocket> {
 
   sock.ev.on("creds.update", async () => {
     await saveCreds();
-    await persistAuthState(
-      state.creds as object,
-      {},
-      connectionStatus,
-      currentQr
-    );
+    await persistAuthState(state.creds as object, {}, connectionStatus, currentQr);
   });
 
   sock.ev.on("connection.update", async (update) => {
@@ -82,6 +84,7 @@ export async function startBaileys(): Promise<WASocket> {
       connectionStatus = "disconnected";
       currentQr = null;
       await persistAuthState(state.creds as object, {}, connectionStatus, null);
+      sock = null;
 
       if (code !== DisconnectReason.loggedOut) {
         setTimeout(() => void startBaileys(), 5000);
@@ -89,6 +92,7 @@ export async function startBaileys(): Promise<WASocket> {
     }
   });
 
+  starting = false;
   return sock;
 }
 
@@ -101,17 +105,44 @@ export async function reconnect(): Promise<void> {
   await startBaileys();
 }
 
+export async function logoutSession(): Promise<void> {
+  if (sock) {
+    try {
+      await sock.logout();
+    } catch {
+      /* session may already be invalid */
+    }
+    sock.end(undefined);
+    sock = null;
+  }
+
+  connectionStatus = "disconnected";
+  currentQr = null;
+
+  if (existsSync(AUTH_DIR)) {
+    await rm(AUTH_DIR, { recursive: true, force: true });
+  }
+
+  await clearSession(SESSION_ID);
+  await startBaileys();
+}
+
 export async function sendAdminMessage(text: string): Promise<void> {
-  const admin = process.env.WHATSAPP_ADMIN_NUMBER;
-  if (!admin) {
-    console.warn("[whatsapp] WHATSAPP_ADMIN_NUMBER not set");
+  const recipients = await getActiveRecipients();
+  if (recipients.length === 0) {
+    console.warn("[whatsapp] No active recipients in WhatsappRecipient table");
     return;
   }
   if (!sock || connectionStatus !== "connected") {
     throw new Error("WhatsApp not connected");
   }
-  const jid = admin.includes("@") ? admin : `${admin.replace(/\D/g, "")}@s.whatsapp.net`;
-  await sock.sendMessage(jid, { text });
+
+  for (const recipient of recipients) {
+    const digits = recipient.phone.replace(/\D/g, "");
+    if (!digits) continue;
+    const jid = `${digits}@s.whatsapp.net`;
+    await sock.sendMessage(jid, { text });
+  }
 }
 
 export async function getQrPayload() {

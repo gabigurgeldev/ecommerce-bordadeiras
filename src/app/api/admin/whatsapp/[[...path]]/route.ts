@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
+import { getAdminActor } from "@/lib/admin-auth";
 import {
   getWhatsappQr,
+  logoutWhatsapp,
   reconnectWhatsapp,
 } from "@/lib/whatsapp-client";
 import { jsonError } from "@/lib/api-utils";
 
 const secret = process.env.WHATSAPP_SERVICE_SECRET ?? "";
 const baseUrl = process.env.WHATSAPP_SERVICE_URL ?? "http://localhost:4001";
+
+async function requireAdminApi() {
+  const actor = await getAdminActor();
+  if (!actor) return null;
+  return actor;
+}
 
 async function proxy(
   method: string,
@@ -32,6 +40,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ path?: string[] }> }
 ) {
+  if (!(await requireAdminApi())) return jsonError("Forbidden", 403);
+
   const { path = [] } = await params;
   const segment = path.join("/");
 
@@ -55,12 +65,23 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ path?: string[] }> }
 ) {
+  if (!(await requireAdminApi())) return jsonError("Forbidden", 403);
+
   const { path = [] } = await params;
   const segment = path.join("/");
 
   if (segment === "reconnect") {
     try {
       const data = await reconnectWhatsapp();
+      return NextResponse.json(data);
+    } catch (e) {
+      return jsonError(e instanceof Error ? e.message : "WhatsApp error", 502);
+    }
+  }
+
+  if (segment === "logout") {
+    try {
+      const data = await logoutWhatsapp();
       return NextResponse.json(data);
     } catch (e) {
       return jsonError(e instanceof Error ? e.message : "WhatsApp error", 502);

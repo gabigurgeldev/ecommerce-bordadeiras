@@ -1,16 +1,19 @@
+# Build context: raiz do repositório (EasyPanel → Dockerfile: services/whatsapp/Dockerfile, path: /)
 FROM node:22-alpine
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
+RUN apk add --no-cache openssl libc6-compat
 
 COPY services/whatsapp/package.json ./
-RUN pnpm install
+RUN npm install --omit=dev --no-audit --no-fund
 
 COPY prisma ./prisma
 COPY services/whatsapp/tsconfig.json ./
 COPY services/whatsapp/src ./src
 
-ENV DATABASE_URL=mysql://bordadeiras:bordadeiras@mysql:3306/bordadeiras
-RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
+ENV PORT=4001
 EXPOSE 4001
-CMD ["pnpm", "exec", "tsx", "src/index.ts"]
+
+# Sessão Baileys — monte volume em /app/data/auth (não commitar no Git)
+CMD ["npx", "tsx", "src/index.ts"]

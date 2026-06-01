@@ -65,3 +65,12 @@ export async function reconnectWhatsapp(): Promise<{ status: string }> {
   if (!res.ok) throw new Error(`WhatsApp reconnect error ${res.status}`);
   return res.json();
 }
+
+export async function logoutWhatsapp(): Promise<{ status: string }> {
+  const res = await fetch(`${baseUrl}/session/logout`, {
+    method: "POST",
+    headers: secret ? { Authorization: `Bearer ${secret}` } : {},
+  });
+  if (!res.ok) throw new Error(`WhatsApp logout error ${res.status}`);
+  return res.json();
+}

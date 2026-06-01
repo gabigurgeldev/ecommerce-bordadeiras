@@ -268,15 +268,29 @@ async function main() {
     { key: "store.email", value: "contato@bordadeiras.com.br", group: "store" },
     { key: "store.phone", value: "+55 11 99999-0000", group: "store" },
     { key: "shipping.freeAboveCents", value: "29900", group: "shipping" },
+    { key: "mercadopago.public_key", value: "", group: "mercadopago" },
+    { key: "mercadopago.access_token", value: "", group: "mercadopago" },
+    { key: "mercadopago.webhook_secret", value: "", group: "mercadopago" },
   ];
 
   for (const s of settings) {
     await prisma.setting.upsert({
       where: { key: s.key },
-      update: { value: s.value, group: s.group },
+      update: { group: s.group },
       create: s,
     });
   }
+
+  await prisma.whatsappRecipient.upsert({
+    where: { id: "seed-recipient-example" },
+    update: {},
+    create: {
+      id: "seed-recipient-example",
+      label: "Exemplo (inativo)",
+      phone: "5511999990000",
+      active: false,
+    },
+  });
 
   console.log("✅ Seed concluído.");
   console.log(`   Admin: ${adminEmail} / ${adminPassword}`);

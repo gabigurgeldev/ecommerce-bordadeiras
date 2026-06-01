@@ -42,9 +42,10 @@ S3_SECRET_KEY=$secretHint
 
 WHATSAPP_SERVICE_URL=http://whatsapp-service:4001
 WHATSAPP_SERVICE_SECRET=$secretHint
-WHATSAPP_ADMIN_NUMBER=5511999999999
 
 AUTH_SECRET=$secretHint
+# Mercado Pago: Admin -> Configuracoes (MySQL)
+# Destinatarios WhatsApp: Admin -> WhatsApp
 ADMIN_EMAIL=admin@$Domain
 ADMIN_PASSWORD=$secretHint
 

@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import type { z } from "zod";
 
 type MpValues = z.infer<typeof mercadoPagoSettingsSchema>;
+type MpFormValues = MpValues & { hasAccessToken?: boolean; hasWebhookSecret?: boolean };
 type SmtpValues = z.infer<typeof smtpSettingsSchema>;
 
 export function SettingsTabs({
@@ -28,11 +29,11 @@ export function SettingsTabs({
   smtp,
   whatsapp,
 }: {
-  mercadoPago: MpValues;
+  mercadoPago: MpFormValues;
   smtp: SmtpValues & { port: number | string };
   whatsapp: { status: string; updatedAt: Date | null };
 }) {
-  const mpForm = useForm<MpValues>({
+  const mpForm = useForm<MpFormValues>({
     resolver: zodResolver(mercadoPagoSettingsSchema),
     defaultValues: mercadoPago,
   });
@@ -68,11 +69,27 @@ export function SettingsTabs({
           </div>
           <div className="space-y-2">
             <Label>Access Token</Label>
-            <Input type="password" {...mpForm.register("accessToken")} />
+            <Input
+              type="password"
+              placeholder={
+                mercadoPago.hasAccessToken
+                  ? "•••••••• (deixe em branco para manter)"
+                  : "Cole o Access Token de produção"
+              }
+              {...mpForm.register("accessToken")}
+            />
           </div>
           <div className="space-y-2">
             <Label>Webhook Secret</Label>
-            <Input type="password" {...mpForm.register("webhookSecret")} />
+            <Input
+              type="password"
+              placeholder={
+                mercadoPago.hasWebhookSecret
+                  ? "•••••••• (deixe em branco para manter)"
+                  : "Secret do webhook Mercado Pago"
+              }
+              {...mpForm.register("webhookSecret")}
+            />
           </div>
           <Button type="submit">Salvar</Button>
         </form>
