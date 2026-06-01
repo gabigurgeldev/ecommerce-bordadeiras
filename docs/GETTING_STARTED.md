@@ -67,6 +67,24 @@ npm run db:seed
 
 Inspecionar dados: `npm run db:studio`
 
+### Produção (EasyPanel / Docker)
+
+No container da loja, após o deploy o **seed roda automaticamente** (admin + dados de exemplo).
+
+Manual no console:
+
+```bash
+node prisma/seed.bundle.cjs
+```
+
+Ou migrations:
+
+```bash
+npx --yes prisma@6 migrate deploy
+```
+
+Desativar seed automático no startup: `RUN_DB_SEED=false` no env da app.
+
 ## 4. Subir a aplicação
 
 ```bash

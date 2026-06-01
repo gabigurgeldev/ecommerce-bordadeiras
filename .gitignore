@@ -8,5 +8,6 @@ dist
 *.log
 .DS_Store
 services/whatsapp/data
+prisma/seed.bundle.cjs
 coverage
 .turbo

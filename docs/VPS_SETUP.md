@@ -161,14 +161,19 @@ DATABASE_URL=mysql://bordadeiras:SENHA@mysql:3306/bordadeiras
 
 ### Migrations e seed
 
-No container da **app** (terminal EasyPanel ou `docker exec`):
+**Seed automático:** a imagem da loja executa `node prisma/seed.bundle.cjs` ao iniciar (variável `RUN_DB_SEED=true` por padrão). Defina `ADMIN_EMAIL` e `ADMIN_PASSWORD` no env **antes** do primeiro deploy.
+
+Migrations (console da app):
 
 ```bash
-npx prisma migrate deploy
-npx tsx prisma/seed.ts
+npx --yes prisma@6 migrate deploy
 ```
 
-Altere `ADMIN_PASSWORD` no `.env` **antes** do seed em produção.
+Seed manual (se precisar):
+
+```bash
+node prisma/seed.bundle.cjs
+```
 
 ---
 
