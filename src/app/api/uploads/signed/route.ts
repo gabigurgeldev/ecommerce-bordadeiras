@@ -1,0 +1,36 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { auth } from "@/auth";
+import { buildProductImageKey, getSignedUploadUrl } from "@/lib/storage";
+import { jsonError, parseBody } from "@/lib/api-utils";
+
+const schema = z.object({
+  productId: z.string().cuid(),
+  filename: z.string().min(1).max(200),
+  contentType: z.string().regex(/^image\/(jpeg|png|webp|gif)$/),
+});
+
+export async function POST(request: Request) {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return jsonError("Forbidden", 403);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Invalid JSON");
+  }
+
+  const parsed = parseBody(schema, body);
+  if (!parsed.success) return parsed.response;
+
+  const key = buildProductImageKey(parsed.data.productId, parsed.data.filename);
+  const signed = await getSignedUploadUrl({
+    key,
+    contentType: parsed.data.contentType,
+  });
+
+  return NextResponse.json(signed);
+}

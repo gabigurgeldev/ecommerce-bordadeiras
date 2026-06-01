@@ -1,0 +1,157 @@
+# Produção — Hostinger VPS / EasyPanel
+# Uso: cp env.production.example .env && edite senhas → docker compose -f docker-compose.prod.yml up -d
+#
+# Hostnames na rede Docker (use no .env da app e do whatsapp-service):
+#   mysql              → porta 3306
+#   redis              → porta 6379
+#   minio              → API 9000, console 9001
+#   whatsapp-service   → porta 4001
+#   app                → porta 3000 (perfil "app"; omita se a loja rodar só no EasyPanel)
+#
+# AVISO: MySQL e Redis NÃO publicam portas no host. Não mapeie 3306/6379 para 0.0.0.0 em produção.
+
+name: bordadeiras-prod
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: bordadeiras-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bordadeiras}
+      MYSQL_USER: ${MYSQL_USER:-bordadeiras}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - bordadeiras
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    # Sem ports: — acesso apenas na rede Docker
+
+  redis:
+    image: redis:7-alpine
+    container_name: bordadeiras-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - bordadeiras
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    # Sem ports: — acesso apenas na rede Docker
+
+  minio:
+    image: minio/minio:latest
+    container_name: bordadeiras-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    networks:
+      - bordadeiras
+    expose:
+      - "9000"
+      - "9001"
+    restart: unless-stopped
+    # Publique 9000/9001 via reverse proxy (EasyPanel) em storage.seudominio.com — não use 0.0.0.0:9000 em VPS público
+
+  whatsapp-service:
+    build:
+      context: .
+      dockerfile: services/whatsapp/Dockerfile
+    container_name: bordadeiras-whatsapp
+    env_file:
+      - .env
+    environment:
+      PORT: "4001"
+      DATABASE_URL: ${DATABASE_URL}
+      WHATSAPP_SERVICE_SECRET: ${WHATSAPP_SERVICE_SECRET}
+      WHATSAPP_ADMIN_NUMBER: ${WHATSAPP_ADMIN_NUMBER}
+    volumes:
+      - whatsapp_auth:/app/data/auth
+    networks:
+      - bordadeiras
+    depends_on:
+      mysql:
+        condition: service_healthy
+    expose:
+      - "4001"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:4001/health'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bordadeiras-app
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    networks:
+      - bordadeiras
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      whatsapp-service:
+        condition: service_started
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:3000'').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    # No EasyPanel, prefira build/deploy da app pelo painel e domínio loja.seudominio.com
+
+  # Postal SMTP — descomente se for self-hosted na mesma VPS
+  # postal:
+  #   image: postalserver/postal:latest
+  #   profiles: ["postal"]
+  #   networks: [bordadeiras]
+  #   volumes: [postal_data:/opt/postal]
+  #   restart: unless-stopped
+
+networks:
+  bordadeiras:
+    name: bordadeiras_internal
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  minio_data:
+  whatsapp_auth:
+  # postal_data:
