@@ -161,17 +161,18 @@ DATABASE_URL=mysql://bordadeiras:SENHA@mysql:3306/bordadeiras
 
 ### Migrations e seed
 
-**Seed automático:** a imagem da loja executa `node prisma/seed.bundle.cjs` ao iniciar (variável `RUN_DB_SEED=true` por padrão). Defina `ADMIN_EMAIL` e `ADMIN_PASSWORD` no env **antes** do primeiro deploy.
+**Startup automático:** o entrypoint executa `npx --yes prisma@6 migrate deploy` e depois o seed (`RUN_DB_SEED=true` por padrão). Defina `ADMIN_EMAIL` e `ADMIN_PASSWORD` no env **antes** do primeiro deploy.
 
-Migrations (console da app):
+**Recuperação (banco antigo / P3018 / tabela StorefrontBanner ausente):** veja [EASYPANEL_RECOVERY.md](./EASYPANEL_RECOVERY.md) ou no console da app:
+
+```bash
+sh scripts/easypanel-db-recovery.sh
+```
+
+Comandos manuais (sempre **`prisma@6`**, nunca `npx prisma` sozinho — instala Prisma 7):
 
 ```bash
 npx --yes prisma@6 migrate deploy
-```
-
-Seed manual (se precisar):
-
-```bash
 node prisma/seed.bundle.cjs
 ```
 
@@ -406,7 +407,7 @@ git pull
 docker compose -f docker-compose.prod.yml build whatsapp-service
 docker compose -f docker-compose.prod.yml up -d
 # Rebuild da app no EasyPanel
-docker exec -it CONTAINER_APP npx prisma migrate deploy
+docker exec -it CONTAINER_APP npx --yes prisma@6 migrate deploy
 ```
 
 ---

@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Product, ProductImage } from "@prisma/client";
 import { ImagePlus, X } from "lucide-react";
+import { uploadImageViaApi } from "@/lib/upload-via-api";
 
 const formSchema = productSchema.extend({
   priceReais: z.string(),
@@ -39,35 +40,6 @@ const STATUS_LABELS: Record<ProductStatus, string> = {
   ARCHIVED: "Arquivado",
   OUT_OF_STOCK: "Sem estoque",
 };
-
-async function uploadProductImage(
-  file: File,
-  productId: string,
-): Promise<string | null> {
-  const res = await fetch("/api/uploads/signed", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      productId,
-      filename: file.name,
-      contentType: file.type,
-    }),
-  });
-  if (!res.ok) return null;
-
-  const { uploadUrl, publicUrl } = (await res.json()) as {
-    uploadUrl: string;
-    publicUrl: string;
-  };
-
-  const put = await fetch(uploadUrl, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": file.type },
-  });
-  if (!put.ok) return null;
-  return publicUrl;
-}
 
 export function ProductForm({
   product,
@@ -151,7 +123,7 @@ export function ProductForm({
       for (let i = 0; i < gallery.length; i++) {
         const item = gallery[i];
         if (item.file) {
-          const url = await uploadProductImage(item.file, productId);
+          const url = await uploadImageViaApi(item.file, "product", productId);
           if (!url) {
             toast.error(`Falha no upload da imagem ${i + 1}`);
             return;

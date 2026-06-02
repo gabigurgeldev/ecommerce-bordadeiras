@@ -74,9 +74,11 @@ Crie os serviços abaixo (Docker Compose ou apps individuais).
 No container da app (terminal EasyPanel ou one-off job):
 
 ```bash
-npx prisma migrate deploy
-npx tsx prisma/seed.ts
+npx --yes prisma@6 migrate deploy
+node prisma/seed.bundle.cjs
 ```
+
+Recuperação EasyPanel (foundation já aplicada, seed falhando): [EASYPANEL_RECOVERY.md](./EASYPANEL_RECOVERY.md).
 
 Altere `ADMIN_PASSWORD` antes do seed em produção.
 
@@ -106,7 +108,7 @@ Atualize settings no banco (`mail.*`) ou variáveis `SMTP_*`.
 - [ ] Login Google (redirect URI em Google Cloud Console)
 - [ ] Webhook MP retornando 200
 - [ ] E-mail de teste (cadastro / pedido)
-- [ ] Upload MinIO via `/api/uploads/signed`
+- [ ] Upload de imagens no admin via `/api/uploads/direct`
 - [ ] Notificação WhatsApp em pedido de teste
 - [ ] Rate limit Upstash (opcional) ou memória OK em baixo tráfego
 
@@ -115,7 +117,7 @@ Atualize settings no banco (`mail.*`) ou variáveis `SMTP_*`.
 ```bash
 git pull
 # Rebuild app + whatsapp no EasyPanel
-npx prisma migrate deploy
+npx --yes prisma@6 migrate deploy
 ```
 
 ## Troubleshooting

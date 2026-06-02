@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
+import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminNav } from "@/components/admin/admin-nav";
 import { ThemeToggle } from "@/components/admin/theme-toggle";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 export function AdminSidebar() {
@@ -44,7 +47,19 @@ export function AdminSidebar() {
           );
         })}
       </nav>
-      <div className="p-4 text-xs text-muted-foreground">Admin · Ecommerce Bordadeiras</div>
+      <div className="space-y-2 border-t border-border p-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2"
+          onClick={() => void signOut({ callbackUrl: "/login" })}
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </Button>
+        <p className="px-1 text-xs text-muted-foreground">Admin · Ecommerce Bordadeiras</p>
+      </div>
     </aside>
   );
 }

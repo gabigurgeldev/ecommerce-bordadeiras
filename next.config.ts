@@ -49,6 +49,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "8mb",
+    },
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

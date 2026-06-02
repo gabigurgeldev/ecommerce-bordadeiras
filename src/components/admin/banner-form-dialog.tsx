@@ -12,37 +12,9 @@ import { bannerSchema } from "@/lib/validations/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { uploadImageViaApi } from "@/lib/upload-via-api";
 
 type FormValues = z.infer<typeof bannerSchema>;
-
-async function uploadBannerImage(
-  file: File,
-  bannerId: string,
-): Promise<string | null> {
-  const res = await fetch("/api/uploads/signed/banner", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      bannerId,
-      filename: file.name,
-      contentType: file.type,
-    }),
-  });
-  if (!res.ok) return null;
-
-  const { uploadUrl, publicUrl } = (await res.json()) as {
-    uploadUrl: string;
-    publicUrl: string;
-  };
-
-  const put = await fetch(uploadUrl, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": file.type },
-  });
-  if (!put.ok) return null;
-  return publicUrl;
-}
 
 export function BannerFormDialog({ banner }: { banner?: StorefrontBanner }) {
   const [open, setOpen] = useState(false);
@@ -122,7 +94,7 @@ export function BannerFormDialog({ banner }: { banner?: StorefrontBanner }) {
                 if (!file) return;
                 setUploading(true);
                 try {
-                  const url = await uploadBannerImage(file, draftId);
+                  const url = await uploadImageViaApi(file, "banner", draftId);
                   if (url) {
                     form.setValue("imageUrl", url, { shouldValidate: true });
                     toast.success("Imagem enviada");

@@ -49,6 +49,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /prisma-runtime/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /prisma-runtime/node_modules/@prisma ./node_modules/@prisma
 COPY --chmod=755 scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
+COPY --chmod=755 scripts/easypanel-db-recovery.sh ./scripts/easypanel-db-recovery.sh
 
 USER nextjs
 EXPOSE 3000
