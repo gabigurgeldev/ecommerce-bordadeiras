@@ -35,3 +35,8 @@ export async function requireAdmin(): Promise<AdminActor> {
   if (!actor) redirect("/login?callbackUrl=/admin");
   return actor;
 }
+
+/** Route Handlers — same checks as requireAdmin, without redirect. */
+export async function requireAdminApi(): Promise<AdminActor | null> {
+  return getAdminActor();
+}

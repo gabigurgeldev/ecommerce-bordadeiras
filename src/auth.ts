@@ -1,9 +1,13 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { getAuthSecret } from "@/lib/auth-secret";
+import { rateLimitLogin } from "@/lib/rate-limit";
+import { sanitizeEmail } from "@/lib/sanitize";
+import { isAdminUser } from "@/lib/authenticate-user";
 import { verifyUserCredentials } from "@/lib/verify-credentials";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET,
+  secret: getAuthSecret(),
   session: { strategy: "jwt" },
   trustHost: true,
   pages: {
@@ -21,15 +25,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
-        const user = await verifyUserCredentials(email, password);
-        if (!user) return null;
+        const limited = await rateLimitLogin(sanitizeEmail(email));
+        if (!limited.success) return null;
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
+        try {
+          const user = await verifyUserCredentials(email, password);
+          if (!user) return null;
+          if (!user.emailVerified && !isAdminUser(user)) return null;
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error("[auth] authorize", error);
+          return null;
+        }
       },
     }),
   ],

@@ -1,8 +1,12 @@
 import { Role } from "@prisma/client";
 import { z } from "zod";
+import {
+  DATABASE_UNAVAILABLE_MESSAGE,
+  isDatabaseAvailable,
+} from "@/lib/data/db-available";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
-import { sendRegistrationEmail } from "@/lib/mail";
+import { createEmailVerificationCode } from "@/lib/email-verification";
 import { sanitizeEmail, sanitizeText } from "@/lib/sanitize";
 
 const registerSchema = z.object({
@@ -13,7 +17,7 @@ const registerSchema = z.object({
 
 export type RegisterUserResult =
   | { ok: true; userId: string }
-  | { ok: false; code: "validation" | "exists"; message: string };
+  | { ok: false; code: "validation" | "exists" | "unavailable"; message: string };
 
 export async function registerUser(input: {
   name: string;
@@ -32,6 +36,14 @@ export async function registerUser(input: {
   const email = sanitizeEmail(parsed.data.email);
   const name = sanitizeText(parsed.data.name);
 
+  if (!(await isDatabaseAvailable())) {
+    return {
+      ok: false,
+      code: "unavailable",
+      message: DATABASE_UNAVAILABLE_MESSAGE,
+    };
+  }
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     return { ok: false, code: "exists", message: "Este e-mail já está cadastrado." };
@@ -43,9 +55,9 @@ export async function registerUser(input: {
   });
 
   try {
-    await sendRegistrationEmail({ to: email, name });
+    await createEmailVerificationCode(email, name);
   } catch (err) {
-    console.error("[register] email failed", err);
+    console.error("[register] verification email failed", err);
   }
 
   return { ok: true, userId: user.id };

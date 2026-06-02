@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { requireAdminApi } from "@/lib/admin-auth";
 import { buildProductImageKey, getSignedUploadUrl } from "@/lib/storage";
 import { jsonError, parseBody } from "@/lib/api-utils";
 
@@ -11,10 +11,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return jsonError("Forbidden", 403);
-  }
+  if (!(await requireAdminApi())) return jsonError("Forbidden", 403);
 
   let body: unknown;
   try {

@@ -35,10 +35,10 @@ export default async function CategoryPage({ params }: Props) {
           { name: category.name, path: `/loja/categoria/${slug}` },
         ])}
       />
-      <h1 className="font-display text-4xl font-semibold text-white">
+      <h1 className="font-display text-4xl font-semibold text-[var(--color-brown)]">
         {category.name}
       </h1>
-      <p className="mt-2 text-zinc-400">{category.description}</p>
+      <p className="mt-2 text-[var(--muted-foreground)]">{category.description}</p>
       <div className="mt-10">
         <ProductGrid products={products} />
       </div>

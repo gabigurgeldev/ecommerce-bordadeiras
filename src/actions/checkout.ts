@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { auth } from "@/auth";
+import { resolveCheckoutLineItems } from "@/lib/checkout-items";
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/order-utils";
 import type { ShippingAddress } from "@/lib/types/catalog";
@@ -16,17 +18,14 @@ const addressSchema = z.object({
 });
 
 const checkoutSchema = z.object({
-  userId: z.string().optional(),
   customerEmail: z.string().email(),
   customerName: z.string().min(2),
   customerPhone: z.string().optional(),
   shippingAddress: addressSchema,
   items: z.array(
     z.object({
-      productId: z.string().optional(),
-      name: z.string(),
+      productId: z.string().cuid(),
       quantity: z.number().int().positive(),
-      priceCents: z.number().int().positive(),
     }),
   ),
   shippingCents: z.number().int().nonnegative().default(0),
@@ -34,15 +33,20 @@ const checkoutSchema = z.object({
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
-/** Stub — integrations agent wires Mercado Pago preference + webhooks */
 export async function createOrderDraft(input: CheckoutInput) {
   const parsed = checkoutSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false as const, error: "Dados inválidos" };
   }
 
-  const { items, shippingCents, ...rest } = parsed.data;
-  const itemsTotal = items.reduce(
+  const resolved = await resolveCheckoutLineItems(parsed.data.items);
+  if (!resolved.ok) {
+    return { ok: false as const, error: resolved.error };
+  }
+
+  const session = await auth();
+  const { shippingCents, ...rest } = parsed.data;
+  const itemsTotal = resolved.items.reduce(
     (s, i) => s + i.priceCents * i.quantity,
     0,
   );
@@ -52,7 +56,7 @@ export async function createOrderDraft(input: CheckoutInput) {
     const order = await prisma.order.create({
       data: {
         orderNumber: generateOrderNumber(),
-        userId: rest.userId,
+        userId: session?.user?.id,
         customerEmail: rest.customerEmail,
         customerName: rest.customerName,
         customerPhone: rest.customerPhone,
@@ -62,9 +66,10 @@ export async function createOrderDraft(input: CheckoutInput) {
         shippingCents,
         status: "PENDING",
         items: {
-          create: items.map((item) => ({
+          create: resolved.items.map((item) => ({
             productId: item.productId,
             name: item.name,
+            sku: item.sku,
             quantity: item.quantity,
             priceCents: item.priceCents,
           })),

@@ -7,7 +7,7 @@ export function organizationJsonLd() {
     "@type": "Organization",
     name: siteConfig.legalName,
     url: siteConfig.url,
-    logo: `${siteConfig.url}/logo.svg`,
+    logo: `${siteConfig.url}/brand/logo.png`,
     contactPoint: {
       "@type": "ContactPoint",
       telephone: siteConfig.contact.phone,
@@ -51,7 +51,7 @@ export function blogPostJsonLd(post: BlogPost) {
     publisher: {
       "@type": "Organization",
       name: siteConfig.name,
-      logo: { "@type": "ImageObject", url: `${siteConfig.url}/logo.svg` },
+      logo: { "@type": "ImageObject", url: `${siteConfig.url}/brand/logo.png` },
     },
   };
 }

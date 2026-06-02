@@ -1,24 +1,32 @@
 "use server";
 
+import { getStorefrontUtilitySettings } from "@/lib/data/storefront-settings";
 import { getSettings, setSettings, getMailSettings } from "@/lib/settings";
 import { formatMailError, MailNotConfiguredError, sendTestEmail } from "@/lib/mail";
 import { SETTING_KEYS } from "@/lib/settings-keys";
-import { mercadoPagoSettingsSchema, smtpSettingsSchema } from "@/lib/validations/admin";
+import {
+  mercadoPagoSettingsSchema,
+  smtpSettingsSchema,
+  storefrontUtilitySettingsSchema,
+} from "@/lib/validations/admin";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { auditMutation, revalidateAdmin, withAdmin, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function getMercadoPagoSettings() {
-  const keys = Object.values(SETTING_KEYS.mercadoPago);
-  const values = await getSettings(keys);
-  const accessToken = values[SETTING_KEYS.mercadoPago.accessToken] ?? "";
-  const webhookSecret = values[SETTING_KEYS.mercadoPago.webhookSecret] ?? "";
-  return {
-    publicKey: values[SETTING_KEYS.mercadoPago.publicKey] ?? "",
-    accessToken: "",
-    webhookSecret: "",
-    hasAccessToken: accessToken.length > 0,
-    hasWebhookSecret: webhookSecret.length > 0,
-  };
+  return withAdminRead(async () => {
+    const keys = Object.values(SETTING_KEYS.mercadoPago);
+    const values = await getSettings(keys);
+    const accessToken = values[SETTING_KEYS.mercadoPago.accessToken] ?? "";
+    const webhookSecret = values[SETTING_KEYS.mercadoPago.webhookSecret] ?? "";
+    return {
+      publicKey: values[SETTING_KEYS.mercadoPago.publicKey] ?? "",
+      accessToken: "",
+      webhookSecret: "",
+      hasAccessToken: accessToken.length > 0,
+      hasWebhookSecret: webhookSecret.length > 0,
+    };
+  });
 }
 
 export async function saveMercadoPagoSettings(data: unknown): Promise<ActionResult> {
@@ -54,16 +62,18 @@ export async function saveMercadoPagoSettings(data: unknown): Promise<ActionResu
 }
 
 export async function getSmtpSettings() {
-  const cfg = await getMailSettings();
-  const values = await getSettings(Object.values(SETTING_KEYS.smtp));
-  const hasDbPassword = Boolean(values[SETTING_KEYS.smtp.password]);
-  return {
-    host: cfg.host,
-    port: cfg.port,
-    user: cfg.user,
-    password: hasDbPassword ? cfg.pass : "",
-    from: cfg.from || cfg.user,
-  };
+  return withAdminRead(async () => {
+    const cfg = await getMailSettings();
+    const values = await getSettings(Object.values(SETTING_KEYS.smtp));
+    const hasDbPassword = Boolean(values[SETTING_KEYS.smtp.password]);
+    return {
+      host: cfg.host,
+      port: cfg.port,
+      user: cfg.user,
+      password: hasDbPassword ? cfg.pass : "",
+      from: cfg.from || cfg.user,
+    };
+  });
 }
 
 export async function saveSmtpSettings(data: unknown): Promise<ActionResult> {
@@ -118,11 +128,39 @@ export async function sendSmtpTest(toEmail: string): Promise<ActionResult> {
 }
 
 export async function getWhatsappStatus() {
-  const session = await prisma.whatsappSession.findFirst({
-    where: { sessionId: "default" },
+  return withAdminRead(async () => {
+    const session = await prisma.whatsappSession.findFirst({
+      where: { sessionId: "default" },
+    });
+    return {
+      status: session?.status ?? "disconnected",
+      updatedAt: session?.updatedAt ?? null,
+    };
   });
-  return {
-    status: session?.status ?? "disconnected",
-    updatedAt: session?.updatedAt ?? null,
-  };
+}
+
+export async function getStorefrontUtilitySettingsForAdmin() {
+  return withAdminRead(() => getStorefrontUtilitySettings());
+}
+
+export async function saveStorefrontUtilitySettings(data: unknown): Promise<ActionResult> {
+  return withAdmin(async (actor) => {
+    const parsed = storefrontUtilitySettingsSchema.safeParse(data);
+    if (!parsed.success) return { success: false, error: "Dados inválidos" };
+
+    await setSettings({
+      [SETTING_KEYS.storefrontUtility.message]: parsed.data.message,
+      [SETTING_KEYS.storefrontUtility.bg]: parsed.data.backgroundColor,
+      [SETTING_KEYS.storefrontUtility.text]: parsed.data.textColor,
+      [SETTING_KEYS.storefrontUtility.link]: parsed.data.link ?? "",
+    });
+
+    await auditMutation(actor, {
+      action: "SETTINGS_CHANGE",
+      entity: "StorefrontUtility",
+    });
+    revalidateAdmin(["/admin/configuracoes"]);
+    revalidatePath("/", "layout");
+    return { success: true };
+  });
 }

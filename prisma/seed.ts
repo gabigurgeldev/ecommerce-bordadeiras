@@ -292,6 +292,68 @@ async function main() {
     },
   });
 
+  const bannerCount = await prisma.storefrontBanner.count();
+  if (bannerCount === 0) {
+    await prisma.storefrontBanner.createMany({
+      data: [
+        {
+          title: "Hero principal",
+          imageUrl:
+            "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=1920&q=80",
+          link: "/loja",
+          sortOrder: 0,
+          active: true,
+        },
+        {
+          title: "Máquinas de bordado",
+          imageUrl:
+            "https://images.unsplash.com/photo-1581092160601-ee22621dd758?w=1920&q=80",
+          link: "/loja/categoria/maquinas-bordado",
+          sortOrder: 1,
+          active: true,
+        },
+      ],
+    });
+    console.log("   Banners da home: 2 exemplos criados.");
+  }
+
+  const trustCount = await prisma.storefrontTrustItem.count();
+  if (trustCount === 0) {
+    await prisma.storefrontTrustItem.createMany({
+      data: [
+        {
+          title: "Pagamento Seguro",
+          description: "Ambiente protegido e criptografado",
+          icon: "badge-check",
+          sortOrder: 0,
+          active: true,
+        },
+        {
+          title: "Frete Grátis",
+          description: "Em compras acima de R$ 199",
+          icon: "truck",
+          sortOrder: 1,
+          active: true,
+        },
+        {
+          title: "Troca Garantida",
+          description: "Até 7 dias após o recebimento",
+          icon: "rotate-ccw",
+          sortOrder: 2,
+          active: true,
+        },
+        {
+          title: "Atendimento via WhatsApp",
+          description: "Suporte rápido e humano",
+          icon: "headphones",
+          sortOrder: 3,
+          active: true,
+        },
+      ],
+    });
+    console.log("   Barra de confiança: 4 itens padrão criados.");
+  }
+
   console.log("✅ Seed concluído.");
   console.log(`   Admin: ${adminEmail} / ${adminPassword}`);
 }

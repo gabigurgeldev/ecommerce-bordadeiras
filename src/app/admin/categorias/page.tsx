@@ -16,7 +16,7 @@ export default async function AdminCategoriesPage() {
 
   return (
     <div>
-      <PageHeader title="Categorias" description="Organize o catálogo" actions={<CategoryFormDialog />} />
+      <PageHeader title="Categorias" description="Organize o catálogo" actions={<CategoryFormDialog categories={categories} />} />
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
@@ -40,7 +40,7 @@ export default async function AdminCategoriesPage() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <CategoryFormDialog category={cat} />
+                  <CategoryFormDialog category={cat} categories={categories} />
                 </TableCell>
               </TableRow>
             ))}

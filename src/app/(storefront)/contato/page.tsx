@@ -13,7 +13,9 @@ export const metadata = buildMetadata({
 export default function ContatoPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-4xl font-semibold text-white">Contato</h1>
+      <h1 className="font-display text-4xl font-semibold text-[var(--color-brown)]">
+        Contato
+      </h1>
       <div className="mt-10 grid gap-10 lg:grid-cols-2">
         <div className="space-y-6 rounded-3xl bg-white p-8 dark:bg-zinc-900">
           <p className="flex items-center gap-3 text-sm">

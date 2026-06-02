@@ -12,7 +12,7 @@ export function GsapScrollProvider() {
       gsap.utils.toArray<HTMLElement>("[data-gsap-fade]").forEach((el) => {
         gsap.fromTo(
           el,
-          { opacity: 0, y: 40 },
+          { opacity: 1, y: 40 },
           {
             opacity: 1,
             y: 0,

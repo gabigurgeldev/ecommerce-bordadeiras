@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { resolveCheckoutLineItems } from "@/lib/checkout-items";
 import { prisma } from "@/lib/prisma";
 import { sanitizeEmail, sanitizeText } from "@/lib/sanitize";
 import { jsonError, parseBody } from "@/lib/api-utils";
@@ -8,10 +9,8 @@ import { onNewOrder } from "@/lib/hooks/order-notifications";
 import { generateOrderNumber } from "@/lib/order-utils";
 
 const itemSchema = z.object({
-  name: z.string().min(1).max(200),
+  productId: z.string().cuid(),
   quantity: z.number().int().positive(),
-  priceCents: z.number().int().nonnegative(),
-  productId: z.string().cuid().optional(),
 });
 
 const schema = z.object({
@@ -36,7 +35,10 @@ export async function POST(request: Request) {
   const parsed = parseBody(schema, body);
   if (!parsed.success) return parsed.response;
 
-  const subtotalCents = parsed.data.items.reduce(
+  const resolved = await resolveCheckoutLineItems(parsed.data.items);
+  if (!resolved.ok) return jsonError(resolved.error, 422);
+
+  const subtotalCents = resolved.items.reduce(
     (s, i) => s + i.priceCents * i.quantity,
     0,
   );
@@ -55,8 +57,9 @@ export async function POST(request: Request) {
       shippingCents: parsed.data.shippingCents,
       totalCents,
       items: {
-        create: parsed.data.items.map((i) => ({
+        create: resolved.items.map((i) => ({
           name: sanitizeText(i.name),
+          sku: i.sku,
           quantity: i.quantity,
           priceCents: i.priceCents,
           productId: i.productId,

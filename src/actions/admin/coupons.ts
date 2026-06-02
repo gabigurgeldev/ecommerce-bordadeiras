@@ -2,10 +2,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { couponSchema } from "@/lib/validations/admin";
-import { auditMutation, revalidateAdmin, withAdmin, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listCoupons() {
-  return prisma.coupon.findMany({ orderBy: { createdAt: "desc" } });
+  return withAdminRead(() => prisma.coupon.findMany({ orderBy: { createdAt: "desc" } }));
 }
 
 export async function upsertCoupon(data: unknown, id?: string): Promise<ActionResult<{ id: string }>> {

@@ -4,16 +4,31 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { createPaymentPreference } from "@/lib/mercadopago";
 import { jsonError, parseBody } from "@/lib/api-utils";
+import { sanitizeEmail } from "@/lib/sanitize";
 import type { PaymentMethod } from "@prisma/client";
 
 const schema = z.object({
   orderId: z.string().cuid(),
   method: z.enum(["PIX", "CREDIT_CARD", "BOLETO"]),
+  customerEmail: z.string().email().optional(),
 });
+
+function canAccessOrder(
+  order: { userId: string | null; customerEmail: string },
+  sessionUserId: string | undefined,
+  customerEmail: string | undefined,
+): boolean {
+  if (order.userId) {
+    return sessionUserId === order.userId;
+  }
+  if (!customerEmail) return false;
+  return (
+    sanitizeEmail(customerEmail) === sanitizeEmail(order.customerEmail)
+  );
+}
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user) return jsonError("Unauthorized", 401);
 
   let body: unknown;
   try {
@@ -30,12 +45,20 @@ export async function POST(request: Request) {
     include: { items: true, payments: true },
   });
   if (!order) return jsonError("Order not found", 404);
-  if (order.userId && order.userId !== session.user.id) {
+
+  if (
+    !canAccessOrder(
+      order,
+      session?.user?.id,
+      parsed.data.customerEmail,
+    )
+  ) {
     return jsonError("Forbidden", 403);
   }
 
   const amountCents =
-    order.items.reduce((s, i) => s + i.priceCents * i.quantity, 0) + order.shippingCents;
+    order.items.reduce((s, i) => s + i.priceCents * i.quantity, 0) +
+    order.shippingCents;
 
   const preference = await createPaymentPreference({
     orderId: order.id,

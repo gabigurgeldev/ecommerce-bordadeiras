@@ -1,3 +1,4 @@
+import { isDatabaseAvailable } from "@/lib/data/db-available";
 import { mockProducts } from "@/lib/mock/catalog";
 import { prisma } from "@/lib/prisma";
 import { mapProduct } from "@/lib/data/mappers";
@@ -46,12 +47,7 @@ async function fromDb(filters: ProductFilters): Promise<Product[] | null> {
   }
 }
 
-export async function getProducts(
-  filters: ProductFilters = {},
-): Promise<Product[]> {
-  const db = await fromDb(filters);
-  if (db) return db;
-
+function filterMockProducts(filters: ProductFilters): Product[] {
   let items = [...mockProducts];
   if (filters.categorySlug) {
     items = items.filter((p) => p.categorySlug === filters.categorySlug);
@@ -86,7 +82,22 @@ export async function getProducts(
   return items;
 }
 
+export async function getProducts(
+  filters: ProductFilters = {},
+): Promise<Product[]> {
+  if (!(await isDatabaseAvailable())) return filterMockProducts(filters);
+
+  const db = await fromDb(filters);
+  if (db) return db;
+
+  return filterMockProducts(filters);
+}
+
 export async function getFeaturedProducts(limit = 8): Promise<Product[]> {
+  if (!(await isDatabaseAvailable())) {
+    return mockProducts.filter((p) => p.featured).slice(0, limit);
+  }
+
   try {
     const products = await prisma.product.findMany({
       where: { active: true, status: "ACTIVE" },

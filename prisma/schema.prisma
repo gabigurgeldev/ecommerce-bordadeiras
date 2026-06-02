@@ -435,6 +435,33 @@ model Setting {
   @@index([group])
 }
 
+model StorefrontBanner {
+  id        String   @id @default(cuid())
+  title     String
+  imageUrl  String
+  link      String?
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, sortOrder])
+}
+
+model StorefrontTrustItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  icon        String
+  link        String?
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active, sortOrder])
+}
+
 model WhatsappRecipient {
   id        String   @id @default(cuid())
   label     String?

@@ -37,13 +37,13 @@ export default async function ProductPage({ params }: Props) {
           { name: product.name, path: `/produto/${slug}` },
         ])}
       />
-      <div className="grid gap-12 rounded-3xl bg-white p-6 dark:bg-zinc-900 lg:grid-cols-2 lg:p-10">
+      <div className="grid gap-12 rounded-3xl border border-[var(--color-card-border)] bg-white p-6 shadow-sm lg:grid-cols-2 lg:p-10">
         <ProductGallery images={product.images} name={product.name} />
         <div>
           <p className="text-sm uppercase tracking-wide text-rose-500">
             {product.categorySlug}
           </p>
-          <h1 className="font-display mt-2 text-3xl font-semibold text-zinc-900 dark:text-white">
+          <h1 className="font-display mt-2 text-3xl font-semibold text-[var(--color-brown)]">
             {product.name}
           </h1>
           <div className="mt-8">
@@ -53,7 +53,9 @@ export default async function ProductPage({ params }: Props) {
       </div>
       {related.length > 0 && (
         <section className="mt-16">
-          <h2 className="text-2xl font-semibold text-white">Relacionados</h2>
+          <h2 className="font-display text-2xl font-semibold text-[var(--color-brown)]">
+            Relacionados
+          </h2>
           <div className="mt-6">
             <ProductGrid products={related} />
           </div>

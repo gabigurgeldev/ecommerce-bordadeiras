@@ -3,15 +3,16 @@
 import { AuthError } from "next-auth";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { signIn } from "@/auth";
+import { authenticateUser, resolveLoginRedirect } from "@/lib/authenticate-user";
 
 export type LoginAdminResult =
   | { ok: true }
-  | { ok: false; code: "credentials" | "configuration" | "unknown"; message: string };
+  | { ok: false; code: "credentials" | "configuration" | "unverified" | "unknown"; message: string; email?: string };
 
 export async function loginAdminAction(
   email: string,
   password: string,
-  callbackUrl = "/admin",
+  callbackUrl = "/",
 ): Promise<LoginAdminResult> {
   if (!process.env.AUTH_SECRET?.trim()) {
     return {
@@ -21,14 +22,29 @@ export async function loginAdminAction(
     };
   }
 
-  const safeCallback =
-    callbackUrl.startsWith("/") && !callbackUrl.startsWith("//") ? callbackUrl : "/admin";
+  const authResult = await authenticateUser(email, password);
+  if (!authResult.ok) {
+    const code =
+      authResult.reason === "unverified"
+        ? "unverified"
+        : authResult.reason === "unavailable"
+          ? "configuration"
+          : "credentials";
+    return {
+      ok: false,
+      code,
+      message: authResult.message,
+      email: authResult.reason === "unverified" ? authResult.email : undefined,
+    };
+  }
+
+  const redirectTo = resolveLoginRedirect(callbackUrl, authResult.user);
 
   try {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: safeCallback,
+      redirectTo,
     });
     return { ok: true };
   } catch (error) {
@@ -40,8 +56,7 @@ export async function loginAdminAction(
         return {
           ok: false,
           code: "credentials",
-          message:
-            "Credenciais inválidas. Confira ADMIN_EMAIL/ADMIN_PASSWORD no EasyPanel ou rode o seed.",
+          message: "E-mail ou senha incorretos.",
         };
       }
       return {

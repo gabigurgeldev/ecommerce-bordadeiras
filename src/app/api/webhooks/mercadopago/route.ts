@@ -14,9 +14,17 @@ export async function POST(request: Request) {
 
   const rawBody = await request.text();
   const { webhookSecret: secret } = await getMercadoPagoSettingsFromDb();
+  const isProduction = process.env.NODE_ENV === "production";
 
-  if (secret && !(await verifyWebhookSignature(request.headers, rawBody, secret))) {
-    return jsonError("Invalid signature", 401);
+  if (isProduction && !secret) {
+    console.error("[webhook] Mercado Pago webhook secret not configured");
+    return jsonError("Webhook not configured", 503);
+  }
+
+  if (secret) {
+    if (!(await verifyWebhookSignature(request.headers, rawBody, secret))) {
+      return jsonError("Invalid signature", 401);
+    }
   }
 
   let payload: { type?: string; action?: string; data?: { id?: string } };

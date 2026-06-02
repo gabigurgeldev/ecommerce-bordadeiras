@@ -7,6 +7,7 @@ import {
   type MailSettings,
 } from "@/lib/settings";
 import { cadastroTemplate } from "@/lib/mail/templates/cadastro";
+import { verificacaoEmailTemplate } from "@/lib/mail/templates/verificacao-email";
 import { recuperacaoSenhaTemplate } from "@/lib/mail/templates/recuperacao-senha";
 import { pedidoConfirmadoTemplate } from "@/lib/mail/templates/pedido-confirmado";
 import { pedidoEnviadoTemplate } from "@/lib/mail/templates/pedido-enviado";
@@ -125,6 +126,25 @@ export async function sendRegistrationEmail(params: { to: string; name: string }
     to: params.to,
     subject: "Bem-vindo à Bordadeiras",
     html: cadastroTemplate({ name: params.name, loginUrl }),
+  });
+}
+
+export async function sendVerificationEmail(params: {
+  to: string;
+  name: string;
+  code: string;
+}) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const verifyUrl = `${baseUrl}/verificar-email?email=${encodeURIComponent(params.to)}`;
+  await sendMail({
+    to: params.to,
+    subject: "Código de verificação — Bordadeiras",
+    html: verificacaoEmailTemplate({
+      name: params.name,
+      code: params.code,
+      verifyUrl,
+    }),
+    text: `Seu código de verificação Bordadeiras: ${params.code}. Válido por 15 minutos.`,
   });
 }
 

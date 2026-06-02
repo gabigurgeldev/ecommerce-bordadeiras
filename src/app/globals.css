@@ -1,91 +1,98 @@
 @import "tailwindcss";
 
-/* ─── Design tokens ─────────────────────────────────────────────────────────── */
+/* ─── Brand palette ─────────────────────────────────────────────────────────── */
 
 :root {
-  --background: oklch(0.99 0.002 280);
-  --foreground: oklch(0.18 0.02 280);
-  --card: oklch(1 0 0 / 0.72);
-  --card-foreground: oklch(0.18 0.02 280);
-  --popover: oklch(1 0 0 / 0.9);
-  --popover-foreground: oklch(0.18 0.02 280);
-  --primary: oklch(0.45 0.14 310);
-  --primary-foreground: oklch(0.99 0.01 310);
-  --secondary: oklch(0.94 0.02 300);
-  --secondary-foreground: oklch(0.28 0.04 300);
-  --muted: oklch(0.95 0.01 280);
-  --muted-foreground: oklch(0.48 0.02 280);
-  --accent: oklch(0.92 0.04 320);
-  --accent-foreground: oklch(0.25 0.06 320);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.99 0.01 25);
-  --border: oklch(0.88 0.02 280 / 0.8);
-  --input: oklch(0.88 0.02 280 / 0.8);
-  --ring: oklch(0.55 0.12 310);
+  /* Marca */
+  --color-bg: #f5e9d8; /* Creme Algodão — fundos de seção */
+  --color-header-bg: #ffffff;
+  --color-cta: #e84d8a; /* Rosa — só CTAs de conversão */
+  --color-cta-hover: #d93a76;
+  --color-price: #d9a441; /* Dourado — preços e destaques */
+  --color-card-border: #e6d7c5;
+  --color-brown: #5c4332; /* Terracota — texto e estrutura */
+  --color-brown-muted: #7a5f4a;
+  --color-green: #6f9d4c;
+
+  /* Superfícies escuras (footer, blocos on-dark) */
+  --footer-bg: #5c4332;
+  --footer-fg: #faf6ef;
+  --footer-fg-muted: #f5e9d8;
+
+  /* Tokens shadcn (tema claro/creme) */
+  --background: #f5e9d8;
+  --foreground: #352618;
+  --card: #ffffff;
+  --card-foreground: #352618;
+  --popover: #ffffff;
+  --popover-foreground: #352618;
+  --primary: #5c4332;
+  --primary-foreground: #ffffff;
+  --secondary: #f0e2cf;
+  --secondary-foreground: #5c4332;
+  --muted: #efe4d3;
+  --muted-foreground: #7a6654;
+  --accent: #ebe0d0;
+  --accent-foreground: #5c4332;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e6d7c5;
+  --input: #e6d7c5;
+  --ring: #5c4332;
   --radius: 0.75rem;
 
-  /* Glassmorphism */
-  --glass-bg: oklch(1 0 0 / 0.55);
-  --glass-border: oklch(1 0 0 / 0.35);
-  --glass-blur: 16px;
-  --glass-shadow: 0 8px 32px oklch(0.2 0.04 280 / 0.08);
+  /* Glass / frosted */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-blur: 14px;
+  --glass-shadow: 0 8px 32px rgba(122, 90, 66, 0.1);
 
   /* Gradients */
   --gradient-hero: linear-gradient(
     135deg,
-    oklch(0.55 0.14 310) 0%,
-    oklch(0.62 0.12 340) 45%,
-    oklch(0.7 0.1 20) 100%
+    rgba(232, 77, 138, 0.92) 0%,
+    rgba(217, 164, 65, 0.85) 100%
   );
-  --gradient-surface: linear-gradient(
-    180deg,
-    oklch(0.99 0.01 300) 0%,
-    oklch(0.96 0.02 310) 100%
-  );
+  --gradient-surface: linear-gradient(180deg, #f7ecdc 0%, #f5e9d8 100%);
   --gradient-card-shine: linear-gradient(
     120deg,
-    oklch(1 0 0 / 0.6) 0%,
-    oklch(1 0 0 / 0) 50%,
-    oklch(1 0 0 / 0.15) 100%
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0) 50%,
+    rgba(255, 255, 255, 0.15) 100%
   );
 }
 
 .dark {
-  --background: oklch(0.14 0.02 280);
-  --foreground: oklch(0.96 0.01 280);
-  --card: oklch(0.2 0.03 280 / 0.65);
-  --card-foreground: oklch(0.96 0.01 280);
-  --popover: oklch(0.18 0.03 280 / 0.92);
-  --popover-foreground: oklch(0.96 0.01 280);
-  --primary: oklch(0.72 0.14 310);
-  --primary-foreground: oklch(0.14 0.02 310);
-  --secondary: oklch(0.24 0.03 280);
-  --secondary-foreground: oklch(0.92 0.02 280);
-  --muted: oklch(0.22 0.02 280);
-  --muted-foreground: oklch(0.68 0.02 280);
-  --accent: oklch(0.28 0.05 320);
-  --accent-foreground: oklch(0.96 0.01 320);
-  --destructive: oklch(0.6 0.2 25);
-  --destructive-foreground: oklch(0.98 0.01 25);
-  --border: oklch(0.32 0.02 280 / 0.6);
-  --input: oklch(0.32 0.02 280 / 0.6);
-  --ring: oklch(0.72 0.12 310);
+  --color-header-bg: #251d15;
+  --color-card-border: #3a2e22;
+  --color-brown: #c9b59a;
+  --color-brown-muted: #a8947d;
 
-  --glass-bg: oklch(0.2 0.03 280 / 0.55);
-  --glass-border: oklch(1 0 0 / 0.08);
-  --glass-shadow: 0 8px 32px oklch(0 0 0 / 0.35);
+  --background: #211a13;
+  --foreground: #f5e9d8;
+  --card: rgba(45, 35, 26, 0.85);
+  --card-foreground: #f5e9d8;
+  --popover: #2a2118;
+  --popover-foreground: #f5e9d8;
+  --primary: #c9b59a;
+  --primary-foreground: #211a13;
+  --secondary: #33281d;
+  --secondary-foreground: #ecdcc6;
+  --muted: #2e251b;
+  --muted-foreground: #b6a48f;
+  --accent: #3a3228;
+  --accent-foreground: #ecdcc6;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #3a2e22;
+  --input: #3a2e22;
+  --ring: #c9b59a;
 
-  --gradient-hero: linear-gradient(
-    135deg,
-    oklch(0.35 0.12 310) 0%,
-    oklch(0.4 0.1 340) 50%,
-    oklch(0.32 0.08 20) 100%
-  );
-  --gradient-surface: linear-gradient(
-    180deg,
-    oklch(0.16 0.02 280) 0%,
-    oklch(0.12 0.02 300) 100%
-  );
+  --glass-bg: rgba(45, 35, 26, 0.6);
+  --glass-border: rgba(245, 233, 216, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+
+  --gradient-surface: linear-gradient(180deg, #241c14 0%, #1d160f 100%);
 }
 
 @theme inline {
@@ -108,12 +115,28 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Cores da marca como utilitários Tailwind (bg-cta, text-price, etc.) */
+  --color-cta: var(--color-cta);
+  --color-cta-hover: var(--color-cta-hover);
+  --color-price: var(--color-price);
+  --color-brand-brown: var(--color-brown);
+  --color-brand-brown-muted: var(--color-brown-muted);
+  --color-brand-green: var(--color-green);
+  --color-cream: var(--color-bg);
+  --color-card-border: var(--color-card-border);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-inter), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-outfit), var(--font-manrope), var(--font-geist-sans), sans-serif;
+
+  --font-sans: var(--font-inter), var(--font-poppins), ui-sans-serif, system-ui,
+    sans-serif;
+  --font-body: var(--font-poppins), var(--font-inter), ui-sans-serif, system-ui,
+    sans-serif;
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-serif: var(--font-cormorant), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
@@ -123,11 +146,49 @@
   border-color: var(--border);
 }
 
+html.light,
+html:not(.dark) {
+  color-scheme: light;
+}
+
 body {
-  background: var(--gradient-surface);
+  background-color: var(--color-bg);
+  /* Textura de linho sutil */
+  background-image: repeating-linear-gradient(
+      45deg,
+      rgba(92, 67, 50, 0.022) 0,
+      rgba(92, 67, 50, 0.022) 1px,
+      transparent 1px,
+      transparent 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(92, 67, 50, 0.022) 0,
+      rgba(92, 67, 50, 0.022) 1px,
+      transparent 1px,
+      transparent 6px
+    );
   background-attachment: fixed;
   color: var(--foreground);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
+}
+
+.dark body {
+  background-color: #211a13;
+  background-image: repeating-linear-gradient(
+      45deg,
+      rgba(245, 233, 216, 0.018) 0,
+      rgba(245, 233, 216, 0.018) 1px,
+      transparent 1px,
+      transparent 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(245, 233, 216, 0.018) 0,
+      rgba(245, 233, 216, 0.018) 1px,
+      transparent 1px,
+      transparent 6px
+    );
 }
 
 h1,
@@ -135,6 +196,186 @@ h2,
 h3,
 .font-display {
   font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Superfícies escuras — texto claro herdado (footer, CTAs escuros) */
+.surface-dark,
+footer {
+  color: var(--footer-fg);
+}
+
+.surface-dark h1,
+.surface-dark h2,
+.surface-dark h3,
+.surface-dark .font-display,
+footer h1,
+footer h2,
+footer h3,
+footer .font-display,
+footer p.font-display {
+  color: inherit;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1.08;
+}
+
+h2 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.12;
+}
+
+h3 {
+  font-size: clamp(1.25rem, 3vw, 1.625rem);
+  line-height: 1.2;
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Subtítulos de seção — Cormorant, tom estrutural */
+.text-section-subtitle {
+  font-family: var(--font-serif);
+  font-size: clamp(1.0625rem, 2vw, 1.25rem);
+  font-style: italic;
+  color: var(--color-brown-muted);
+}
+
+/* Rótulos em small caps */
+.label-caps {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-brown-muted);
+}
+
+/* Links secundários (não-CTA) */
+.link-muted {
+  color: var(--color-brown);
+  transition: color 0.2s ease;
+}
+
+.link-muted:hover {
+  color: var(--foreground);
+}
+
+/* Seções da home — espaçamento compacto (padrão e-commerce) */
+.section-home {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+@media (min-width: 640px) {
+  .section-home {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-home {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+.section-header {
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 640px) {
+  .section-header {
+    margin-bottom: 2.5rem;
+  }
+}
+
+/* Hairline divider entre seções de fundos distintos (creme <-> branco) */
+.section-divider {
+  border-top: 1px solid var(--color-card-border);
+}
+
+/* Link com sublinhado animado (CTAs secundários) */
+.link-underline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.link-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 1.5px;
+  width: 100%;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.link-underline:hover::after,
+.link-underline:focus-visible::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link-underline::after {
+    transition: none;
+  }
+}
+
+/* Rail horizontal de categorias — apenas abaixo de md (<768px) */
+.category-rail {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 0.25rem;
+}
+
+.category-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.category-rail > li {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+.category-card-caption {
+  background-color: #ffffff;
+}
+
+/* Evita scroll horizontal duplo em rails full-bleed no mobile */
+.safe-bleed-x {
+  margin-left: calc(-1 * max(1rem, env(safe-area-inset-left, 0px)));
+  margin-right: calc(-1 * max(1rem, env(safe-area-inset-right, 0px)));
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+@media (min-width: 640px) {
+  .safe-bleed-x {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
 }
 
 /* ─── Utilities ─────────────────────────────────────────────────────────────── */
@@ -151,6 +392,26 @@ h3,
   background-image: var(--gradient-hero);
 }
 
+/* Mesh suave de fundo para a vitrine */
+.gradient-mesh {
+  background-image: radial-gradient(
+      at 18% 8%,
+      rgba(217, 164, 65, 0.07) 0,
+      transparent 42%
+    ),
+    radial-gradient(at 82% 0%, rgba(92, 67, 50, 0.06) 0, transparent 46%),
+    radial-gradient(at 50% 100%, rgba(111, 157, 76, 0.05) 0, transparent 48%);
+}
+
+.dark .gradient-mesh {
+  background-image: radial-gradient(
+      at 18% 8%,
+      rgba(217, 164, 65, 0.08) 0,
+      transparent 42%
+    ),
+    radial-gradient(at 82% 0%, rgba(201, 181, 154, 0.06) 0, transparent 46%);
+}
+
 .card-shine {
   position: relative;
   overflow: hidden;
@@ -163,4 +424,25 @@ h3,
   background: var(--gradient-card-shine);
   pointer-events: none;
   opacity: 0.5;
+}
+
+/* Pulse suave para CTAs */
+@keyframes cta-pulse {
+  0%,
+  100% {
+    box-shadow: 0 10px 25px -8px rgba(232, 77, 138, 0.5);
+  }
+  50% {
+    box-shadow: 0 14px 32px -6px rgba(232, 77, 138, 0.75);
+  }
+}
+
+.cta-pulse {
+  animation: cta-pulse 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-pulse {
+    animation: none;
+  }
 }

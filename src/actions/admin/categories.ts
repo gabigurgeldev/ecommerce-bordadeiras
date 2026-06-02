@@ -2,10 +2,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { categorySchema } from "@/lib/validations/admin";
-import { auditMutation, revalidateAdmin, withAdmin, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listCategories() {
-  return prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
+  return withAdminRead(() =>
+    prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+  );
 }
 
 export async function upsertCategory(data: unknown, id?: string): Promise<ActionResult<{ id: string }>> {

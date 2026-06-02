@@ -31,6 +31,14 @@ const statusLabels: Record<OrderStatus, string> = {
   CANCELLED: "Cancelado",
 };
 
+async function triggerOrderNotification(orderId: string, status: OrderStatus) {
+  if (status === OrderStatus.SHIPPED) {
+    await fetch(`/api/admin/orders/${orderId}/ship`, { method: "POST" });
+  } else if (status === OrderStatus.CANCELLED) {
+    await fetch(`/api/admin/orders/${orderId}/cancel`, { method: "POST" });
+  }
+}
+
 export function OrderStatusForm({ order }: { order: Order }) {
   const router = useRouter();
   const form = useForm<FormValues>({
@@ -43,8 +51,21 @@ export function OrderStatusForm({ order }: { order: Order }) {
   });
 
   const onSubmit = form.handleSubmit(async (data) => {
+    const previousStatus = order.status;
     const res = await updateOrder(order.id, data);
     if (res.success) {
+      const statusChanged =
+        data.status !== previousStatus &&
+        (data.status === OrderStatus.SHIPPED || data.status === OrderStatus.CANCELLED);
+      if (statusChanged) {
+        try {
+          await triggerOrderNotification(order.id, data.status);
+        } catch {
+          toast.error("Pedido atualizado, mas falha ao enviar notificações");
+          router.refresh();
+          return;
+        }
+      }
       toast.success("Pedido atualizado");
       router.refresh();
     } else toast.error(res.error);

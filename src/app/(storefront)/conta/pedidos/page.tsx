@@ -8,7 +8,7 @@ export const metadata = buildMetadata({
   noIndex: true,
 });
 
-/** Populated via fetchUserOrders(userId) when auth session exists */
+/** Populated via fetchUserOrders() when auth session exists */
 const demoOrders = [
   {
     id: "ord-demo-1",

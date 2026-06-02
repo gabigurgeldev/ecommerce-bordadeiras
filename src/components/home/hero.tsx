@@ -1,64 +1,112 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { siteConfig } from "@/lib/site";
-import { motion } from "framer-motion";
-import { ArrowRight, Sparkles } from "lucide-react";
+import Autoplay from "embla-carousel-autoplay";
+import useEmblaCarousel from "embla-carousel-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
+import type { StorefrontBannerSlide } from "@/lib/data/banners";
 
-export function Hero() {
+function BannerSlide({ imageUrl, priority }: { imageUrl: string; priority?: boolean }) {
   return (
-    <section className="relative overflow-hidden pb-24 pt-8">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-rose-500/20 via-transparent to-transparent" />
-      <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, x: -24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.7 }}
+    <div className="relative h-full w-full">
+      <Image
+        src={imageUrl}
+        alt=""
+        fill
+        className="object-cover object-center"
+        priority={priority}
+        sizes="100vw"
+      />
+    </div>
+  );
+}
+
+export function Hero({ banners }: { banners: StorefrontBannerSlide[] }) {
+  const slides = banners.length > 0 ? banners : [];
+  const hasMultiple = slides.length > 1;
+
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { loop: hasMultiple, align: "start", dragFree: false },
+    hasMultiple
+      ? [Autoplay({ delay: 6000, stopOnInteraction: false })]
+      : [],
+  );
+
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setSelectedIndex(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on("select", onSelect);
+    emblaApi.on("reInit", onSelect);
+    return () => {
+      emblaApi.off("select", onSelect);
+      emblaApi.off("reInit", onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  if (slides.length === 0) return null;
+
+  return (
+    <section className="relative w-full overflow-hidden bg-[var(--color-bg)]">
+      <div className="relative mx-auto w-full max-w-[1920px]">
+        <div
+          ref={emblaRef}
+          className="relative w-full overflow-hidden aspect-[21/9] min-h-[220px] max-h-[480px] sm:min-h-[300px] lg:min-h-[400px]"
         >
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs text-rose-200 backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5" />
-            Premium para ateliês e indústria
-          </span>
-          <h1 className="mt-6 text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Bordado de{" "}
-            <span className="bg-gradient-to-r from-rose-300 to-amber-200 bg-clip-text text-transparent">
-              excelência
-            </span>
-            , do ateliê à produção.
-          </h1>
-          <p className="mt-6 max-w-lg text-lg text-zinc-300">
-            {siteConfig.description}
-          </p>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Button size="lg" asChild>
-              <Link href="/loja">
-                Explorar loja
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="secondary" asChild>
-              <Link href="/sobre">Conheça a marca</Link>
-            </Button>
-          </div>
-        </motion.div>
-        <motion.div
-          className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-white/20 shadow-2xl shadow-rose-900/30"
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.15 }}
-        >
-          <Image
-            src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=1400&q=80"
-            alt="Máquina de bordado profissional"
-            fill
-            className="object-cover"
-            priority
-            sizes="(max-width:1024px) 100vw, 50vw"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/60 to-transparent" />
-        </motion.div>
+            <div className="flex h-full">
+              {slides.map((banner, index) => (
+                <div
+                  key={banner.id}
+                  className="relative min-w-0 flex-[0_0_100%] h-full"
+                >
+                  {banner.link ? (
+                    <Link
+                      href={banner.link}
+                      className="relative block h-full w-full"
+                      aria-label="Ver promoção"
+                    >
+                      <BannerSlide imageUrl={banner.imageUrl} priority={index === 0} />
+                    </Link>
+                  ) : (
+                    <BannerSlide imageUrl={banner.imageUrl} priority={index === 0} />
+                  )}
+                </div>
+              ))}
+            </div>
+
+          {hasMultiple ? (
+            <div
+              className="absolute bottom-3 left-0 right-0 z-10 flex justify-center gap-2 sm:bottom-4"
+              role="tablist"
+              aria-label="Slides do banner"
+            >
+                {slides.map((banner, index) => (
+                  <button
+                    key={banner.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={index === selectedIndex}
+                    aria-label={`Slide ${index + 1}`}
+                    onClick={() => emblaApi?.scrollTo(index)}
+                    className={cn(
+                      "h-2 rounded-full transition-all",
+                      index === selectedIndex
+                        ? "w-6 bg-white"
+                        : "w-2 bg-white/50 hover:bg-white/75",
+                    )}
+                  />
+                ))}
+            </div>
+          ) : null}
+        </div>
       </div>
     </section>
   );

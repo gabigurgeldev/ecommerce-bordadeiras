@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
+import { requireAdminApi } from "@/lib/admin-auth";
 import { readAdminEnv } from "@/lib/admin-bootstrap";
+import { jsonError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 /** Diagnóstico rápido de deploy (sem expor senhas). */
 export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    if (!(await requireAdminApi())) {
+      return jsonError("Not found", 404);
+    }
+  }
+
   const adminEnv = readAdminEnv();
   let adminInDb = false;
 

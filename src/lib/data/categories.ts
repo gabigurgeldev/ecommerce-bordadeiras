@@ -1,9 +1,12 @@
+import { isDatabaseAvailable } from "@/lib/data/db-available";
 import { mockCategories } from "@/lib/mock/catalog";
 import { mapCategory } from "@/lib/data/mappers";
 import { prisma } from "@/lib/prisma";
 import type { Category } from "@/lib/types/catalog";
 
 export async function getCategories(): Promise<Category[]> {
+  if (!(await isDatabaseAvailable())) return mockCategories;
+
   try {
     const categories = await prisma.category.findMany({
       where: { active: true },

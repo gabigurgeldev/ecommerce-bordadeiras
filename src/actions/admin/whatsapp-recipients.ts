@@ -2,12 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { whatsappRecipientSchema } from "@/lib/validations/admin";
-import { auditMutation, revalidateAdmin, withAdmin, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listWhatsappRecipients() {
-  return prisma.whatsappRecipient.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  return withAdminRead(() =>
+    prisma.whatsappRecipient.findMany({
+      orderBy: { createdAt: "desc" },
+    }),
+  );
 }
 
 export async function createWhatsappRecipient(data: unknown): Promise<ActionResult> {

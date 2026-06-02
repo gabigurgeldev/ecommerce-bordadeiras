@@ -69,3 +69,8 @@ export function buildProductImageKey(productId: string, filename: string): strin
   const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   return `products/${productId}/${Date.now()}-${safe}`;
 }
+
+export function buildBannerImageKey(bannerId: string, filename: string): string {
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `banners/${bannerId}/${Date.now()}-${safe}`;
+}

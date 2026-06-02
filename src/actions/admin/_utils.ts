@@ -21,6 +21,11 @@ export async function withAdmin<T>(
   }
 }
 
+export async function withAdminRead<T>(fn: () => Promise<T>): Promise<T> {
+  await requireAdmin();
+  return fn();
+}
+
 export async function auditMutation(
   actor: { id: string; email: string },
   params: {

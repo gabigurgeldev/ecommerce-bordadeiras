@@ -1,22 +1,28 @@
 "use server";
 
+import { z } from "zod";
+import { ProductStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { productSchema } from "@/lib/validations/admin";
+import { productImageInputSchema, productSchema } from "@/lib/validations/admin";
 import { slugify } from "@/lib/utils";
-import { auditMutation, revalidateAdmin, withAdmin, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listProducts() {
-  return prisma.product.findMany({
-    include: { category: true, productImages: { orderBy: { sortOrder: "asc" } } },
-    orderBy: { updatedAt: "desc" },
-  });
+  return withAdminRead(() =>
+    prisma.product.findMany({
+      include: { category: true, productImages: { orderBy: { sortOrder: "asc" } } },
+      orderBy: { updatedAt: "desc" },
+    }),
+  );
 }
 
 export async function getProduct(id: string) {
-  return prisma.product.findUnique({
-    where: { id },
-    include: { category: true, productImages: { orderBy: { sortOrder: "asc" } } },
-  });
+  return withAdminRead(() =>
+    prisma.product.findUnique({
+      where: { id },
+      include: { category: true, productImages: { orderBy: { sortOrder: "asc" } } },
+    }),
+  );
 }
 
 export async function upsertProduct(
@@ -32,6 +38,7 @@ export async function upsertProduct(
       slug: parsed.data.slug || slugify(parsed.data.name),
       compareCents: parsed.data.compareCents ?? null,
       categoryId: parsed.data.categoryId || null,
+      active: parsed.data.status === ProductStatus.ACTIVE,
     };
 
     const product = id
@@ -77,7 +84,7 @@ export async function duplicateProduct(id: string): Promise<ActionResult<{ id: s
         compareCents: source.compareCents,
         stock: source.stock,
         active: false,
-        status: source.status,
+        status: ProductStatus.DRAFT,
         images: source.images ?? undefined,
         categoryId: source.categoryId,
         productImages: {
@@ -96,17 +103,91 @@ export async function duplicateProduct(id: string): Promise<ActionResult<{ id: s
   });
 }
 
-/** CSV import/export stubs — wire to file upload in a later iteration. */
-export async function exportProductsCsvStub(): Promise<ActionResult<{ message: string }>> {
+export async function syncProductImages(
+  productId: string,
+  images: unknown,
+): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await auditMutation(actor, { action: "EXPORT", entity: "Product" });
-    return { success: true, data: { message: "Export CSV: implementar upload/download" } };
+    const parsed = z.array(productImageInputSchema).safeParse(images);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.flatten().formErrors.join(", ") };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.productImage.deleteMany({ where: { productId } });
+      if (parsed.data.length > 0) {
+        await tx.productImage.createMany({
+          data: parsed.data.map((img) => ({
+            productId,
+            url: img.url,
+            alt: img.alt ?? null,
+            sortOrder: img.sortOrder,
+            isPrimary: img.isPrimary,
+          })),
+        });
+      }
+    });
+
+    await auditMutation(actor, {
+      action: "UPDATE",
+      entity: "Product",
+      entityId: productId,
+      metadata: { images: parsed.data.length },
+    });
+    revalidateAdmin(["/admin/produtos"]);
+    return { success: true };
   });
 }
 
-export async function importProductsCsvStub(): Promise<ActionResult<{ message: string }>> {
+function escapeCsvField(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export async function exportProductsCsv(): Promise<
+  ActionResult<{ csv: string; filename: string }>
+> {
   return withAdmin(async (actor) => {
-    await auditMutation(actor, { action: "IMPORT", entity: "Product" });
-    return { success: true, data: { message: "Import CSV: implementar parser" } };
+    const products = await prisma.product.findMany({
+      include: { category: true },
+      orderBy: { name: "asc" },
+    });
+
+    const headers = [
+      "id",
+      "name",
+      "slug",
+      "sku",
+      "priceCents",
+      "compareCents",
+      "stock",
+      "status",
+      "active",
+      "categorySlug",
+    ];
+    const rows = products.map((p) =>
+      [
+        p.id,
+        p.name,
+        p.slug,
+        p.sku ?? "",
+        String(p.priceCents),
+        p.compareCents != null ? String(p.compareCents) : "",
+        String(p.stock),
+        p.status,
+        String(p.active),
+        p.category?.slug ?? "",
+      ]
+        .map(escapeCsvField)
+        .join(","),
+    );
+
+    const csv = [headers.join(","), ...rows].join("\n");
+    const filename = `produtos-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    await auditMutation(actor, { action: "EXPORT", entity: "Product", metadata: { count: products.length } });
+    return { success: true, data: { csv, filename } };
   });
 }

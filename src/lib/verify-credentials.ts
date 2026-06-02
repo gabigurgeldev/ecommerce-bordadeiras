@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
 import { credentialsMatchAdminEnv, ensureAdminUser } from "@/lib/admin-bootstrap";
+import { isDatabaseAvailable } from "@/lib/data/db-available";
+import { prisma } from "@/lib/prisma";
 
 async function findUserByEmail(email: string) {
   const normalized = email.trim().toLowerCase();
@@ -18,6 +19,7 @@ async function findUserByEmail(email: string) {
 /** Valida e-mail/senha; sincroniza admin a partir do env quando necessário. */
 export async function verifyUserCredentials(email: string, password: string) {
   if (!email || !password) return null;
+  if (!(await isDatabaseAvailable())) return null;
 
   const normalizedEmail = email.trim().toLowerCase();
   const user = await findUserByEmail(email);

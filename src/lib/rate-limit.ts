@@ -48,6 +48,12 @@ export async function rateLimitAuth(identifier: string): Promise<RateLimitResult
   return memoryRateLimit(`auth:${identifier}`, 10, 60_000);
 }
 
+/** Credentials sign-in — keyed by normalized email. */
+export async function rateLimitLogin(email: string): Promise<RateLimitResult> {
+  const key = email.trim().toLowerCase();
+  return rateLimitAuth(`login:${key}`);
+}
+
 export async function rateLimitWebhook(identifier: string): Promise<RateLimitResult> {
   if (webhookLimiter) {
     const r = await webhookLimiter.limit(identifier);

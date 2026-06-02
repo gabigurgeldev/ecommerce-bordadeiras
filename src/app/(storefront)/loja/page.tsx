@@ -31,9 +31,11 @@ export default async function LojaPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-      <h1 className="font-display text-4xl font-semibold text-white">Loja</h1>
-      <p className="mt-2 text-zinc-400">Todos os produtos</p>
-      <div className="mt-8 rounded-2xl bg-white p-1 dark:bg-zinc-900">
+      <h1 className="font-display text-4xl font-semibold text-[var(--color-brown)]">
+        Loja
+      </h1>
+      <p className="mt-2 text-[var(--muted-foreground)]">Todos os produtos</p>
+      <div className="mt-8 rounded-2xl border border-[var(--color-card-border)] bg-white p-1 shadow-sm">
         <Suspense fallback={<Skeleton className="h-20 w-full" />}>
           <ShopFilters />
         </Suspense>

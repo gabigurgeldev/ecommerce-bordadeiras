@@ -2,28 +2,32 @@
 
 import { prisma } from "@/lib/prisma";
 import { blogCategorySchema, blogPostSchema, blogTagSchema } from "@/lib/validations/admin";
-import { auditMutation, revalidateAdmin, withAdmin, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listBlogPosts() {
-  return prisma.blogPost.findMany({
-    include: { category: true, tags: { include: { tag: true } } },
-    orderBy: { updatedAt: "desc" },
-  });
+  return withAdminRead(() =>
+    prisma.blogPost.findMany({
+      include: { category: true, tags: { include: { tag: true } } },
+      orderBy: { updatedAt: "desc" },
+    }),
+  );
 }
 
 export async function listBlogCategories() {
-  return prisma.blogCategory.findMany({ orderBy: { name: "asc" } });
+  return withAdminRead(() => prisma.blogCategory.findMany({ orderBy: { name: "asc" } }));
 }
 
 export async function listBlogTags() {
-  return prisma.blogTag.findMany({ orderBy: { name: "asc" } });
+  return withAdminRead(() => prisma.blogTag.findMany({ orderBy: { name: "asc" } }));
 }
 
 export async function getBlogPost(id: string) {
-  return prisma.blogPost.findUnique({
-    where: { id },
-    include: { category: true, tags: { include: { tag: true } } },
-  });
+  return withAdminRead(() =>
+    prisma.blogPost.findUnique({
+      where: { id },
+      include: { category: true, tags: { include: { tag: true } } },
+    }),
+  );
 }
 
 export async function upsertBlogPost(data: unknown, id?: string): Promise<ActionResult<{ id: string }>> {

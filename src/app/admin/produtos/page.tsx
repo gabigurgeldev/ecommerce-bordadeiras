@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { listProducts, exportProductsCsvStub, importProductsCsvStub } from "@/actions/admin/products";
+import { listProducts, exportProductsCsv } from "@/actions/admin/products";
 import { PageHeader } from "@/components/admin/page-header";
 import { ProductsTable } from "@/components/admin/products-table";
-import { CsvStubButtons } from "@/components/admin/csv-stub-buttons";
+import { CsvExportButton } from "@/components/admin/csv-stub-buttons";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
@@ -16,10 +16,7 @@ export default async function AdminProductsPage() {
         description="Gerencie o catálogo da loja"
         actions={
           <>
-            <CsvStubButtons
-              onExport={exportProductsCsvStub}
-              onImport={importProductsCsvStub}
-            />
+            <CsvExportButton onExport={exportProductsCsv} />
             <Button asChild>
               <Link href="/admin/produtos/novo">
                 <Plus className="mr-2 h-4 w-4" />

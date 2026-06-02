@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { CouponType, OrderStatus } from "@prisma/client";
+import { CouponType, OrderStatus, ProductStatus } from "@prisma/client";
+import { TRUST_ICON_KEYS } from "@/lib/trust-icons";
 
 export const productSchema = z.object({
   name: z.string().min(2),
@@ -9,8 +10,15 @@ export const productSchema = z.object({
   priceCents: z.coerce.number().int().min(0),
   compareCents: z.coerce.number().int().min(0).optional().nullable(),
   stock: z.coerce.number().int().min(0).default(0),
-  active: z.boolean().default(true),
+  status: z.nativeEnum(ProductStatus).default(ProductStatus.DRAFT),
   categoryId: z.string().optional().nullable(),
+});
+
+export const productImageInputSchema = z.object({
+  url: z.string().url(),
+  alt: z.string().optional().nullable(),
+  sortOrder: z.coerce.number().int().min(0),
+  isPrimary: z.boolean(),
 });
 
 export const categorySchema = z.object({
@@ -19,6 +27,32 @@ export const categorySchema = z.object({
   description: z.string().optional(),
   imageUrl: z.string().url().optional().or(z.literal("")),
   parentId: z.string().optional().nullable(),
+  sortOrder: z.coerce.number().int().default(0),
+  active: z.boolean().default(true),
+});
+
+const optionalBannerLink = z
+  .string()
+  .optional()
+  .or(z.literal(""))
+  .refine(
+    (val) => !val || val.startsWith("/") || /^https?:\/\//i.test(val),
+    "Link: use URL (https://) ou caminho (/loja)",
+  );
+
+export const bannerSchema = z.object({
+  title: z.string().min(2, "Título interno obrigatório"),
+  imageUrl: z.string().url("URL da imagem inválida"),
+  link: optionalBannerLink,
+  sortOrder: z.coerce.number().int().default(0),
+  active: z.boolean().default(true),
+});
+
+export const trustBarItemSchema = z.object({
+  title: z.string().min(2, "Título obrigatório"),
+  description: z.string().min(2, "Descrição obrigatória").max(200),
+  icon: z.enum(TRUST_ICON_KEYS, { message: "Ícone inválido" }),
+  link: optionalBannerLink,
   sortOrder: z.coerce.number().int().default(0),
   active: z.boolean().default(true),
 });
@@ -83,4 +117,15 @@ export const smtpSettingsSchema = z.object({
   user: z.string().min(1),
   password: z.string().min(1),
   from: z.string().min(1, "Remetente obrigatório"),
+});
+
+const hexColor = z
+  .string()
+  .regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, "Cor inválida (use #RRGGBB)");
+
+export const storefrontUtilitySettingsSchema = z.object({
+  message: z.string().min(1, "Mensagem obrigatória").max(500),
+  backgroundColor: hexColor,
+  textColor: hexColor,
+  link: z.string().url().optional().or(z.literal("")),
 });
