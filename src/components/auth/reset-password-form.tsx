@@ -11,7 +11,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 
 const schema = z
   .object({
@@ -42,16 +42,25 @@ export function ResetPasswordForm() {
   });
 
   useEffect(() => {
-    const supabase = createClient();
-    void supabase.auth.getUser().then(({ data: { user } }) => {
+    void (async () => {
+      const supabase = await getBrowserSupabase();
+      if (!supabase) {
+        setSessionReady(false);
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
       setSessionReady(Boolean(user));
-    });
+    })();
   }, []);
 
   async function onSubmit(values: FormValues) {
     setServerError(null);
     try {
-      const supabase = createClient();
+      const supabase = await getBrowserSupabase();
+      if (!supabase) {
+        setServerError("Autenticação não configurada. Contate o suporte.");
+        return;
+      }
       const { error } = await supabase.auth.updateUser({
         password: values.password,
       });

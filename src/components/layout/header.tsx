@@ -12,7 +12,7 @@ import type { Category } from "@/lib/types/catalog";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Phone, Search, ShoppingBag, User, X, LogOut } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -33,8 +33,8 @@ function SignOutButton({
       onClick={() => {
         onNavigate?.();
         void (async () => {
-          const supabase = createClient();
-          await supabase.auth.signOut();
+          const supabase = await getBrowserSupabase();
+          if (supabase) await supabase.auth.signOut();
           await fetch("/api/auth/logout", { method: "POST" });
           router.push("/");
           router.refresh();

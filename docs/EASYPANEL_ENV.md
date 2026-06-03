@@ -12,6 +12,9 @@ Cole no painel **Environment** do serviço da loja (uma variável por linha).
 
 ### Obrigatórias
 
+> **Importante:** `NEXT_PUBLIC_*` precisam existir no EasyPanel **antes do build/deploy**.  
+> Sem elas o site quebra no browser. Após alterar, faça **redeploy/rebuild** da app.
+
 ```env
 NODE_ENV=production
 
@@ -49,12 +52,13 @@ RUN_DB_SEED=false
 | `WHATSAPP_SERVICE_URL` | `http://whatsapp-service:4001` | Hostname interno do container WhatsApp |
 | `WHATSAPP_SERVICE_SECRET` | string aleatória 32+ chars | Você define; **igual** no WhatsApp |
 
-### Auth no Supabase (painel, não é env)
+### Auth URLs (VPS self-hosted — não aparece no Studio)
 
-**Authentication → URL configuration**
+No Studio você pode ver só **Users** / **Policies**. Configure no **`.env` do Docker do Supabase na VPS**:
 
-- **Site URL:** `https://loja.SEUDOMINIO.com.br`
-- **Redirect URLs:** `https://loja.SEUDOMINIO.com.br/auth/callback`
+`SITE_URL` + `ADDITIONAL_REDIRECT_URLS` (ver **`docs/VPS_SUPABASE_AUTH_CONFIG.md`**).
+
+Na **app** (EasyPanel), use `NEXT_PUBLIC_APP_URL` = URL da loja.
 
 ### Opcionais (e-mail, rate limit)
 

@@ -8,15 +8,15 @@ import { adminNav } from "@/components/admin/admin-nav";
 import { ThemeToggle } from "@/components/admin/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
   async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    const supabase = await getBrowserSupabase();
+    if (supabase) await supabase.auth.signOut();
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();

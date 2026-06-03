@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import type { Role } from "@prisma/client";
-import { createClient } from "@/lib/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 
 export type ClientSessionUser = {
   id: string;
@@ -49,7 +49,11 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
 
   const refresh = useCallback(async () => {
     try {
-      const supabase = createClient();
+      const supabase = await getBrowserSupabase();
+      if (!supabase) {
+        setUser(null);
+        return;
+      }
       const {
         data: { user: authUser },
       } = await supabase.auth.getUser();
@@ -78,22 +82,24 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     let mounted = true;
-    const supabase = createClient();
+    let subscription: { unsubscribe: () => void } | undefined;
 
     void (async () => {
+      const supabase = await getBrowserSupabase();
       await refresh();
       if (mounted) setLoading(false);
+      if (!supabase || !mounted) return;
+      const {
+        data: { subscription: sub },
+      } = supabase.auth.onAuthStateChange(() => {
+        void refresh();
+      });
+      subscription = sub;
     })();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void refresh();
-    });
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [refresh]);
 
