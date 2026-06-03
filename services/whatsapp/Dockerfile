@@ -8,7 +8,7 @@ WORKDIR /app
 RUN apk add --no-cache openssl libc6-compat git python3 make g++
 
 COPY services/whatsapp/package.json ./
-# prisma + tsx necessários em runtime (CMD usa tsx; generate usa prisma)
+# prisma + tsx em runtime; DATABASE_URL (PostgreSQL) via env_file — ver .env.example
 RUN npm install --no-audit --no-fund
 
 COPY prisma ./prisma

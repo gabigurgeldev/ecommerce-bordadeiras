@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { getSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { createPaymentPreference } from "@/lib/mercadopago";
 import { jsonError, parseBody } from "@/lib/api-utils";
@@ -28,7 +28,7 @@ function canAccessOrder(
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
+  const sessionUser = await getSessionUser();
 
   let body: unknown;
   try {
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   if (
     !canAccessOrder(
       order,
-      session?.user?.id,
+      sessionUser?.id,
       parsed.data.customerEmail,
     )
   ) {

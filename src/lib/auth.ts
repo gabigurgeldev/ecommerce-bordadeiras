@@ -1,5 +1,5 @@
 import type { Role } from "@prisma/client";
-import { auth as nextAuth } from "@/auth";
+import { auth as getAuthSession, type AppSessionUser } from "@/lib/auth/session";
 
 export type SessionUser = {
   id: string;
@@ -8,12 +8,12 @@ export type SessionUser = {
   role: Role;
 };
 
-/** Auth.js session when configured; otherwise null. */
+/** Supabase session + Prisma user when configured; otherwise null. */
 export async function getSession() {
   try {
-    const session = await nextAuth();
+    const session = await getAuthSession();
     if (!session?.user?.email) return null;
-    const user = session.user as SessionUser & { email: string };
+    const user = session.user as AppSessionUser;
     return {
       user: {
         id: user.id ?? "",

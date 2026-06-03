@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminApi } from "@/lib/admin-auth";
-import { buildProductImageKey, getSignedUploadUrl } from "@/lib/storage";
+import {
+  STORAGE_BUCKETS,
+  buildProductImageKey,
+  getSignedUploadUrl,
+} from "@/lib/storage";
 import { jsonError, parseBody } from "@/lib/api-utils";
 
 const schema = z.object({
@@ -23,11 +27,20 @@ export async function POST(request: Request) {
   const parsed = parseBody(schema, body);
   if (!parsed.success) return parsed.response;
 
-  const key = buildProductImageKey(parsed.data.productId, parsed.data.filename);
-  const signed = await getSignedUploadUrl({
-    key,
-    contentType: parsed.data.contentType,
-  });
+  const path = buildProductImageKey(
+    parsed.data.productId,
+    parsed.data.filename,
+  );
 
-  return NextResponse.json(signed);
+  try {
+    const signed = await getSignedUploadUrl({
+      bucket: STORAGE_BUCKETS.productImages,
+      path,
+      contentType: parsed.data.contentType,
+    });
+    return NextResponse.json(signed);
+  } catch (e) {
+    console.error("[uploads/signed]", e);
+    return jsonError("Failed to create signed upload URL", 500);
+  }
 }

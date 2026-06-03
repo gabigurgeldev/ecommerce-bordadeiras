@@ -16,8 +16,8 @@ async function fromDb(filters: ProductFilters): Promise<Product[] | null> {
         ...(filters.q
           ? {
               OR: [
-                { name: { contains: filters.q } },
-                { description: { contains: filters.q } },
+                { name: { contains: filters.q, mode: "insensitive" } },
+                { description: { contains: filters.q, mode: "insensitive" } },
               ],
             }
           : {}),

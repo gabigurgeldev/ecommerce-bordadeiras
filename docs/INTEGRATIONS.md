@@ -6,7 +6,7 @@ See `env.example` (dev) and `env.production.example` (prod). Full table: [ENV_RE
 
 - `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_APP_URL`
 - `WHATSAPP_SERVICE_URL`, `WHATSAPP_SERVICE_SECRET`
-- Mercado Pago: **Admin → Configurações** (MySQL, not env)
+- Mercado Pago: **Admin → Configurações** (banco Postgres/Supabase, not env)
 - WhatsApp destinatários: **Admin → WhatsApp** (`WhatsappRecipient` table)
 - `S3_*` (MinIO)
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (if using Google login)

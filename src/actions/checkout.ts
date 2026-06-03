@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { auth } from "@/auth";
+import { getSessionUser } from "@/lib/auth/session";
 import { resolveCheckoutLineItems } from "@/lib/checkout-items";
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/order-utils";
@@ -44,7 +44,7 @@ export async function createOrderDraft(input: CheckoutInput) {
     return { ok: false as const, error: resolved.error };
   }
 
-  const session = await auth();
+  const sessionUser = await getSessionUser();
   const { shippingCents, ...rest } = parsed.data;
   const itemsTotal = resolved.items.reduce(
     (s, i) => s + i.priceCents * i.quantity,
@@ -56,7 +56,7 @@ export async function createOrderDraft(input: CheckoutInput) {
     const order = await prisma.order.create({
       data: {
         orderNumber: generateOrderNumber(),
-        userId: session?.user?.id,
+        userId: sessionUser?.id,
         customerEmail: rest.customerEmail,
         customerName: rest.customerName,
         customerPhone: rest.customerPhone,

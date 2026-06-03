@@ -1,17 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminNav } from "@/components/admin/admin-nav";
 import { ThemeToggle } from "@/components/admin/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-card">
@@ -53,7 +62,7 @@ export function AdminSidebar() {
           variant="outline"
           size="sm"
           className="w-full justify-start gap-2"
-          onClick={() => void signOut({ callbackUrl: "/login" })}
+          onClick={() => void handleSignOut()}
         >
           <LogOut className="h-4 w-4" />
           Sair

@@ -1,10 +1,10 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { checkoutLoginAction } from "@/actions/auth/checkout-login";
 
 export function CheckoutIdentifyForm() {
   const [error, setError] = useState<string | null>(null);
@@ -15,18 +15,14 @@ export function CheckoutIdentifyForm() {
     setLoading(true);
     setError(null);
     const form = new FormData(e.currentTarget);
-    const res = await signIn("credentials", {
-      email: form.get("email") as string,
-      password: form.get("password") as string,
-      redirect: false,
-      callbackUrl: "/checkout/endereco",
-    });
-    setLoading(false);
-    if (res?.error) {
-      setError("E-mail ou senha inválidos");
-      return;
+    const email = form.get("email") as string;
+    const password = form.get("password") as string;
+
+    const result = await checkoutLoginAction(email, password);
+    if (!result.ok) {
+      setError(result.message);
+      setLoading(false);
     }
-    window.location.href = "/checkout/endereco";
   }
 
   return (

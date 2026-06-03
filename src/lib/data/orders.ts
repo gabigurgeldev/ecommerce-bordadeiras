@@ -22,7 +22,7 @@ export type OrderDetail = OrderSummary & {
   }[];
 };
 
-/** Requires authenticated userId from NextAuth — integration agent */
+/** Requires authenticated userId from Supabase session (Prisma User.id). */
 export async function getOrdersForUser(
   userId: string,
 ): Promise<OrderSummary[]> {

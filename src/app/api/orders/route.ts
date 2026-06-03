@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { getSessionUser } from "@/lib/auth/session";
 import { resolveCheckoutLineItems } from "@/lib/checkout-items";
 import { prisma } from "@/lib/prisma";
 import { sanitizeEmail, sanitizeText } from "@/lib/sanitize";
@@ -23,7 +23,7 @@ const schema = z.object({
 
 /** Create order (integration endpoint for checkout flow). */
 export async function POST(request: Request) {
-  const session = await auth();
+  const sessionUser = await getSessionUser();
 
   let body: unknown;
   try {
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   const order = await prisma.order.create({
     data: {
       orderNumber: generateOrderNumber(),
-      userId: session?.user?.id,
+      userId: sessionUser?.id,
       customerName: sanitizeText(parsed.data.customerName),
       customerEmail: sanitizeEmail(parsed.data.customerEmail),
       customerPhone: parsed.data.customerPhone

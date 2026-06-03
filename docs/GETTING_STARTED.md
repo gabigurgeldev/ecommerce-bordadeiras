@@ -5,8 +5,8 @@ Guia em português para rodar o projeto localmente no Windows (ou outro SO).
 ## Requisitos
 
 - **Node.js 20+**
-- **MySQL 8** (local, Docker ou hospedado)
-- Opcional: **Docker** para `docker compose up` (MySQL + Redis)
+- **PostgreSQL** (Supabase self-hosted, Postgres local ou Docker)
+- Opcional: **Docker** para `docker compose up` (Redis; banco via Supabase ou Postgres local)
 
 ## 1. Variáveis de ambiente
 
@@ -20,7 +20,7 @@ Edite o `.env` e configure pelo menos:
 
 | Variável | Descrição |
 |----------|-----------|
-| `DATABASE_URL` | Conexão MySQL, ex.: `mysql://root:senha@localhost:3306/bordadeiras` |
+| `DATABASE_URL` | Postgres, ex.: `postgresql://postgres:senha@supabase.bordadeiras.cloud:5432/postgres` |
 | `AUTH_SECRET` | Segredo do NextAuth — gere com `openssl rand -base64 32` |
 | `AUTH_URL` | URL da app, ex.: `http://localhost:3000` |
 | `NEXT_PUBLIC_APP_URL` | Mesma URL pública da loja |
@@ -45,11 +45,7 @@ O projeto usa **npm** (`package-lock.json`). Não há `pnpm-lock.yaml` neste rep
 
 ## 3. Banco de dados
 
-Crie o banco no MySQL (se ainda não existir):
-
-```sql
-CREATE DATABASE bordadeiras CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+O schema está em `supabase/migrations/`. Em ambiente novo, aplique essas migrations no Postgres (Studio, `supabase db push` ou MCP) antes de rodar a app.
 
 **Desenvolvimento (rápido):**
 
@@ -114,9 +110,9 @@ Use o `DATABASE_URL` e `REDIS_URL` apontando para os serviços do compose.
 
 Altere com `ADMIN_EMAIL` e `ADMIN_PASSWORD` no `.env` **antes** de rodar `npm run db:seed`.
 
-## Verificar build (sem MySQL rodando)
+## Verificar build (sem Postgres rodando)
 
-O TypeScript e o build Next não exigem MySQL ativo, mas o `prisma generate` roda no script `build`:
+O TypeScript e o build Next não exigem banco ativo, mas o `prisma generate` roda no script `build`:
 
 ```bash
 npx tsc --noEmit
@@ -125,7 +121,7 @@ npm run build
 
 ## O que só você pode resolver
 
-- **MySQL parado** — migrações, seed e páginas que consultam o banco falham em runtime; o build passa se o schema Prisma for válido.
+- **Postgres parado** — migrações, seed e páginas que consultam o banco falham em runtime; o build passa se o schema Prisma for válido.
 - **OneDrive** — bloqueios de arquivo em `node_modules` ou `.next`.
 - **Chaves de API** — Mercado Pago, SMTP, S3 e WhatsApp para funcionalidades completas em produção.
 

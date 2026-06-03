@@ -1,6 +1,6 @@
 # Ecommerce Bordadeiras
 
-Next.js 15 + React 19 + Prisma + MySQL 8 + Tailwind CSS 4 + shadcn/ui.
+Next.js 15 + React 19 + Prisma + PostgreSQL (Supabase) + Tailwind CSS 4 + shadcn/ui.
 
 ## Getting started
 
@@ -28,7 +28,7 @@ Abra [http://localhost:3000](http://localhost:3000).
 
 ### Requirements
 
-- MySQL 8.x (local Docker, PlanetScale, or managed MySQL)
+- PostgreSQL via [Supabase self-hosted](https://supabase.bordadeiras.cloud) (ou Postgres local)
 - Node.js 20+
 
 ### 1. Configure connection
@@ -36,14 +36,13 @@ Abra [http://localhost:3000](http://localhost:3000).
 Copy `env.example` to `.env` and set:
 
 ```env
-DATABASE_URL="mysql://USER:PASSWORD@localhost:3306/bordadeiras"
+DATABASE_URL="postgresql://postgres:PASSWORD@supabase.bordadeiras.cloud:5432/postgres"
+NEXT_PUBLIC_SUPABASE_URL=https://supabase.bordadeiras.cloud
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-Create the database if it does not exist:
-
-```sql
-CREATE DATABASE bordadeiras CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+Connection string: Supabase Studio → **Database** → Connection string (URI). Ver também [docs/MIGRACAO_SUPABASE.md](docs/MIGRACAO_SUPABASE.md).
 
 ### 2. Apply schema
 

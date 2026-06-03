@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CheckoutSteps } from "@/components/checkout/checkout-steps";
 import { CheckoutIdentifyForm } from "@/components/checkout/checkout-identify-form";
-import { auth } from "@/auth";
+import { getSessionUser } from "@/lib/auth/session";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { redirect } from "next/navigation";
 
@@ -12,8 +12,8 @@ export const metadata = buildMetadata({
 });
 
 export default async function CheckoutLoginPage() {
-  const session = await auth();
-  if (session?.user) {
+  const sessionUser = await getSessionUser();
+  if (sessionUser) {
     redirect("/checkout/endereco");
   }
 

@@ -7,15 +7,15 @@ function imageRemotePatterns() {
     { protocol: "http", hostname: "127.0.0.1", pathname: "/**" },
   ];
 
-  for (const raw of [process.env.S3_PUBLIC_URL, process.env.S3_ENDPOINT]) {
-    if (!raw) continue;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (supabaseUrl) {
     try {
-      const { protocol, hostname } = new URL(raw);
+      const { protocol, hostname } = new URL(supabaseUrl);
       if (hostname && (protocol === "http:" || protocol === "https:")) {
         patterns.push({
           protocol: protocol.replace(":", "") as "http" | "https",
           hostname,
-          pathname: "/**",
+          pathname: "/storage/v1/object/public/**",
         });
       }
     } catch {

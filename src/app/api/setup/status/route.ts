@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-auth";
 import { readAdminEnv } from "@/lib/admin-bootstrap";
 import { jsonError } from "@/lib/api-utils";
+import { isSupabaseAuthConfigured } from "@/lib/auth/env";
 import { prisma } from "@/lib/prisma";
 
 /** Diagnóstico rápido de deploy (sem expor senhas). */
@@ -26,8 +27,10 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    authSecretSet: Boolean(process.env.AUTH_SECRET?.trim()),
-    authUrl: process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? null,
+    supabaseAuthConfigured: isSupabaseAuthConfigured(),
+    supabaseUrlSet: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()),
+    supabaseAnonKeySet: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
+    supabaseServiceRoleKeySet: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
     databaseUrlSet: Boolean(process.env.DATABASE_URL?.trim()),
     adminEmailConfigured: adminEnv.email,
     adminInDatabase: adminInDb,

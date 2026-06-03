@@ -3,14 +3,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Check, Eye, EyeOff, Loader2, Lock } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { createClient } from "@/lib/supabase/client";
 
 const schema = z
   .object({
@@ -25,12 +26,11 @@ const schema = z
 type FormValues = z.infer<typeof schema>;
 
 export function ResetPasswordForm() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get("token") ?? "";
   const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [sessionReady, setSessionReady] = useState<boolean | null>(null);
 
   const {
     register,
@@ -41,50 +41,41 @@ export function ResetPasswordForm() {
     defaultValues: { password: "", confirm: "" },
   });
 
-  async function onSubmit(values: FormValues) {
-    if (!token || token.length < 32) {
-      setServerError("Link inválido ou expirado. Solicite uma nova recuperação de senha.");
-      return;
-    }
+  useEffect(() => {
+    const supabase = createClient();
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      setSessionReady(Boolean(user));
+    });
+  }, []);
 
+  async function onSubmit(values: FormValues) {
     setServerError(null);
     try {
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-csrf-token": csrfToken,
-        },
-        body: JSON.stringify({
-          token,
-          password: values.password,
-        }),
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({
+        password: values.password,
       });
 
-      if (res.ok) {
-        setSuccess(true);
+      if (error) {
+        setServerError(
+          error.message.includes("session")
+            ? "Link inválido ou expirado. Solicite uma nova recuperação de senha."
+            : error.message,
+        );
         return;
       }
 
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (res.status === 429) {
-        setServerError("Muitas tentativas. Aguarde alguns minutos.");
-      } else {
-        setServerError(data?.error ?? "Link inválido ou expirado.");
-      }
+      setSuccess(true);
     } catch {
       setServerError("Erro de conexão. Tente novamente.");
     }
   }
 
-  if (!token) {
+  if (sessionReady === false) {
     return (
       <AuthShell title="Link inválido" subtitle="Solicite uma nova recuperação">
         <p className="text-center text-sm text-[var(--foreground)]/80">
-          Este link de redefinição de senha não é válido. Peça um novo e-mail em
+          Este link de redefinição de senha não é válido ou expirou. Peça um novo e-mail em
           &quot;Esqueci minha senha&quot;.
         </p>
         <Button className="mt-6 w-full" asChild>
@@ -108,6 +99,14 @@ export function ResetPasswordForm() {
             Ir para o login
           </Button>
         </div>
+      </AuthShell>
+    );
+  }
+
+  if (sessionReady === null) {
+    return (
+      <AuthShell title="Nova senha" subtitle="Carregando…">
+        <p className="text-center text-sm text-[var(--muted-foreground)]">Aguarde…</p>
       </AuthShell>
     );
   }

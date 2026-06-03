@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "url": "https://supabase.bordadeiras.cloud/mcp?read_only=true&features=docs%2Cdatabase%2Cdebugging%2Cdevelopment"
+    }
+  }
+}

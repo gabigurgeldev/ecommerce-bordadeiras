@@ -1,4 +1,5 @@
 # Desenvolvimento local — publica portas no host. Em VPS use docker-compose.prod.yml
+# Banco: Supabase self-hosted (DATABASE_URL no .env) — https://supabase.bordadeiras.cloud
 services:
   app:
     build:
@@ -8,32 +9,12 @@ services:
       - "3000:3000"
     env_file: .env
     depends_on:
-      mysql:
-        condition: service_healthy
       redis:
         condition: service_started
       minio:
         condition: service_started
       whatsapp-service:
         condition: service_started
-    restart: unless-stopped
-
-  mysql:
-    image: mysql:8.4
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-bordadeiras}
-      MYSQL_USER: ${MYSQL_USER:-bordadeiras}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-bordadeiras}
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: unless-stopped
 
   redis:
@@ -64,9 +45,6 @@ services:
     ports:
       - "4001:4001"
     env_file: .env
-    depends_on:
-      mysql:
-        condition: service_healthy
     volumes:
       - whatsapp_auth:/app/data/auth
     restart: unless-stopped
@@ -82,7 +60,6 @@ services:
   #   restart: unless-stopped
 
 volumes:
-  mysql_data:
   redis_data:
   minio_data:
   whatsapp_auth:

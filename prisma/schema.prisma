@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -76,10 +76,11 @@ enum AuditAction {
   IMPORT
 }
 
-// ─── Auth (NextAuth) ─────────────────────────────────────────────────────────
+// ─── Auth (Supabase Auth + Prisma User) ─────────────────────────────────────
 
 model User {
   id            String    @id @default(cuid())
+  authUserId    String?   @unique @db.Uuid
   name          String?
   email         String    @unique
   emailVerified DateTime?
@@ -362,7 +363,7 @@ model BlogPost {
   title          String
   slug           String    @unique
   excerpt        String?   @db.Text
-  content        String    @db.LongText
+  content        String    @db.Text
   coverImage     String?
   published      Boolean   @default(false)
   publishedAt    DateTime?
@@ -416,7 +417,7 @@ model EmailTemplate {
   key       String   @unique
   name      String
   subject   String
-  htmlBody  String   @db.LongText
+  htmlBody  String   @db.Text
   textBody  String?  @db.Text
   active    Boolean  @default(true)
   createdAt DateTime @default(now())

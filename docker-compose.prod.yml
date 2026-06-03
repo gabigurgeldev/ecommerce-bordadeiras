@@ -2,38 +2,17 @@
 # Uso: cp env.production.example .env && edite senhas → docker compose -f docker-compose.prod.yml up -d
 #
 # Hostnames na rede Docker (use no .env da app e do whatsapp-service):
-#   mysql              → porta 3306
 #   redis              → porta 6379
 #   minio              → API 9000, console 9001
 #   whatsapp-service   → porta 4001
 #   app                → porta 3000 (perfil "app"; omita se a loja rodar só no EasyPanel)
 #
-# AVISO: MySQL e Redis NÃO publicam portas no host. Não mapeie 3306/6379 para 0.0.0.0 em produção.
+# Banco: Supabase self-hosted (fora do compose) — https://supabase.bordadeiras.cloud
+# AVISO: Redis NÃO publica portas no host. Não mapeie 6379 para 0.0.0.0 em produção.
 
 name: bordadeiras-prod
 
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: bordadeiras-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-bordadeiras}
-      MYSQL_USER: ${MYSQL_USER:-bordadeiras}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - bordadeiras
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
-    # Sem ports: — acesso apenas na rede Docker
-
   redis:
     image: redis:7-alpine
     container_name: bordadeiras-redis
@@ -82,9 +61,6 @@ services:
       - whatsapp_auth:/app/data/auth
     networks:
       - bordadeiras
-    depends_on:
-      mysql:
-        condition: service_healthy
     expose:
       - "4001"
     healthcheck:
@@ -112,8 +88,6 @@ services:
     networks:
       - bordadeiras
     depends_on:
-      mysql:
-        condition: service_healthy
       redis:
         condition: service_healthy
       minio:
@@ -149,7 +123,6 @@ networks:
     driver: bridge
 
 volumes:
-  mysql_data:
   redis_data:
   minio_data:
   whatsapp_auth:

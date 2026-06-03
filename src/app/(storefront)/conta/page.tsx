@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { getSessionUser } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { prisma } from "@/lib/prisma";
@@ -11,10 +11,10 @@ export const metadata = buildMetadata({
 });
 
 export default async function ContaPerfilPage() {
-  const session = await auth();
-  const user = session?.user?.id
+  const sessionUser = await getSessionUser();
+  const user = sessionUser?.id
     ? await prisma.user.findUnique({
-        where: { id: session.user.id },
+        where: { id: sessionUser.id },
         select: { name: true, email: true, phone: true },
       })
     : null;
@@ -37,7 +37,7 @@ export default async function ContaPerfilPage() {
           <Input
             name="email"
             type="email"
-            defaultValue={user?.email ?? session?.user?.email ?? ""}
+            defaultValue={user?.email ?? sessionUser?.email ?? ""}
             readOnly
           />
         </div>

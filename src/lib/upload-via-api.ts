@@ -1,4 +1,4 @@
-/** Upload de imagem via servidor (MinIO interno) — funciona em produção/EasyPanel. */
+/** Upload de imagem via servidor (Supabase Storage, service role). */
 export async function uploadImageViaApi(
   file: File,
   kind: "product" | "banner",

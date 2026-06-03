@@ -18,11 +18,10 @@ NEXT_PUBLIC_APP_URL=${LOJA_URL}
 NEXT_PUBLIC_SITE_URL=${LOJA_URL}
 AUTH_URL=${LOJA_URL}
 
-MYSQL_DATABASE=bordadeiras
-MYSQL_USER=bordadeiras
-MYSQL_ROOT_PASSWORD=[gere senha forte]
-MYSQL_PASSWORD=[gere senha forte]
-DATABASE_URL=mysql://bordadeiras:SENHA_AQUI@mysql:3306/bordadeiras
+DATABASE_URL=postgresql://postgres:SENHA_AQUI@supabase.bordadeiras.cloud:5432/postgres
+NEXT_PUBLIC_SUPABASE_URL=https://supabase.bordadeiras.cloud
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 
 REDIS_URL=redis://redis:6379
 
@@ -37,7 +36,8 @@ WHATSAPP_SERVICE_URL=http://whatsapp-service:4001
 WHATSAPP_SERVICE_SECRET=[openssl rand -base64 32]
 
 AUTH_SECRET=[openssl rand -base64 32]
-# Mercado Pago: Admin -> Configuracoes (MySQL)
+# Mercado Pago: Admin -> Configuracoes (Postgres)
+# whatsapp-service: mesma DATABASE_URL + WHATSAPP_SERVICE_SECRET
 # Destinatarios WhatsApp: Admin -> WhatsApp
 ADMIN_EMAIL=admin@${DOMAIN}
 ADMIN_PASSWORD=[altere antes do seed]

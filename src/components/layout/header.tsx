@@ -3,6 +3,7 @@
 import { Logo } from "@/components/brand/logo";
 import { CategoryNavBar, type CategoryPreview } from "@/components/layout/category-nav-bar";
 import { CartBadge } from "@/components/providers/cart-badge";
+import { useSession } from "@/components/providers/session-provider";
 import { StoreSearchForm } from "@/components/shop/store-search-form";
 import { Button } from "@/components/ui/button";
 import type { StorefrontUtilitySettings } from "@/lib/data/storefront-settings";
@@ -11,9 +12,9 @@ import type { Category } from "@/lib/types/catalog";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Phone, Search, ShoppingBag, User, X, LogOut } from "lucide-react";
-import { signOut, useSession } from "next-auth/react";
+import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FaWhatsapp } from "react-icons/fa";
 
@@ -24,12 +25,20 @@ function SignOutButton({
   className?: string;
   onNavigate?: () => void;
 }) {
+  const router = useRouter();
+
   return (
     <button
       type="button"
       onClick={() => {
         onNavigate?.();
-        void signOut({ callbackUrl: "/" });
+        void (async () => {
+          const supabase = createClient();
+          await supabase.auth.signOut();
+          await fetch("/api/auth/logout", { method: "POST" });
+          router.push("/");
+          router.refresh();
+        })();
       }}
       className={cn(
         "inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-[var(--color-brown)] transition hover:bg-[var(--color-brown)]/8",

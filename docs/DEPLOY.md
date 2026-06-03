@@ -1,6 +1,6 @@
 # Deploy — Hostinger VPS + EasyPanel
 
-> **Guia completo:** [VPS_SETUP.md](./VPS_SETUP.md) (domínios, Docker, MySQL, MinIO, WhatsApp, firewall, SSL).  
+> **Guia completo:** [VPS_SETUP.md](./VPS_SETUP.md) (domínios, Docker, Supabase, MinIO, WhatsApp, firewall, SSL).  
 > **Variáveis:** [ENV_REFERENCE.md](./ENV_REFERENCE.md) · **Exemplo produção:** `env.production.example` · **Compose:** `docker-compose.prod.yml`
 
 Checklist resumido para publicar o Ecommerce Bordadeiras em VPS Hostinger usando [EasyPanel](https://easypanel.io).
@@ -23,12 +23,13 @@ Acesse `http://SEU_IP:3000` (porta padrão do painel) e crie o projeto `bordadei
 
 Crie os serviços abaixo (Docker Compose ou apps individuais).
 
-### MySQL 8
+### Supabase (PostgreSQL)
 
-- Imagem: `mysql:8.4`
-- Variáveis: `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`
-- Volume persistente
-- Anote a URL interna: `mysql://USER:PASS@mysql:3306/bordadeiras`
+- Self-hosted: [https://supabase.bordadeiras.cloud](https://supabase.bordadeiras.cloud)
+- Variáveis na app: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- URI: Studio → **Database** → Connection string
+- Exemplo: `postgresql://postgres:PASS@supabase.bordadeiras.cloud:5432/postgres`
+- Migrations Supabase: `supabase/migrations/` ou `npx prisma migrate deploy` na app
 
 ### Redis 7
 
@@ -60,11 +61,13 @@ Crie os serviços abaixo (Docker Compose ou apps individuais).
 
 | Variável | Exemplo |
 |----------|---------|
-| `DATABASE_URL` | `mysql://...@mysql:3306/bordadeiras` |
+| `DATABASE_URL` | `postgresql://postgres:***@supabase.bordadeiras.cloud:5432/postgres` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://supabase.bordadeiras.cloud` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Studio → Settings → API (server-only) |
 | `AUTH_SECRET` | string aleatória 32+ chars |
 | `AUTH_URL` | `https://loja.seudominio.com` |
 | `NEXT_PUBLIC_APP_URL` | idem |
-| Mercado Pago | Admin → Configurações (MySQL) |
+| Mercado Pago | Admin → Configurações (Postgres) |
 | `WHATSAPP_SERVICE_URL` | `http://whatsapp-service:4001` |
 | `S3_ENDPOINT` | URL interna MinIO |
 | `REDIS_URL` | `redis://redis:6379` |

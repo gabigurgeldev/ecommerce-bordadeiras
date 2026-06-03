@@ -6,7 +6,7 @@ Guia passo a passo para publicar o **Ecommerce Bordadeiras** em produção com D
 
 | Arquivo | Uso |
 |---------|-----|
-| `docker-compose.prod.yml` | Infra na VPS (MySQL, Redis, MinIO, WhatsApp) |
+| `docker-compose.prod.yml` | Infra na VPS (Redis, MinIO, WhatsApp) — banco no Supabase |
 | `env.production.example` | Modelo de `.env` com URLs internas e públicas |
 | `docs/ENV_REFERENCE.md` | Tabela de todas as variáveis |
 | `docs/DEPLOY.md` | Checklist resumido pós-deploy |
@@ -37,7 +37,7 @@ Preencha com seu domínio base. Exemplo com **`bordadeiras.com.br`**:
 | `storage.bordadeiras.com.br` | MinIO API (S3) | Sim (HTTPS) | `S3_PUBLIC_URL` |
 | `console.storage...` *(opcional)* | MinIO Console | Sim, **restrinja IP** | Admin MinIO |
 | `whatsapp.bordadeiras.com.br` | Baileys HTTP | Opcional | Prefira **só rede interna** |
-| — | MySQL 8 | **Não** | `DATABASE_URL` → host `mysql` |
+| — | Supabase (Postgres) | HTTPS (Studio/API) | `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_*` |
 | — | Redis 7 | **Não** | `REDIS_URL` → host `redis` |
 
 ### DNS (exemplo)
@@ -48,19 +48,20 @@ Preencha com seu domínio base. Exemplo com **`bordadeiras.com.br`**:
 | A | `storage` | `IP_DA_VPS` |
 | A | `whatsapp` | `IP_DA_VPS` *(opcional)* |
 
-Não crie DNS público para MySQL ou Redis.
+Não crie DNS público para Redis. O Postgres fica no Supabase (`supabase.bordadeiras.cloud`).
 
 ### Hostnames na rede Docker
 
 Quando os containers estão no mesmo `docker-compose.prod.yml`, use:
 
 ```
-mysql:3306
 redis:6379
 minio:9000
 whatsapp-service:4001
 app:3000
 ```
+
+Banco (fora do compose): `supabase.bordadeiras.cloud:5432`
 
 Rede criada pelo compose: **`bordadeiras_internal`**.
 
@@ -92,7 +93,7 @@ Recomendado para controle total da stack.
 
 ### Opção B — Tudo pelo EasyPanel (UI)
 
-Crie cada serviço manualmente no painel (MySQL, Redis, MinIO, WhatsApp, App). Use as mesmas imagens/comandos do `docker-compose.prod.yml` e as variáveis de `env.production.example`.
+Crie cada serviço manualmente no painel (Redis, MinIO, WhatsApp, App). Banco em Supabase self-hosted. Use as mesmas imagens/comandos do `docker-compose.prod.yml` e as variáveis de `env.production.example`.
 
 ---
 
@@ -136,28 +137,24 @@ Na app, use URLs internas da **Seção B** de `env.production.example`.
 
 ---
 
-## 5. MySQL 8
+## 5. Supabase (PostgreSQL)
 
-### Via compose (`docker-compose.prod.yml`)
+O banco **não** roda no `docker-compose.prod.yml`. Use o Supabase self-hosted:
 
-Já configurado com volume `mysql_data`, healthcheck e **sem** porta publicada no host.
+- URL: [https://supabase.bordadeiras.cloud](https://supabase.bordadeiras.cloud)
+- Studio → **Database** → Connection string (URI) para `DATABASE_URL`
+- Studio → **Settings** → **API** para `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY`
 
-Variáveis no `.env`:
+Variáveis no `.env` (app e whatsapp-service):
 
 ```env
-MYSQL_ROOT_PASSWORD=...
-MYSQL_DATABASE=bordadeiras
-MYSQL_USER=bordadeiras
-MYSQL_PASSWORD=...
-DATABASE_URL=mysql://bordadeiras:SENHA@mysql:3306/bordadeiras
+DATABASE_URL=postgresql://postgres:SENHA@supabase.bordadeiras.cloud:5432/postgres
+NEXT_PUBLIC_SUPABASE_URL=https://supabase.bordadeiras.cloud
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-### Via EasyPanel
-
-1. **Add Service** → **MySQL** → imagem `mysql:8.4`.
-2. Defina database `bordadeiras`, usuário e senhas.
-3. Volume persistente obrigatório.
-4. **Não** publique a porta 3306 na internet.
+Guia de cutover: [MIGRACAO_SUPABASE.md](./MIGRACAO_SUPABASE.md).
 
 ### Migrations e seed
 
@@ -237,7 +234,7 @@ S3_BUCKET=bordadeiras-uploads
 Variáveis no serviço **whatsapp**:
 
 ```env
-DATABASE_URL=mysql://bordadeiras:SENHA@NOME_SERVICO_MYSQL:3306/bordadeiras
+DATABASE_URL=postgresql://postgres:SENHA@supabase.bordadeiras.cloud:5432/postgres
 WHATSAPP_SERVICE_SECRET=mesmo_secret_da_app
 PORT=4001
 ```
@@ -257,7 +254,7 @@ Substitua `NOME_SERVICO_WHATSAPP` pelo nome do serviço no EasyPanel (ex.: `ecom
 
 1. Acesse `https://loja.seudominio.com.br/admin/whatsapp`.
 2. **QR:** escaneie com o número que **envia** as mensagens.
-3. **Destinatários:** cadastre manualmente os números que **recebem** alertas (salvos no MySQL).
+3. **Destinatários:** cadastre manualmente os números que **recebem** alertas (salvos no Postgres).
 4. **Novo número:** use “Novo número (logout)” para gerar outro QR.
 
 ### Expor `whatsapp.seudominio.com.br`?
@@ -278,9 +275,9 @@ Substitua `NOME_SERVICO_WHATSAPP` pelo nome do serviço no EasyPanel (ex.: `ecom
 Copie de `env.production.example` — **Seções A e C**:
 
 - URLs públicas: `https://loja.seudominio.com.br`
-- URLs internas: `mysql`, `redis`, `minio`, `whatsapp-service`
-- `AUTH_SECRET`, SMTP, etc.
-- **Mercado Pago:** Admin → Configurações (MySQL), não variáveis `MERCADOPAGO_*` no env
+- URLs internas: `redis`, `minio`, `whatsapp-service`; banco: `supabase.bordadeiras.cloud`
+- `AUTH_SECRET`, SMTP, `DATABASE_URL`, Supabase keys, etc.
+- **Mercado Pago:** Admin → Configurações (Postgres), não variáveis `MERCADOPAGO_*` no env
 
 ### Domínio e SSL
 
@@ -322,7 +319,7 @@ Descomente `postal` em `docker-compose.prod.yml` ou instale Postal como app sepa
 |------|-------|
 | Webhook URL | `https://loja.seudominio.com.br/api/webhooks/mercadopago` |
 | Eventos | `payment` |
-| Credenciais | Admin → **Configurações → Mercado Pago** (MySQL). Webhook secret também no painel admin. |
+| Credenciais | Admin → **Configurações → Mercado Pago** (Postgres). Webhook secret também no painel admin. |
 
 Não é obrigatório subdomínio `api.*` — a API fica em `/api` na mesma loja.
 
@@ -353,7 +350,7 @@ ufw enable
 
 **Não** abra `3306`, `6379`, `9000`, `4001` para `0.0.0.0` em produção.
 
-O `docker-compose.yml` de **desenvolvimento** publica MySQL/Redis — **não** use esse arquivo em VPS pública; use `docker-compose.prod.yml`.
+O `docker-compose.yml` de **desenvolvimento** publica Redis no host — **não** use esse arquivo em VPS pública; use `docker-compose.prod.yml`. Banco sempre no Supabase.
 
 ---
 
@@ -395,7 +392,7 @@ No fluxo normal do EasyPanel, configure domínios pela **UI** — labels são op
 - [ ] Upload de imagem (MinIO / URL assinada)
 - [ ] E-mail de teste (cadastro ou pedido)
 - [ ] WhatsApp conectado (QR) e notificação de pedido teste
-- [ ] MySQL/Redis **não** acessíveis de fora (`nmap IP` nas portas 3306/6379)
+- [ ] Redis **não** acessível de fora (`nmap IP` na porta 6379); Postgres só via Supabase HTTPS
 
 ---
 
@@ -416,8 +413,8 @@ docker exec -it CONTAINER_APP npx --yes prisma@6 migrate deploy
 
 | Sintoma | Verificação |
 |---------|-------------|
-| 502 na loja | Logs do container app; `DATABASE_URL` com host `mysql` |
-| App não alcança MySQL | App na rede `bordadeiras_internal`? |
+| 502 na loja | Logs do container app; `DATABASE_URL` apontando para `supabase.bordadeiras.cloud` |
+| App não alcança Postgres | Firewall/VPS alcança `supabase.bordadeiras.cloud:5432`? URI correta no Studio? |
 | Webhook MP 401 | Webhook secret em Admin → Configurações e header `x-signature` |
 | Imagens quebradas | `S3_PUBLIC_URL` com HTTPS; bucket existe |
 | WhatsApp 401 | `WHATSAPP_SERVICE_SECRET` igual na app e no serviço |
@@ -433,9 +430,10 @@ NODE_ENV=production
 NEXT_PUBLIC_APP_URL=https://loja.bordadeiras.com.br
 AUTH_URL=https://loja.bordadeiras.com.br
 
-MYSQL_ROOT_PASSWORD=***
-MYSQL_PASSWORD=***
-DATABASE_URL=mysql://bordadeiras:***@mysql:3306/bordadeiras
+DATABASE_URL=postgresql://postgres:***@supabase.bordadeiras.cloud:5432/postgres
+NEXT_PUBLIC_SUPABASE_URL=https://supabase.bordadeiras.cloud
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 
 REDIS_URL=redis://redis:6379
 

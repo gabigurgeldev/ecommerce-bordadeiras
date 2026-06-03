@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { hasAdminAccess } from "@/lib/admin-access";
 
 export type AdminActor = {
@@ -17,7 +17,7 @@ export async function getAdminActor(): Promise<AdminActor | null> {
   return {
     id: user.id || "",
     email: user.email,
-    role: (user.role as Role) ?? Role.USER,
+    role: user.role ?? Role.USER,
   };
 }
 

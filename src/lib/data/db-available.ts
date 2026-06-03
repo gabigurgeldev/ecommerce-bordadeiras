@@ -3,13 +3,13 @@ import { prisma } from "@/lib/prisma";
 const CHECK_TIMEOUT_MS = 1_500;
 
 export const DATABASE_UNAVAILABLE_MESSAGE =
-  "Banco de dados indisponível. Verifique se o MySQL está em execução.";
+  "Banco de dados indisponível. Verifique se o PostgreSQL está acessível e se DATABASE_URL está correta.";
 
 let cached: boolean | undefined;
 let inflight: Promise<boolean> | null = null;
 
 /**
- * Fast, cached check used in dev/preview when MySQL may be offline.
+ * Fast, cached check used in dev/preview when the database may be offline.
  * Avoids stacking Prisma connection timeouts on every layout render.
  */
 export async function isDatabaseAvailable(): Promise<boolean> {

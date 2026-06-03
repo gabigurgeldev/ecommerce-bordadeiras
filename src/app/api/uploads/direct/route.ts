@@ -3,7 +3,8 @@ import { requireAdminApi } from "@/lib/admin-auth";
 import {
   buildBannerImageKey,
   buildProductImageKey,
-  uploadBuffer,
+  bucketForKind,
+  uploadFile,
 } from "@/lib/storage";
 import { jsonError } from "@/lib/api-utils";
 
@@ -45,19 +46,22 @@ export async function POST(request: Request) {
     return jsonError("File too large (max 8MB)", 400);
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const key =
+  const bucket = bucketForKind(kind);
+  const path =
     kind === "product"
       ? buildProductImageKey(entityId, file.name)
       : buildBannerImageKey(entityId, file.name);
 
+  const buffer = Buffer.from(await file.arrayBuffer());
+
   try {
-    const publicUrl = await uploadBuffer({
-      key,
+    const publicUrl = await uploadFile({
+      bucket,
+      path,
       body: buffer,
       contentType: file.type,
     });
-    return NextResponse.json({ publicUrl, key });
+    return NextResponse.json({ publicUrl, key: path, bucket });
   } catch (e) {
     console.error("[uploads/direct]", e);
     return jsonError("Upload failed", 500);
