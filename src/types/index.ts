@@ -9,4 +9,4 @@ export type {
   NotificationType,
   TrackingStatus,
   CouponType,
-} from "@prisma/client";
+} from "@/lib/types/database";

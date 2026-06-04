@@ -57,9 +57,6 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  outputFileTracingIncludes: {
-    "/*": ["./node_modules/.prisma/client/**/*"],
-  },
   poweredByHeader: false,
   images: {
     remotePatterns: imageRemotePatterns(),

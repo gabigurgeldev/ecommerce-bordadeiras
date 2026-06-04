@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import type { StorefrontTrustItem } from "@prisma/client";
+import type { StorefrontTrustItem } from "@/lib/types/database";
 import type { z } from "zod";
 import { upsertTrustBarItem } from "@/actions/admin/trust-bar";
 import { trustBarItemSchema } from "@/lib/validations/admin";

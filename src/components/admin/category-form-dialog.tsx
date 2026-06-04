@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { Category } from "@prisma/client";
+import type { Category } from "@/lib/types/database";
 import type { z } from "zod";
 
 type FormValues = z.infer<typeof categorySchema>;

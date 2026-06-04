@@ -1,33 +1,52 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { blogCategorySchema, blogPostSchema, blogTagSchema } from "@/lib/validations/admin";
 import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listBlogPosts() {
-  return withAdminRead(() =>
-    prisma.blogPost.findMany({
-      include: { category: true, tags: { include: { tag: true } } },
-      orderBy: { updatedAt: "desc" },
-    }),
-  );
+  return withAdminRead(async () => {
+    const { data, error } = await getDb()
+      .from(TABLES.BlogPost)
+      .select("*, BlogCategory(*), BlogPostTag(*, BlogTag(*))")
+      .order("updatedAt", { ascending: false });
+    if (error) throw error;
+    return data ?? [];
+  });
 }
 
 export async function listBlogCategories() {
-  return withAdminRead(() => prisma.blogCategory.findMany({ orderBy: { name: "asc" } }));
+  return withAdminRead(async () => {
+    const { data, error } = await getDb()
+      .from(TABLES.BlogCategory)
+      .select("*")
+      .order("name", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  });
 }
 
 export async function listBlogTags() {
-  return withAdminRead(() => prisma.blogTag.findMany({ orderBy: { name: "asc" } }));
+  return withAdminRead(async () => {
+    const { data, error } = await getDb()
+      .from(TABLES.BlogTag)
+      .select("*")
+      .order("name", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  });
 }
 
 export async function getBlogPost(id: string) {
-  return withAdminRead(() =>
-    prisma.blogPost.findUnique({
-      where: { id },
-      include: { category: true, tags: { include: { tag: true } } },
-    }),
-  );
+  return withAdminRead(async () => {
+    const { data, error } = await getDb()
+      .from(TABLES.BlogPost)
+      .select("*, BlogCategory(*), BlogPostTag(*, BlogTag(*))")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  });
 }
 
 export async function upsertBlogPost(data: unknown, id?: string): Promise<ActionResult<{ id: string }>> {
@@ -35,6 +54,8 @@ export async function upsertBlogPost(data: unknown, id?: string): Promise<Action
     const parsed = blogPostSchema.safeParse(data);
     if (!parsed.success) return { success: false, error: parsed.error.flatten().formErrors.join(", ") };
 
+    const db = getDb();
+    const now = new Date().toISOString();
     const { tagIds, ...rest } = parsed.data;
     const postData = {
       title: rest.title,
@@ -43,38 +64,52 @@ export async function upsertBlogPost(data: unknown, id?: string): Promise<Action
       content: rest.content,
       coverImage: rest.coverImage || null,
       published: rest.published,
-      publishedAt: rest.published ? new Date() : null,
+      publishedAt: rest.published ? now : null,
       seoTitle: rest.seoTitle ?? null,
       seoDescription: rest.seoDescription ?? null,
       categoryId: rest.categoryId || null,
+      updatedAt: now,
     };
 
-    const post = id
-      ? await prisma.blogPost.update({ where: { id }, data: postData })
-      : await prisma.blogPost.create({ data: postData });
+    let postId = id;
+    if (id) {
+      const { error } = await db.from(TABLES.BlogPost).update(postData).eq("id", id);
+      if (error) return { success: false, error: error.message };
+    } else {
+      postId = newId();
+      const { error } = await db.from(TABLES.BlogPost).insert({
+        id: postId,
+        ...postData,
+        createdAt: now,
+      });
+      if (error) return { success: false, error: error.message };
+    }
 
     if (tagIds) {
-      await prisma.blogPostTag.deleteMany({ where: { postId: post.id } });
+      await db.from(TABLES.BlogPostTag).delete().eq("postId", postId!);
       if (tagIds.length) {
-        await prisma.blogPostTag.createMany({
-          data: tagIds.map((tagId) => ({ postId: post.id, tagId })),
-        });
+        await db.from(TABLES.BlogPostTag).insert(
+          tagIds.map((tagId) => ({ postId: postId!, tagId })),
+        );
       }
     }
 
     await auditMutation(actor, {
       action: id ? "UPDATE" : "CREATE",
       entity: "BlogPost",
-      entityId: post.id,
+      entityId: postId!,
     });
     revalidateAdmin(["/admin/blog"]);
-    return { success: true, data: { id: post.id } };
+    return { success: true, data: { id: postId! } };
   });
 }
 
 export async function deleteBlogPost(id: string): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await prisma.blogPost.delete({ where: { id } });
+    const db = getDb();
+    await db.from(TABLES.BlogPostTag).delete().eq("postId", id);
+    const { error } = await db.from(TABLES.BlogPost).delete().eq("id", id);
+    if (error) return { success: false, error: error.message };
     await auditMutation(actor, { action: "DELETE", entity: "BlogPost", entityId: id });
     revalidateAdmin(["/admin/blog"]);
     return { success: true };
@@ -85,12 +120,28 @@ export async function upsertBlogCategory(data: unknown, id?: string): Promise<Ac
   return withAdmin(async (actor) => {
     const parsed = blogCategorySchema.safeParse(data);
     if (!parsed.success) return { success: false, error: "Dados inválidos" };
-    const row = id
-      ? await prisma.blogCategory.update({ where: { id }, data: parsed.data })
-      : await prisma.blogCategory.create({ data: parsed.data });
-    await auditMutation(actor, { action: id ? "UPDATE" : "CREATE", entity: "BlogCategory", entityId: row.id });
+    const db = getDb();
+    const now = new Date().toISOString();
+    let rowId = id;
+    if (id) {
+      const { error } = await db
+        .from(TABLES.BlogCategory)
+        .update({ ...parsed.data, updatedAt: now })
+        .eq("id", id);
+      if (error) return { success: false, error: error.message };
+    } else {
+      rowId = newId();
+      const { error } = await db.from(TABLES.BlogCategory).insert({
+        id: rowId,
+        ...parsed.data,
+        createdAt: now,
+        updatedAt: now,
+      });
+      if (error) return { success: false, error: error.message };
+    }
+    await auditMutation(actor, { action: id ? "UPDATE" : "CREATE", entity: "BlogCategory", entityId: rowId! });
     revalidateAdmin(["/admin/blog"]);
-    return { success: true, data: { id: row.id } };
+    return { success: true, data: { id: rowId! } };
   });
 }
 
@@ -98,11 +149,23 @@ export async function upsertBlogTag(data: unknown, id?: string): Promise<ActionR
   return withAdmin(async (actor) => {
     const parsed = blogTagSchema.safeParse(data);
     if (!parsed.success) return { success: false, error: "Dados inválidos" };
-    const row = id
-      ? await prisma.blogTag.update({ where: { id }, data: parsed.data })
-      : await prisma.blogTag.create({ data: parsed.data });
-    await auditMutation(actor, { action: id ? "UPDATE" : "CREATE", entity: "BlogTag", entityId: row.id });
+    const db = getDb();
+    const now = new Date().toISOString();
+    let rowId = id;
+    if (id) {
+      const { error } = await db.from(TABLES.BlogTag).update(parsed.data).eq("id", id);
+      if (error) return { success: false, error: error.message };
+    } else {
+      rowId = newId();
+      const { error } = await db.from(TABLES.BlogTag).insert({
+        id: rowId,
+        ...parsed.data,
+        createdAt: now,
+      });
+      if (error) return { success: false, error: error.message };
+    }
+    await auditMutation(actor, { action: id ? "UPDATE" : "CREATE", entity: "BlogTag", entityId: rowId! });
     revalidateAdmin(["/admin/blog"]);
-    return { success: true, data: { id: row.id } };
+    return { success: true, data: { id: rowId! } };
   });
 }

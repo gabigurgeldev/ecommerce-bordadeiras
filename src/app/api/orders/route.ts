@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveCheckoutLineItems } from "@/lib/checkout-items";
-import { prisma } from "@/lib/prisma";
+import { createOrderWithItems } from "@/lib/data/order-create";
 import { sanitizeEmail, sanitizeText } from "@/lib/sanitize";
 import { jsonError, parseBody } from "@/lib/api-utils";
 import { onNewOrder } from "@/lib/hooks/order-notifications";
@@ -44,8 +44,8 @@ export async function POST(request: Request) {
   );
   const totalCents = subtotalCents + parsed.data.shippingCents;
 
-  const order = await prisma.order.create({
-    data: {
+  try {
+    const order = await createOrderWithItems({
       orderNumber: generateOrderNumber(),
       userId: sessionUser?.id,
       customerName: sanitizeText(parsed.data.customerName),
@@ -56,20 +56,20 @@ export async function POST(request: Request) {
       subtotalCents,
       shippingCents: parsed.data.shippingCents,
       totalCents,
-      items: {
-        create: resolved.items.map((i) => ({
-          name: sanitizeText(i.name),
-          sku: i.sku,
-          quantity: i.quantity,
-          priceCents: i.priceCents,
-          productId: i.productId,
-        })),
-      },
-    },
-    include: { items: true },
-  });
+      items: resolved.items.map((i) => ({
+        name: sanitizeText(i.name),
+        sku: i.sku,
+        quantity: i.quantity,
+        priceCents: i.priceCents,
+        productId: i.productId,
+      })),
+    });
 
-  void onNewOrder(order.id);
+    void onNewOrder(String(order.id));
 
-  return NextResponse.json({ order }, { status: 201 });
+    return NextResponse.json({ order }, { status: 201 });
+  } catch (e) {
+    console.error("[orders POST]", e);
+    return jsonError("Failed to create order", 500);
+  }
 }

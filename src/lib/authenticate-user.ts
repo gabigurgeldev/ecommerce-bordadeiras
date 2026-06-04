@@ -1,4 +1,3 @@
-import { Role, type User } from "@prisma/client";
 import {
   DATABASE_UNAVAILABLE_MESSAGE,
   isDatabaseAvailable,
@@ -6,10 +5,11 @@ import {
 import { migrateLegacyUserToSupabase } from "@/lib/auth/legacy-migrate";
 import { syncAuthAppMetadata } from "@/lib/auth/sync-auth-metadata";
 import {
-  findPrismaUserByEmail,
-  upsertPrismaUserFromAuth,
-} from "@/lib/auth/sync-prisma-user";
+  findUserByEmailAddress,
+  upsertUserFromAuthUser,
+} from "@/lib/auth/sync-user";
 import { createClient } from "@/lib/supabase/server";
+import { Role, type User } from "@/lib/types/database";
 import { verifyUserCredentials } from "@/lib/verify-credentials";
 
 function isAdminEmail(email: string) {
@@ -30,27 +30,19 @@ export type AuthenticateResult =
   | { ok: false; reason: "configuration"; message: string };
 
 function isEmailConfirmed(
-  prismaUser: User,
+  appUser: User,
   supabaseConfirmedAt?: string | null,
 ): boolean {
-  if (prismaUser.emailVerified) return true;
+  if (appUser.emailVerified) return true;
   if (supabaseConfirmedAt) return true;
   return false;
 }
 
-/** Supabase sign-in + Prisma sync; legacy bcrypt users migrated on first successful login. */
+/** Supabase sign-in + app User sync; legacy bcrypt users migrated on first successful login. */
 export async function authenticateUser(
   email: string,
   password: string,
 ): Promise<AuthenticateResult> {
-  if (!(await isDatabaseAvailable())) {
-    return {
-      ok: false,
-      reason: "unavailable",
-      message: DATABASE_UNAVAILABLE_MESSAGE,
-    };
-  }
-
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
@@ -70,6 +62,13 @@ export async function authenticateUser(
   });
 
   if (signIn.error) {
+    if (!(await isDatabaseAvailable())) {
+      return {
+        ok: false,
+        reason: "unavailable",
+        message: DATABASE_UNAVAILABLE_MESSAGE,
+      };
+    }
     const legacy = await verifyUserCredentials(email, password);
     if (legacy?.passwordHash) {
       const migrated = await migrateLegacyUserToSupabase(email, password);
@@ -91,11 +90,11 @@ export async function authenticateUser(
   }
 
   const authUser = signIn.data.user;
-  let prismaUser = await findPrismaUserByEmail(authUser.email ?? email);
-  if (!prismaUser) {
-    prismaUser = await upsertPrismaUserFromAuth(authUser);
+  let appUser = await findUserByEmailAddress(authUser.email ?? email);
+  if (!appUser) {
+    appUser = await upsertUserFromAuthUser(authUser);
   }
-  if (!prismaUser) {
+  if (!appUser) {
     return {
       ok: false,
       reason: "unavailable",
@@ -104,9 +103,9 @@ export async function authenticateUser(
   }
 
   await syncAuthAppMetadata({
-    email: prismaUser.email,
-    prismaId: prismaUser.id,
-    role: prismaUser.role,
+    email: appUser.email,
+    prismaId: appUser.id,
+    role: appUser.role,
     supabaseAuthId: authUser.id,
   });
   await supabase.auth.refreshSession();
@@ -114,22 +113,22 @@ export async function authenticateUser(
   const admin = (await import("@/lib/supabase/admin")).createAdminClient();
   if (admin) {
     await admin.auth.admin.updateUserById(authUser.id, {
-      app_metadata: { prisma_id: prismaUser.id, role: prismaUser.role },
+      app_metadata: { prisma_id: appUser.id, role: appUser.role },
     });
     await supabase.auth.refreshSession();
   }
 
-  if (!isEmailConfirmed(prismaUser, authUser.email_confirmed_at) && !isAdminUser(prismaUser)) {
+  if (!isEmailConfirmed(appUser, authUser.email_confirmed_at) && !isAdminUser(appUser)) {
     return {
       ok: false,
       reason: "unverified",
-      email: prismaUser.email,
+      email: appUser.email,
       message:
         "E-mail não verificado. Confira sua caixa de entrada (incluindo SPAM) ou use o link enviado pelo Supabase.",
     };
   }
 
-  return { ok: true, user: prismaUser };
+  return { ok: true, user: appUser };
 }
 
 export function resolveLoginRedirect(

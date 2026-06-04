@@ -1,34 +1,43 @@
-import { randomInt } from "crypto";
+import { resendSignupConfirmation } from "@/lib/auth/signup-confirmation";
+import { upsertUserFromAuthUser } from "@/lib/auth/sync-user";
 import {
   DATABASE_UNAVAILABLE_MESSAGE,
   isDatabaseAvailable,
 } from "@/lib/data/db-available";
-import { prisma } from "@/lib/prisma";
+import { findUserByEmail, getDb, TABLES } from "@/lib/supabase/db";
+import { createClient } from "@/lib/supabase/server";
 import { sanitizeEmail } from "@/lib/sanitize";
-import { sendVerificationEmail } from "@/lib/mail";
-
-const CODE_EXPIRY_MS = 15 * 60 * 1000;
-
-function generateCode(): string {
-  return String(randomInt(100000, 1_000_000));
-}
-
-export async function createEmailVerificationCode(email: string, name: string): Promise<void> {
-  const identifier = sanitizeEmail(email);
-  const token = generateCode();
-  const expires = new Date(Date.now() + CODE_EXPIRY_MS);
-
-  await prisma.verificationToken.deleteMany({ where: { identifier } });
-  await prisma.verificationToken.create({
-    data: { identifier, token, expires },
-  });
-
-  await sendVerificationEmail({ to: identifier, name, code: token });
-}
 
 export type VerifyEmailResult =
   | { ok: true }
   | { ok: false; code: "invalid" | "expired" | "already" | "unavailable"; message: string };
+
+function mapSupabaseOtpError(message: string): {
+  code: "invalid" | "expired" | "already";
+  message: string;
+} {
+  const lower = message.toLowerCase();
+  if (lower.includes("expired") || lower.includes("expir")) {
+    return { code: "expired", message: "Código expirado. Solicite um novo código abaixo." };
+  }
+  if (lower.includes("already") || lower.includes("confirmed")) {
+    return { code: "already", message: "Este e-mail já foi verificado. Faça login." };
+  }
+  return { code: "invalid", message: "Código incorreto ou inválido. Verifique e tente novamente." };
+}
+
+function mapSupabaseResendError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("confirmation email") || lower.includes("sending email") || lower.includes("smtp")) {
+    return (
+      "O Supabase Auth não conseguiu enviar o e-mail. Verifique o SMTP (Stalwart) nas configurações do Auth na VPS."
+    );
+  }
+  if (lower.includes("rate") || lower.includes("too many")) {
+    return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
+  }
+  return "Não foi possível reenviar o código. Tente novamente em instantes.";
+}
 
 export async function verifyEmailCode(email: string, code: string): Promise<VerifyEmailResult> {
   const identifier = sanitizeEmail(email);
@@ -42,37 +51,45 @@ export async function verifyEmailCode(email: string, code: string): Promise<Veri
     return { ok: false, code: "invalid", message: "Código inválido. Use os 6 dígitos enviados por e-mail." };
   }
 
-  const user = await prisma.user.findUnique({ where: { email: identifier } });
-  if (!user) {
+  const appUser = await findUserByEmail(identifier);
+  if (!appUser) {
     return { ok: false, code: "invalid", message: "E-mail não encontrado." };
   }
-  if (user.emailVerified) {
+  if (appUser.emailVerified) {
     return { ok: false, code: "already", message: "Este e-mail já foi verificado. Faça login." };
   }
 
-  const record = await prisma.verificationToken.findFirst({
-    where: { identifier, token },
+  const supabase = await createClient();
+  const otpTypes = ["signup", "email", "magiclink"] as const;
+  let verify = await supabase.auth.verifyOtp({
+    email: identifier,
+    token,
+    type: otpTypes[0],
   });
 
-  if (!record) {
-    return { ok: false, code: "invalid", message: "Código incorreto. Verifique e tente novamente." };
-  }
-  if (record.expires < new Date()) {
-    await prisma.verificationToken.deleteMany({ where: { identifier } });
-    return {
-      ok: false,
-      code: "expired",
-      message: "Código expirado. Solicite um novo código abaixo.",
-    };
+  for (let i = 1; verify.error && i < otpTypes.length; i += 1) {
+    verify = await supabase.auth.verifyOtp({
+      email: identifier,
+      token,
+      type: otpTypes[i],
+    });
   }
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: user.id },
-      data: { emailVerified: new Date() },
-    }),
-    prisma.verificationToken.deleteMany({ where: { identifier } }),
-  ]);
+  if (verify.error) {
+    console.error("[verify-email] supabase verifyOtp", verify.error.message);
+    const mapped = mapSupabaseOtpError(verify.error.message);
+    return { ok: false, code: mapped.code, message: mapped.message };
+  }
+
+  const authUser = verify.data.user;
+  if (authUser) {
+    await upsertUserFromAuthUser(authUser);
+  } else {
+    await getDb()
+      .from(TABLES.User)
+      .update({ emailVerified: new Date().toISOString() })
+      .eq("id", appUser.id);
+  }
 
   return { ok: true };
 }
@@ -86,9 +103,14 @@ export async function resendEmailVerificationCode(
     return { ok: false, message: DATABASE_UNAVAILABLE_MESSAGE };
   }
 
-  const user = await prisma.user.findUnique({ where: { email: identifier } });
-  if (!user || user.emailVerified) return { ok: true };
+  const appUser = await findUserByEmail(identifier);
+  if (!appUser || appUser.emailVerified) return { ok: true };
 
-  await createEmailVerificationCode(identifier, user.name ?? identifier);
+  const name = appUser.name != null ? String(appUser.name) : identifier;
+  const result = await resendSignupConfirmation(identifier, name);
+  if (!result.ok) {
+    return { ok: false, message: result.message ?? mapSupabaseResendError("") };
+  }
+
   return { ok: true };
 }

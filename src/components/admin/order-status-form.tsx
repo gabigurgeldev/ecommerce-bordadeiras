@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus } from "@/lib/types/database";
 import { toast } from "sonner";
 import { orderUpdateSchema } from "@/lib/validations/admin";
 import { updateOrder } from "@/actions/admin/orders";
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Order } from "@prisma/client";
+import type { Order } from "@/lib/types/database";
 import type { z } from "zod";
 
 type FormValues = z.infer<typeof orderUpdateSchema>;

@@ -1,5 +1,5 @@
 import { MercadoPagoConfig, Payment, Preference } from "mercadopago";
-import type { PaymentMethod } from "@prisma/client";
+import type { PaymentMethod } from "@/lib/types/database";
 import { getMercadoPagoSettingsFromDb } from "@/lib/mercadopago-config";
 
 export async function getMercadoPagoClient(): Promise<MercadoPagoConfig> {

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/prisma";
+import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { createPaymentPreference } from "@/lib/mercadopago";
 import { jsonError, parseBody } from "@/lib/api-utils";
 import { sanitizeEmail } from "@/lib/sanitize";
-import type { PaymentMethod } from "@prisma/client";
+import type { PaymentMethod } from "@/lib/types/database";
 
 const schema = z.object({
   orderId: z.string().cuid(),
@@ -22,9 +22,7 @@ function canAccessOrder(
     return sessionUserId === order.userId;
   }
   if (!customerEmail) return false;
-  return (
-    sanitizeEmail(customerEmail) === sanitizeEmail(order.customerEmail)
-  );
+  return sanitizeEmail(customerEmail) === sanitizeEmail(order.customerEmail);
 }
 
 export async function POST(request: Request) {
@@ -40,15 +38,18 @@ export async function POST(request: Request) {
   const parsed = parseBody(schema, body);
   if (!parsed.success) return parsed.response;
 
-  const order = await prisma.order.findUnique({
-    where: { id: parsed.data.orderId },
-    include: { items: true, payments: true },
-  });
-  if (!order) return jsonError("Order not found", 404);
+  const db = getDb();
+  const { data: order, error } = await db
+    .from(TABLES.Order)
+    .select("*, OrderItem(*)")
+    .eq("id", parsed.data.orderId)
+    .maybeSingle();
+
+  if (error || !order) return jsonError("Order not found", 404);
 
   if (
     !canAccessOrder(
-      order,
+      { userId: order.userId as string | null, customerEmail: String(order.customerEmail) },
       sessionUser?.id,
       parsed.data.customerEmail,
     )
@@ -56,28 +57,38 @@ export async function POST(request: Request) {
     return jsonError("Forbidden", 403);
   }
 
+  const items = (order.OrderItem as Record<string, unknown>[]) ?? [];
   const amountCents =
-    order.items.reduce((s, i) => s + i.priceCents * i.quantity, 0) +
-    order.shippingCents;
+    items.reduce((s, i) => s + Number(i.priceCents) * Number(i.quantity), 0) +
+    Number(order.shippingCents);
 
   const preference = await createPaymentPreference({
-    orderId: order.id,
-    title: `Pedido #${order.id.slice(-8)}`,
+    orderId: String(order.id),
+    title: `Pedido #${String(order.id).slice(-8)}`,
     amountCents,
-    payerEmail: order.customerEmail,
+    payerEmail: String(order.customerEmail),
     method: parsed.data.method as PaymentMethod,
   });
 
-  const payment = await prisma.payment.create({
-    data: {
+  const now = new Date().toISOString();
+  const paymentId = newId();
+  const { data: payment, error: payError } = await db
+    .from(TABLES.Payment)
+    .insert({
+      id: paymentId,
       orderId: order.id,
-      method: parsed.data.method as PaymentMethod,
+      method: parsed.data.method,
       amountCents,
       status: "PENDING",
       mercadoPagoPrefId: preference.id,
-      externalReference: order.id,
-    },
-  });
+      externalReference: String(order.id),
+      createdAt: now,
+      updatedAt: now,
+    })
+    .select("id")
+    .single();
+
+  if (payError || !payment) return jsonError("Failed to create payment", 500);
 
   return NextResponse.json({
     preferenceId: preference.id,

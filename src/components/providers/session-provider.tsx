@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { Role } from "@prisma/client";
+import type { Role } from "@/lib/types/database";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
 export type ClientSessionUser = {

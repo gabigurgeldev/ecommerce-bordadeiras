@@ -1,6 +1,6 @@
 import { isDatabaseAvailable } from "@/lib/data/db-available";
 import { siteImages } from "@/lib/images";
-import { prisma } from "@/lib/prisma";
+import { getDb, TABLES } from "@/lib/supabase/db";
 
 export type StorefrontBannerSlide = {
   id: string;
@@ -18,16 +18,16 @@ export async function getActiveBanners(): Promise<StorefrontBannerSlide[]> {
   if (!(await isDatabaseAvailable())) return [defaultSlide];
 
   try {
-    const banners = await prisma.storefrontBanner.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, imageUrl: true, link: true },
-    });
-    if (banners.length > 0) {
-      return banners.map((b) => ({
-        id: b.id,
-        imageUrl: b.imageUrl,
-        link: b.link,
+    const { data, error } = await getDb()
+      .from(TABLES.StorefrontBanner)
+      .select("id, imageUrl, link")
+      .eq("active", true)
+      .order("sortOrder", { ascending: true });
+    if (!error && data?.length) {
+      return data.map((b) => ({
+        id: String(b.id),
+        imageUrl: String(b.imageUrl),
+        link: b.link != null ? String(b.link) : null,
       }));
     }
   } catch {

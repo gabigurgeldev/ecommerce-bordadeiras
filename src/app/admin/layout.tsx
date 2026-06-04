@@ -27,9 +27,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <div className="space-y-2">
             <h1 className="text-xl font-semibold">Banco de dados indisponível</h1>
             <p className="text-sm text-muted-foreground">
-              Não foi possível conectar ao banco PostgreSQL. Verifique se o serviço está em execução
-              e se a variável <code className="rounded bg-muted px-1">DATABASE_URL</code> está
-              correta, depois recarregue esta página.
+              Não foi possível conectar ao Supabase. Verifique{" "}
+              <code className="rounded bg-muted px-1">NEXT_PUBLIC_SUPABASE_URL</code> e{" "}
+              <code className="rounded bg-muted px-1">SUPABASE_SERVICE_ROLE_KEY</code>, depois
+              recarregue esta página.
             </p>
           </div>
         </div>

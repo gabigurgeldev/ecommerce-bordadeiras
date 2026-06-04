@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { BlogCategory, BlogTag } from "@prisma/client";
+import type { BlogCategory, BlogTag } from "@/lib/types/database";
 import type { z } from "zod";
 
 export function BlogMetaPanel({

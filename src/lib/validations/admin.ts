@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CouponType, OrderStatus, ProductStatus } from "@prisma/client";
+import { CouponType, OrderStatus, ProductStatus } from "@/lib/types/database";
 import { TRUST_ICON_KEYS } from "@/lib/trust-icons";
 
 export const productSchema = z.object({

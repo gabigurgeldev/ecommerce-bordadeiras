@@ -1,6 +1,7 @@
-import type { Role } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
-import { findPrismaUserByEmail, upsertPrismaUserFromAuth } from "@/lib/auth/sync-prisma-user";
+import { findUserByEmailAddress, upsertUserFromAuthUser } from "@/lib/auth/sync-user";
+import type { Role } from "@/lib/types/database";
+
 export type AppSessionUser = {
   id: string;
   email: string;
@@ -12,7 +13,7 @@ export type AppSession = {
   user: AppSessionUser;
 };
 
-/** Server session from Supabase `getUser()` + Prisma role (never trust client getSession alone). */
+/** Server session from Supabase `getUser()` + app User role (never trust client getSession alone). */
 export async function auth(): Promise<AppSession | null> {
   try {
     const supabase = await createClient();
@@ -23,17 +24,17 @@ export async function auth(): Promise<AppSession | null> {
 
     if (error || !user?.email) return null;
 
-    let prismaUser = await findPrismaUserByEmail(user.email);
-    if (!prismaUser) {
-      prismaUser = await upsertPrismaUserFromAuth(user);
+    let appUser = await findUserByEmailAddress(user.email);
+    if (!appUser) {
+      appUser = await upsertUserFromAuthUser(user);
     }
-    if (!prismaUser) return null;
+    if (!appUser) return null;
 
     const sessionUser: AppSessionUser = {
-      id: prismaUser.id,
-      email: prismaUser.email,
-      name: prismaUser.name,
-      role: prismaUser.role,
+      id: appUser.id,
+      email: appUser.email,
+      name: appUser.name,
+      role: appUser.role,
     };
 
     return { user: sessionUser };

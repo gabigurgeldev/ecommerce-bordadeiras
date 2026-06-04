@@ -1,15 +1,18 @@
+import { mapBlogPost, parseBlogPostRow } from "@/lib/data/mappers";
 import { mockBlogPosts } from "@/lib/mock/catalog";
-import { mapBlogPost } from "@/lib/data/mappers";
-import { prisma } from "@/lib/prisma";
+import { getDb, TABLES } from "@/lib/supabase/db";
 import type { BlogPost } from "@/lib/types/catalog";
 
 export async function getBlogPosts(): Promise<BlogPost[]> {
   try {
-    const posts = await prisma.blogPost.findMany({
-      where: { published: true },
-      orderBy: { publishedAt: "desc" },
-    });
-    if (posts.length > 0) return posts.map(mapBlogPost);
+    const { data, error } = await getDb()
+      .from(TABLES.BlogPost)
+      .select("*")
+      .eq("published", true)
+      .order("publishedAt", { ascending: false });
+    if (!error && data?.length) {
+      return data.map((p) => mapBlogPost(parseBlogPostRow(p as Record<string, unknown>)));
+    }
   } catch {
     /* mock fallback */
   }
@@ -19,14 +22,17 @@ export async function getBlogPosts(): Promise<BlogPost[]> {
   );
 }
 
-export async function getBlogPostBySlug(
-  slug: string,
-): Promise<BlogPost | null> {
+export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> {
   try {
-    const post = await prisma.blogPost.findFirst({
-      where: { slug, published: true },
-    });
-    if (post) return mapBlogPost(post);
+    const { data, error } = await getDb()
+      .from(TABLES.BlogPost)
+      .select("*")
+      .eq("slug", slug)
+      .eq("published", true)
+      .maybeSingle();
+    if (!error && data) {
+      return mapBlogPost(parseBlogPostRow(data as Record<string, unknown>));
+    }
   } catch {
     /* mock fallback */
   }

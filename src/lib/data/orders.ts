@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
-import type { OrderStatus } from "@prisma/client";
+import { getDb, TABLES } from "@/lib/supabase/db";
+import type { OrderStatus } from "@/lib/types/database";
 
 export type OrderSummary = {
   id: string;
@@ -22,24 +22,33 @@ export type OrderDetail = OrderSummary & {
   }[];
 };
 
-/** Requires authenticated userId from Supabase session (Prisma User.id). */
-export async function getOrdersForUser(
-  userId: string,
-): Promise<OrderSummary[]> {
+export async function getOrdersForUser(userId: string): Promise<OrderSummary[]> {
   try {
-    const orders = await prisma.order.findMany({
-      where: { userId },
-      include: { _count: { select: { items: true } } },
-      orderBy: { createdAt: "desc" },
-    });
-    return orders.map((o) => ({
-      id: o.id,
-      status: o.status,
-      totalCents: o.totalCents,
-      createdAt: o.createdAt,
-      itemCount: o._count.items,
-      trackingCode: o.trackingCode,
-    }));
+    const db = getDb();
+    const { data: orders, error } = await db
+      .from(TABLES.Order)
+      .select("id, status, totalCents, createdAt, trackingCode")
+      .eq("userId", userId)
+      .order("createdAt", { ascending: false });
+    if (error || !orders) return [];
+
+    const summaries = await Promise.all(
+      orders.map(async (o) => {
+        const { count } = await db
+          .from(TABLES.OrderItem)
+          .select("*", { count: "exact", head: true })
+          .eq("orderId", o.id as string);
+        return {
+          id: String(o.id),
+          status: o.status as OrderStatus,
+          totalCents: Number(o.totalCents),
+          createdAt: new Date(String(o.createdAt)),
+          itemCount: count ?? 0,
+          trackingCode: o.trackingCode != null ? String(o.trackingCode) : null,
+        };
+      }),
+    );
+    return summaries;
   } catch {
     return [];
   }
@@ -50,26 +59,35 @@ export async function getOrderForUser(
   orderId: string,
 ): Promise<OrderDetail | null> {
   try {
-    const order = await prisma.order.findFirst({
-      where: { id: orderId, userId },
-      include: { items: true },
-    });
-    if (!order) return null;
+    const db = getDb();
+    const { data: order, error } = await db
+      .from(TABLES.Order)
+      .select("id, status, totalCents, shippingCents, createdAt, trackingCode, customerName, customerEmail")
+      .eq("id", orderId)
+      .eq("userId", userId)
+      .maybeSingle();
+    if (error || !order) return null;
+
+    const { data: items } = await db
+      .from(TABLES.OrderItem)
+      .select("id, name, quantity, priceCents")
+      .eq("orderId", orderId);
+
     return {
-      id: order.id,
-      status: order.status,
-      totalCents: order.totalCents,
-      shippingCents: order.shippingCents,
-      createdAt: order.createdAt,
-      itemCount: order.items.length,
-      trackingCode: order.trackingCode,
-      customerName: order.customerName,
-      customerEmail: order.customerEmail,
-      items: order.items.map((i) => ({
-        id: i.id,
-        name: i.name,
-        quantity: i.quantity,
-        priceCents: i.priceCents,
+      id: String(order.id),
+      status: order.status as OrderStatus,
+      totalCents: Number(order.totalCents),
+      shippingCents: Number(order.shippingCents),
+      createdAt: new Date(String(order.createdAt)),
+      itemCount: items?.length ?? 0,
+      trackingCode: order.trackingCode != null ? String(order.trackingCode) : null,
+      customerName: String(order.customerName),
+      customerEmail: String(order.customerEmail),
+      items: (items ?? []).map((i) => ({
+        id: String(i.id),
+        name: String(i.name),
+        quantity: Number(i.quantity),
+        priceCents: Number(i.priceCents),
       })),
     };
   } catch {

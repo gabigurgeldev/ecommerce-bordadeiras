@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { getMercadoPagoSettingsFromDb } from "@/lib/mercadopago-config";
 import { getPaymentById, verifyWebhookSignature } from "@/lib/mercadopago";
 import { rateLimitWebhook } from "@/lib/rate-limit";
@@ -61,52 +61,69 @@ export async function POST(request: Request) {
   const amountCents = Math.round((mpPayment.transaction_amount ?? 0) * 100);
   const method = mapMpMethod(mpPayment.payment_method_id);
 
-  let payment = await prisma.payment.findFirst({
-    where: { mercadoPagoId: mpPaymentId },
-  });
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  let { data: payment } = await db
+    .from(TABLES.Payment)
+    .select("*")
+    .eq("mercadoPagoId", mpPaymentId)
+    .maybeSingle();
 
   if (!payment) {
-    payment = await prisma.payment.findFirst({
-      where: { orderId, status: "PENDING", mercadoPagoId: null },
-      orderBy: { createdAt: "desc" },
-    });
+    const { data: pending } = await db
+      .from(TABLES.Payment)
+      .select("*")
+      .eq("orderId", orderId)
+      .eq("status", "PENDING")
+      .is("mercadoPagoId", null)
+      .order("createdAt", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    payment = pending;
   }
+
+  const payPayload = {
+    mercadoPagoId: mpPaymentId,
+    status,
+    amountCents,
+    method,
+    metadata: mpPayment as object,
+    updatedAt: now,
+  };
 
   if (payment) {
-    payment = await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        mercadoPagoId: mpPaymentId,
-        status,
-        amountCents,
-        method,
-        metadata: mpPayment as object,
-      },
-    });
+    const { data: updated } = await db
+      .from(TABLES.Payment)
+      .update(payPayload)
+      .eq("id", payment.id)
+      .select("*")
+      .single();
+    payment = updated;
   } else {
-    payment = await prisma.payment.create({
-      data: {
+    const id = newId();
+    const { data: created } = await db
+      .from(TABLES.Payment)
+      .insert({
+        id,
         orderId,
-        mercadoPagoId: mpPaymentId,
-        amountCents,
-        method,
-        status,
+        ...payPayload,
         externalReference: orderId,
-        metadata: mpPayment as object,
-      },
-    });
+        createdAt: now,
+      })
+      .select("*")
+      .single();
+    payment = created;
   }
 
-  if (status === "APPROVED") {
-    await onOrderPaid(orderId, payment.id);
+  if (status === "APPROVED" && payment) {
+    await onOrderPaid(orderId, String(payment.id));
   }
 
   return NextResponse.json({ received: true });
 }
 
-function mapMpMethod(
-  id?: string
-): "PIX" | "CREDIT_CARD" | "BOLETO" {
+function mapMpMethod(id?: string): "PIX" | "CREDIT_CARD" | "BOLETO" {
   if (!id) return "CREDIT_CARD";
   if (id.includes("pix")) return "PIX";
   if (id.includes("bol") || id === "bolbradesco") return "BOLETO";

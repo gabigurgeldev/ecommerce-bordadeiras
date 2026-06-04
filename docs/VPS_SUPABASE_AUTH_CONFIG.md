@@ -79,3 +79,36 @@ Todas devem estar permitidas em `ADDITIONAL_REDIRECT_URLS` (ou `GOTRUE_URI_ALLOW
 SITE_URL=http://localhost:3000
 ADDITIONAL_REDIRECT_URLS=http://localhost:3000/auth/callback,http://localhost:3000/auth/callback?next=/conta,http://localhost:3000/auth/callback?next=/reset-password
 ```
+
+## SMTP do Auth (Stalwart / erro "Error sending confirmation email")
+
+Variáveis como `SMTP_HOST`, `ENABLE_EMAIL_SIGNUP` no **`.env.local` da loja Next.js não configuram o GoTrue**. Elas precisam estar no **`.env` do Docker do Supabase na VPS** (serviço `auth`), por exemplo:
+
+```env
+ENABLE_EMAIL_SIGNUP=true
+ENABLE_EMAIL_AUTOCONFIRM=false
+SMTP_ADMIN_EMAIL=noreply@seudominio.com.br
+SMTP_HOST=stalwart
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_SENDER_NAME=Bordadeiras
+```
+
+| Problema | O que fazer |
+|----------|-------------|
+| `Error sending confirmation email` (500 no signup) | SMTP do Auth inacessível, credenciais erradas ou TLS (certificado autoassinado no Stalwart) |
+| Auth em Docker, Stalwart na mesma VPS | Use hostname da rede Docker (`stalwart`, `mail`, IP interno), não só o domínio público |
+| Certificado autoassinado | Instale TLS válido no Stalwart **ou** use Send Email Hook / relay SMTP da app |
+
+Enquanto o mailer do GoTrue estiver quebrado, a loja (com `SUPABASE_SERVICE_ROLE_KEY`) gera o OTP oficial via Admin API e envia pelo `SMTP_*` da **app** — o código continua válido em `verifyOtp` no Supabase.
+
+Teste na VPS:
+
+```bash
+curl -s -X POST "https://supabase.bordadeiras.cloud/auth/v1/signup" \
+  -H "apikey: ANON_KEY" -H "Content-Type: application/json" \
+  -d '{"email":"teste@example.com","password":"SenhaForte123!"}'
+```
+
+Se retornar `Error sending confirmation email`, corrija o SMTP no stack Supabase antes de depender só do `signUp`.

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import type { WhatsappRecipient } from "@prisma/client";
+import type { WhatsappRecipient } from "@/lib/types/database";
 import { z } from "zod";
 import { whatsappRecipientSchema } from "@/lib/validations/admin";
 import {

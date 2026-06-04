@@ -98,10 +98,13 @@ export function VerifyEmailForm() {
         body: JSON.stringify({ email }),
       });
 
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (res.status === 429) {
         setResendMessage("Muitas tentativas. Aguarde alguns minutos.");
+      } else if (!res.ok && data?.error) {
+        setResendMessage(data.error);
       } else {
-        setResendMessage("Se o e-mail estiver pendente, enviamos um novo código.");
+        setResendMessage("Se o e-mail estiver pendente, o Supabase enviou um novo código.");
       }
     } catch {
       setResendMessage("Erro ao reenviar. Tente novamente.");

@@ -1,12 +1,11 @@
 import type { BlogPost, Category, Product } from "@/lib/types/catalog";
-import type { BlogPost as PrismaBlogPost, Category as PrismaCategory, Product as PrismaProduct } from "@prisma/client";
+import type {
+  BlogPost as DbBlogPost,
+  Category as DbCategory,
+  ProductWithRelations,
+} from "@/lib/types/database";
 
-type ProductWithRelations = PrismaProduct & {
-  category: PrismaCategory | null;
-  productImages: { url: string; isPrimary: boolean; sortOrder: number }[];
-};
-
-export function mapCategory(c: PrismaCategory & { _count?: { products: number } }): Category {
+export function mapCategory(c: DbCategory & { _count?: { products: number } }): Category {
   return {
     id: c.id,
     name: c.name,
@@ -25,7 +24,7 @@ export function mapProduct(p: ProductWithRelations): Product {
     .map((i) => i.url);
   const legacyImages = Array.isArray(p.images)
     ? (p.images as string[])
-  : typeof p.images === "object" && p.images !== null
+    : typeof p.images === "object" && p.images !== null
       ? Object.values(p.images as Record<string, string>)
       : [];
 
@@ -51,7 +50,7 @@ export function mapProduct(p: ProductWithRelations): Product {
   };
 }
 
-export function mapBlogPost(p: PrismaBlogPost): BlogPost {
+export function mapBlogPost(p: DbBlogPost): BlogPost {
   return {
     id: p.id,
     title: p.title,
@@ -64,5 +63,51 @@ export function mapBlogPost(p: PrismaBlogPost): BlogPost {
     author: "Equipe Bordadeiras",
     publishedAt: (p.publishedAt ?? p.createdAt).toISOString(),
     tags: [],
+  };
+}
+
+/** Parse PostgREST row dates on product/category relations */
+export function parseProductRow(row: Record<string, unknown>): ProductWithRelations {
+  const category = (row.Category ?? row.category) as Record<string, unknown> | null;
+  const images = (row.ProductImage ?? row.productImages ?? row.images) as
+    | Record<string, unknown>[]
+    | null;
+  const imageList = Array.isArray(images) ? images : [];
+  return {
+    ...(row as unknown as ProductWithRelations),
+    createdAt: new Date(String(row.createdAt)),
+    updatedAt: new Date(String(row.updatedAt)),
+    category: category
+      ? {
+          ...(category as unknown as DbCategory),
+          createdAt: new Date(String(category.createdAt)),
+          updatedAt: new Date(String(category.updatedAt)),
+        }
+      : null,
+    productImages: imageList.map((img) => ({
+      ...(img as unknown as ProductWithRelations["productImages"][0]),
+      createdAt: new Date(String(img.createdAt)),
+    })),
+  };
+}
+
+export function parseCategoryRow(
+  row: Record<string, unknown>,
+  productCount?: number,
+): DbCategory & { _count?: { products: number } } {
+  return {
+    ...(row as unknown as DbCategory),
+    createdAt: new Date(String(row.createdAt)),
+    updatedAt: new Date(String(row.updatedAt)),
+    ...(productCount != null ? { _count: { products: productCount } } : {}),
+  };
+}
+
+export function parseBlogPostRow(row: Record<string, unknown>): DbBlogPost {
+  return {
+    ...(row as unknown as DbBlogPost),
+    createdAt: new Date(String(row.createdAt)),
+    updatedAt: new Date(String(row.updatedAt)),
+    publishedAt: row.publishedAt ? new Date(String(row.publishedAt)) : null,
   };
 }

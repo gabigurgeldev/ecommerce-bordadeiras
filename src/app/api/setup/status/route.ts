@@ -3,7 +3,7 @@ import { requireAdminApi } from "@/lib/admin-auth";
 import { readAdminEnv } from "@/lib/admin-bootstrap";
 import { jsonError } from "@/lib/api-utils";
 import { isSupabaseAuthConfigured } from "@/lib/auth/env";
-import { prisma } from "@/lib/prisma";
+import { findUserByEmail } from "@/lib/supabase/db";
 
 /** Diagnóstico rápido de deploy (sem expor senhas). */
 export async function GET() {
@@ -17,10 +17,7 @@ export async function GET() {
   let adminInDb = false;
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { email: adminEnv.email },
-      select: { id: true, role: true, passwordHash: true },
-    });
+    const user = await findUserByEmail(adminEnv.email);
     adminInDb = Boolean(user?.passwordHash);
   } catch {
     adminInDb = false;
@@ -31,7 +28,6 @@ export async function GET() {
     supabaseUrlSet: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()),
     supabaseAnonKeySet: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
     supabaseServiceRoleKeySet: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
-    databaseUrlSet: Boolean(process.env.DATABASE_URL?.trim()),
     adminEmailConfigured: adminEnv.email,
     adminInDatabase: adminInDb,
     runDbSeed: process.env.RUN_DB_SEED ?? "true",

@@ -1,15 +1,19 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { trustBarItemSchema } from "@/lib/validations/admin";
 import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listTrustBarItems() {
-  return withAdminRead(() =>
-    prisma.storefrontTrustItem.findMany({
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    }),
-  );
+  return withAdminRead(async () => {
+    const { data, error } = await getDb()
+      .from(TABLES.StorefrontTrustItem)
+      .select("*")
+      .order("sortOrder", { ascending: true })
+      .order("createdAt", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  });
 }
 
 export async function upsertTrustBarItem(
@@ -25,6 +29,8 @@ export async function upsertTrustBarItem(
       };
     }
 
+    const db = getDb();
+    const now = new Date().toISOString();
     const payload = {
       title: parsed.data.title,
       description: parsed.data.description,
@@ -32,25 +38,37 @@ export async function upsertTrustBarItem(
       link: parsed.data.link || null,
       sortOrder: parsed.data.sortOrder,
       active: parsed.data.active,
+      updatedAt: now,
     };
 
-    const item = id
-      ? await prisma.storefrontTrustItem.update({ where: { id }, data: payload })
-      : await prisma.storefrontTrustItem.create({ data: payload });
+    let itemId = id;
+    if (id) {
+      const { error } = await db.from(TABLES.StorefrontTrustItem).update(payload).eq("id", id);
+      if (error) return { success: false, error: error.message };
+    } else {
+      itemId = newId();
+      const { error } = await db.from(TABLES.StorefrontTrustItem).insert({
+        id: itemId,
+        ...payload,
+        createdAt: now,
+      });
+      if (error) return { success: false, error: error.message };
+    }
 
     await auditMutation(actor, {
       action: id ? "UPDATE" : "CREATE",
       entity: "StorefrontTrustItem",
-      entityId: item.id,
+      entityId: itemId!,
     });
     revalidateAdmin(["/admin/confianca", "/"]);
-    return { success: true, data: { id: item.id } };
+    return { success: true, data: { id: itemId! } };
   });
 }
 
 export async function deleteTrustBarItem(id: string): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await prisma.storefrontTrustItem.delete({ where: { id } });
+    const { error } = await getDb().from(TABLES.StorefrontTrustItem).delete().eq("id", id);
+    if (error) return { success: false, error: error.message };
     await auditMutation(actor, {
       action: "DELETE",
       entity: "StorefrontTrustItem",
@@ -66,7 +84,11 @@ export async function toggleTrustBarItemActive(
   active: boolean,
 ): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await prisma.storefrontTrustItem.update({ where: { id }, data: { active } });
+    const { error } = await getDb()
+      .from(TABLES.StorefrontTrustItem)
+      .update({ active, updatedAt: new Date().toISOString() })
+      .eq("id", id);
+    if (error) return { success: false, error: error.message };
     await auditMutation(actor, {
       action: "UPDATE",
       entity: "StorefrontTrustItem",
@@ -82,11 +104,14 @@ export async function reorderTrustBarItems(
   orders: { id: string; sortOrder: number }[],
 ): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await prisma.$transaction(
-      orders.map(({ id, sortOrder }) =>
-        prisma.storefrontTrustItem.update({ where: { id }, data: { sortOrder } }),
-      ),
-    );
+    const db = getDb();
+    const now = new Date().toISOString();
+    for (const { id, sortOrder } of orders) {
+      await db
+        .from(TABLES.StorefrontTrustItem)
+        .update({ sortOrder, updatedAt: now })
+        .eq("id", id);
+    }
     await auditMutation(actor, {
       action: "UPDATE",
       entity: "StorefrontTrustItem",

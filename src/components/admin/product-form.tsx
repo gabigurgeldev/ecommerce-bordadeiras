@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import Image from "next/image";
-import { ProductStatus } from "@prisma/client";
+import { ProductStatus } from "@/lib/types/database";
 import { productSchema } from "@/lib/validations/admin";
 import { syncProductImages, upsertProduct } from "@/actions/admin/products";
 import { slugify } from "@/lib/utils";
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { Category, Product, ProductImage } from "@prisma/client";
+import type { Category, Product, ProductImage } from "@/lib/types/database";
 import { ImagePlus, X } from "lucide-react";
 import { uploadImageViaApi } from "@/lib/upload-via-api";
 

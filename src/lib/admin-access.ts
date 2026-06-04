@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/types/database";
 
 export function isProductionAdminStrict(): boolean {
   return process.env.NODE_ENV === "production";

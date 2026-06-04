@@ -1,30 +1,46 @@
-import { prisma } from "@/lib/prisma";
+import { getDb, newId, TABLES, toIso } from "@/lib/supabase/db";
 import { SETTING_KEYS } from "@/lib/settings-keys";
 
 export async function getSettings(keys: string[]): Promise<Record<string, string>> {
-  const rows = await prisma.setting.findMany({
-    where: { key: { in: keys } },
-  });
+  const { data: rows } = await getDb()
+    .from(TABLES.Setting)
+    .select("key, value")
+    .in("key", keys);
   const map = Object.fromEntries(keys.map((k) => [k, ""]));
-  for (const row of rows) map[row.key] = row.value;
+  for (const row of rows ?? []) map[String(row.key)] = String(row.value);
   return map;
 }
 
 export async function setSettings(entries: Record<string, string>): Promise<void> {
-  await prisma.$transaction(
-    Object.entries(entries).map(([key, value]) =>
-      prisma.setting.upsert({
-        where: { key },
-        create: { key, value },
-        update: { value },
-      }),
-    ),
-  );
+  const db = getDb();
+  const now = new Date().toISOString();
+  for (const [key, value] of Object.entries(entries)) {
+    const { data: existing } = await db
+      .from(TABLES.Setting)
+      .select("id")
+      .eq("key", key)
+      .maybeSingle();
+    if (existing) {
+      await db.from(TABLES.Setting).update({ value, updatedAt: now }).eq("key", key);
+    } else {
+      await db.from(TABLES.Setting).insert({
+        id: newId(),
+        key,
+        value,
+        group: "general",
+        updatedAt: now,
+      });
+    }
+  }
 }
 
 export async function getSetting(key: string): Promise<string | null> {
-  const row = await prisma.setting.findUnique({ where: { key } });
-  return row?.value ?? null;
+  const { data: row } = await getDb()
+    .from(TABLES.Setting)
+    .select("value")
+    .eq("key", key)
+    .maybeSingle();
+  return row?.value != null ? String(row.value) : null;
 }
 
 /** Port 465 = implicit TLS; 587 = STARTTLS (secure: false). */
@@ -32,6 +48,11 @@ export function resolveSmtpSecure(port: number, explicit?: boolean): boolean {
   if (port === 465) return true;
   if (port === 587) return false;
   return explicit === true;
+}
+
+/** Aceita certificado autoassinado (ex.: Stalwart interno). Use só se necessário. */
+export function smtpTlsAllowInsecure(): boolean {
+  return process.env.SMTP_TLS_INSECURE === "true";
 }
 
 export type MailSettings = {
@@ -68,10 +89,11 @@ export async function getMailSettings(): Promise<MailSettings> {
     "mail.pass",
     "mail.from",
   ] as const;
-  const db = await prisma.setting.findMany({
-    where: { key: { in: [...smtpKeys, ...legacyKeys] } },
-  });
-  const map = Object.fromEntries(db.map((s) => [s.key, s.value]));
+  const { data: db } = await getDb()
+    .from(TABLES.Setting)
+    .select("key, value")
+    .in("key", [...smtpKeys, ...legacyKeys]);
+  const map = Object.fromEntries((db ?? []).map((s) => [String(s.key), String(s.value)]));
 
   const pick = (smtpKey: string, legacyKey: string, fallback: string) =>
     map[smtpKey] || map[legacyKey] || fallback;

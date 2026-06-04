@@ -10,7 +10,7 @@ import {
   storefrontUtilitySettingsSchema,
 } from "@/lib/validations/admin";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { getDb, TABLES } from "@/lib/supabase/db";
 import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function getMercadoPagoSettings() {
@@ -129,9 +129,11 @@ export async function sendSmtpTest(toEmail: string): Promise<ActionResult> {
 
 export async function getWhatsappStatus() {
   return withAdminRead(async () => {
-    const session = await prisma.whatsappSession.findFirst({
-      where: { sessionId: "default" },
-    });
+    const { data: session } = await getDb()
+      .from(TABLES.WhatsappSession)
+      .select("status, updatedAt")
+      .eq("sessionId", "default")
+      .maybeSingle();
     return {
       status: session?.status ?? "disconnected",
       updatedAt: session?.updatedAt ?? null,

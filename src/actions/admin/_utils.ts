@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-auth";
 import { createAuditLog } from "@/lib/audit";
-import type { AuditAction } from "@prisma/client";
+import type { AuditAction } from "@/lib/types/database";
 
 export type ActionResult<T = void> =
   | { success: true; data?: T }

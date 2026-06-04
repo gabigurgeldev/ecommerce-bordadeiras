@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveCheckoutLineItems } from "@/lib/checkout-items";
-import { prisma } from "@/lib/prisma";
+import { createOrderWithItems } from "@/lib/data/order-create";
 import { generateOrderNumber } from "@/lib/order-utils";
 import type { ShippingAddress } from "@/lib/types/catalog";
 
@@ -53,32 +53,26 @@ export async function createOrderDraft(input: CheckoutInput) {
   const totalCents = itemsTotal + shippingCents;
 
   try {
-    const order = await prisma.order.create({
-      data: {
-        orderNumber: generateOrderNumber(),
-        userId: sessionUser?.id,
-        customerEmail: rest.customerEmail,
-        customerName: rest.customerName,
-        customerPhone: rest.customerPhone,
-        shippingAddress: rest.shippingAddress as ShippingAddress,
-        subtotalCents: itemsTotal,
-        totalCents,
-        shippingCents,
-        status: "PENDING",
-        items: {
-          create: resolved.items.map((item) => ({
-            productId: item.productId,
-            name: item.name,
-            sku: item.sku,
-            quantity: item.quantity,
-            priceCents: item.priceCents,
-          })),
-        },
-      },
-      select: { id: true },
+    const order = await createOrderWithItems({
+      orderNumber: generateOrderNumber(),
+      userId: sessionUser?.id,
+      customerEmail: rest.customerEmail,
+      customerName: rest.customerName,
+      customerPhone: rest.customerPhone,
+      shippingAddress: rest.shippingAddress as ShippingAddress,
+      subtotalCents: itemsTotal,
+      totalCents,
+      shippingCents,
+      items: resolved.items.map((item) => ({
+        productId: item.productId,
+        name: item.name,
+        sku: item.sku,
+        quantity: item.quantity,
+        priceCents: item.priceCents,
+      })),
     });
 
-    return { ok: true as const, orderId: order.id };
+    return { ok: true as const, orderId: String(order.id) };
   } catch (e) {
     console.error("[createOrderDraft]", e);
     return {

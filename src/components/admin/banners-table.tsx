@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { toast } from "sonner";
-import type { StorefrontBanner } from "@prisma/client";
+import type { StorefrontBanner } from "@/lib/types/database";
 import {
   deleteBanner,
   reorderBanners,

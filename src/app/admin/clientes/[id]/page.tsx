@@ -49,7 +49,7 @@ export default async function AdminCustomerDetailPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customer.orders.map((order) => (
+              {customer.orders.map((order: { id: string; totalCents: number; status: string; createdAt: Date }) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-mono text-xs">{order.id.slice(-8)}</TableCell>
                   <TableCell>{formatCurrency(order.totalCents)}</TableCell>

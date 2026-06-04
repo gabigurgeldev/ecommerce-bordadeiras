@@ -1,6 +1,6 @@
-import { Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+import { upsertUserByEmail } from "@/lib/supabase/db";
+import { Role } from "@/lib/types/database";
 
 function stripEnvValue(value: string | undefined) {
   if (!value) return "";
@@ -26,19 +26,12 @@ export async function ensureAdminUser(email: string, plainPassword: string) {
   const normalizedEmail = email.trim().toLowerCase();
   const passwordHash = await bcrypt.hash(plainPassword, 12);
 
-  return prisma.user.upsert({
-    where: { email: normalizedEmail },
-    update: {
-      name: "Administrador",
-      role: Role.ADMIN,
-      passwordHash,
-    },
-    create: {
-      email: normalizedEmail,
-      name: "Administrador",
-      role: Role.ADMIN,
-      passwordHash,
-      emailVerified: new Date(),
-    },
+  const user = await upsertUserByEmail(normalizedEmail, {
+    name: "Administrador",
+    role: Role.ADMIN,
+    passwordHash,
+    emailVerified: new Date(),
   });
+  if (!user) throw new Error("Failed to ensure admin user");
+  return user;
 }

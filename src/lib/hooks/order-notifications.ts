@@ -4,22 +4,32 @@ import {
   notifyOrderShipped,
   notifyOrderCancelled,
 } from "@/lib/whatsapp-client";
-import { prisma } from "@/lib/prisma";
+import { getDb, TABLES } from "@/lib/supabase/db";
 
 export async function onNewOrder(orderId: string): Promise<void> {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: { items: true },
-  });
+  const db = getDb();
+  const { data: order } = await db
+    .from(TABLES.Order)
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
   if (!order) return;
 
+  const { data: items } = await db
+    .from(TABLES.OrderItem)
+    .select("*")
+    .eq("orderId", orderId);
+
   const totalCents =
-    order.items.reduce((s, i) => s + i.priceCents * i.quantity, 0) + order.shippingCents;
+    (items ?? []).reduce(
+      (s, i) => s + Number(i.priceCents) * Number(i.quantity),
+      0,
+    ) + Number(order.shippingCents);
 
   try {
     await notifyNewOrder({
-      orderId: order.id,
-      customerName: order.customerName,
+      orderId: String(order.id),
+      customerName: String(order.customerName),
       amountCents: totalCents,
     });
   } catch (err) {
@@ -28,20 +38,22 @@ export async function onNewOrder(orderId: string): Promise<void> {
 }
 
 export async function onOrderShipped(orderId: string): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const db = getDb();
+  const { data: order } = await db
+    .from(TABLES.Order)
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
   if (!order) return;
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status: "SHIPPED" },
-  });
+  await db.from(TABLES.Order).update({ status: "SHIPPED" }).eq("id", orderId);
 
   try {
     await sendOrderShippedEmail({
-      to: order.customerEmail,
-      orderId: order.id,
-      customerName: order.customerName,
-      trackingCode: order.trackingCode,
+      to: String(order.customerEmail),
+      orderId: String(order.id),
+      customerName: String(order.customerName),
+      trackingCode: order.trackingCode != null ? String(order.trackingCode) : null,
     });
   } catch (err) {
     console.error("[onOrderShipped] email failed", err);
@@ -49,9 +61,9 @@ export async function onOrderShipped(orderId: string): Promise<void> {
 
   try {
     await notifyOrderShipped({
-      orderId: order.id,
-      customerName: order.customerName,
-      trackingCode: order.trackingCode,
+      orderId: String(order.id),
+      customerName: String(order.customerName),
+      trackingCode: order.trackingCode != null ? String(order.trackingCode) : null,
     });
   } catch (err) {
     console.error("[onOrderShipped] whatsapp failed", err);
@@ -59,19 +71,21 @@ export async function onOrderShipped(orderId: string): Promise<void> {
 }
 
 export async function onOrderDelivered(orderId: string): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const db = getDb();
+  const { data: order } = await db
+    .from(TABLES.Order)
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
   if (!order) return;
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status: "DELIVERED" },
-  });
+  await db.from(TABLES.Order).update({ status: "DELIVERED" }).eq("id", orderId);
 
   try {
     await sendOrderDeliveredEmail({
-      to: order.customerEmail,
-      orderId: order.id,
-      customerName: order.customerName,
+      to: String(order.customerEmail),
+      orderId: String(order.id),
+      customerName: String(order.customerName),
     });
   } catch (err) {
     console.error("[onOrderDelivered] email failed", err);
@@ -79,18 +93,20 @@ export async function onOrderDelivered(orderId: string): Promise<void> {
 }
 
 export async function onOrderCancelled(orderId: string): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const db = getDb();
+  const { data: order } = await db
+    .from(TABLES.Order)
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
   if (!order) return;
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status: "CANCELLED" },
-  });
+  await db.from(TABLES.Order).update({ status: "CANCELLED" }).eq("id", orderId);
 
   try {
     await notifyOrderCancelled({
-      orderId: order.id,
-      customerName: order.customerName,
+      orderId: String(order.id),
+      customerName: String(order.customerName),
     });
   } catch (err) {
     console.error("[onOrderCancelled] whatsapp failed", err);
@@ -100,21 +116,23 @@ export async function onOrderCancelled(orderId: string): Promise<void> {
 export async function onTrackingUpdate(
   orderId: string,
   trackingCode: string,
-  trackingUrl?: string
+  trackingUrl?: string,
 ): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const db = getDb();
+  const { data: order } = await db
+    .from(TABLES.Order)
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
   if (!order) return;
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { trackingCode },
-  });
+  await db.from(TABLES.Order).update({ trackingCode }).eq("id", orderId);
 
   try {
     await sendTrackingEmail({
-      to: order.customerEmail,
-      customerName: order.customerName,
-      orderId: order.id,
+      to: String(order.customerEmail),
+      customerName: String(order.customerName),
+      orderId: String(order.id),
       trackingCode,
       trackingUrl,
     });

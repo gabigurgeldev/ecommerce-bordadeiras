@@ -5,13 +5,13 @@ import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Copy, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { ProductStatus } from "@prisma/client";
+import { ProductStatus } from "@/lib/types/database";
 import { DataTable } from "@/components/admin/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { deleteProduct, duplicateProduct } from "@/actions/admin/products";
 import { formatCurrency } from "@/lib/utils";
-import type { Category, Product, ProductImage } from "@prisma/client";
+import type { Category, Product, ProductImage } from "@/lib/types/database";
 
 type Row = Product & {
   category: Category | null;

@@ -32,9 +32,13 @@ export async function POST(request: Request) {
     }
   } catch (err) {
     console.error("[resend-verification] failed", err);
+    return jsonError(
+      "Não foi possível reenviar o e-mail. Verifique o SMTP do Supabase Auth na VPS.",
+      503,
+    );
   }
 
   return NextResponse.json({
-    message: "If the email is pending verification, a new code was sent.",
+    message: "Se o e-mail estiver pendente, o Supabase enviou um novo código.",
   });
 }

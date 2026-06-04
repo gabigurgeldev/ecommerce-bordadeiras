@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/types/database";
 import { hasAdminAccess } from "@/lib/admin-access";
 import { updateSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@supabase/ssr";

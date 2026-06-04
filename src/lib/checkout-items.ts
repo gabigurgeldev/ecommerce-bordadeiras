@@ -1,5 +1,5 @@
-import { ProductStatus } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { getDb, TABLES } from "@/lib/supabase/db";
+import { ProductStatus } from "@/lib/types/database";
 
 export type CheckoutLineInput = {
   productId: string;
@@ -24,22 +24,18 @@ export async function resolveCheckoutLineItems(
   }
 
   const productIds = [...new Set(items.map((i) => i.productId))];
-  const products = await prisma.product.findMany({
-    where: {
-      id: { in: productIds },
-      active: true,
-      status: ProductStatus.ACTIVE,
-    },
-    select: {
-      id: true,
-      name: true,
-      sku: true,
-      priceCents: true,
-      stock: true,
-    },
-  });
+  const { data: products, error } = await getDb()
+    .from(TABLES.Product)
+    .select("id, name, sku, priceCents, stock")
+    .in("id", productIds)
+    .eq("active", true)
+    .eq("status", ProductStatus.ACTIVE);
 
-  const byId = new Map(products.map((p) => [p.id, p]));
+  if (error || !products) {
+    return { ok: false, error: "Produto inválido ou indisponível" };
+  }
+
+  const byId = new Map(products.map((p) => [String(p.id), p]));
   const resolved: ResolvedLineItem[] = [];
 
   for (const item of items) {
@@ -47,7 +43,7 @@ export async function resolveCheckoutLineItems(
     if (!product) {
       return { ok: false, error: "Produto inválido ou indisponível" };
     }
-    if (product.stock < item.quantity) {
+    if (Number(product.stock) < item.quantity) {
       return {
         ok: false,
         error: `Estoque insuficiente para ${product.name}`,
@@ -55,11 +51,11 @@ export async function resolveCheckoutLineItems(
     }
 
     resolved.push({
-      productId: product.id,
-      name: product.name,
-      sku: product.sku,
+      productId: String(product.id),
+      name: String(product.name),
+      sku: product.sku != null ? String(product.sku) : null,
       quantity: item.quantity,
-      priceCents: product.priceCents,
+      priceCents: Number(product.priceCents),
     });
   }
 

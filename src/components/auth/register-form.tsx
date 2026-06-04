@@ -104,10 +104,16 @@ export function RegisterForm() {
         return;
       }
 
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+      const apiMessage =
+        typeof payload?.error === "string" ? payload.error.trim() : "";
+
       if (res.status === 409) {
         setServerError("Este e-mail já está cadastrado.");
       } else if (res.status === 429) {
         setServerError("Muitas tentativas. Tente novamente em instantes.");
+      } else if (apiMessage) {
+        setServerError(apiMessage);
       } else {
         setServerError("Não foi possível concluir o cadastro. Tente novamente.");
       }
@@ -127,8 +133,9 @@ export function RegisterForm() {
             <MailCheck className="h-8 w-8" />
           </span>
           <p className="mt-5 text-sm text-[var(--foreground)]/80">
-            Enviamos um código de 6 dígitos para confirmar seu cadastro. Verifique
-            todas as caixas de entrada — incluindo SPAM, Lixo eletrônico e Promoções.
+            O Supabase enviou um e-mail de confirmação (código de 6 dígitos ou link,
+            conforme a configuração do Auth). Verifique todas as caixas — incluindo
+            SPAM, Lixo eletrônico e Promoções.
           </p>
           <EmailSpamNotice className="mt-4 text-xs text-[var(--muted-foreground)]" />
           <Button className="mt-7 w-full" asChild>

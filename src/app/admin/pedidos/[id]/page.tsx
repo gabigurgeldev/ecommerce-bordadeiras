@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { PaymentMethod, PaymentStatus } from "@prisma/client";
+import { PaymentMethod, PaymentStatus } from "@/lib/types/database";
 import { getOrder } from "@/actions/admin/orders";
 import { PageHeader } from "@/components/admin/page-header";
 import { OrderStatusForm } from "@/components/admin/order-status-form";

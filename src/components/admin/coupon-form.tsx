@@ -3,14 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CouponType } from "@prisma/client";
+import { CouponType } from "@/lib/types/database";
 import { toast } from "sonner";
 import { couponSchema } from "@/lib/validations/admin";
 import { upsertCoupon } from "@/actions/admin/coupons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Coupon } from "@prisma/client";
+import type { Coupon } from "@/lib/types/database";
 import type { z } from "zod";
 
 type FormValues = z.infer<typeof couponSchema>;

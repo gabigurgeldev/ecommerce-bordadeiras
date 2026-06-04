@@ -4,6 +4,7 @@ import {
   getMailSettings,
   isMailConfigured,
   resolveSmtpSecure,
+  smtpTlsAllowInsecure,
   type MailSettings,
 } from "@/lib/settings";
 import { cadastroTemplate } from "@/lib/mail/templates/cadastro";
@@ -33,11 +34,13 @@ export function formatMailError(err: unknown): string {
 
 export function buildTransportOptions(cfg: MailSettings) {
   const secure = resolveSmtpSecure(cfg.port, cfg.secure);
+  const insecure = smtpTlsAllowInsecure();
   return {
     host: cfg.host,
     port: cfg.port,
     secure,
     ...(cfg.port === 587 && !secure ? { requireTLS: true } : {}),
+    ...(insecure ? { tls: { rejectUnauthorized: false } } : {}),
     auth: { user: cfg.user, pass: cfg.pass },
   };
 }

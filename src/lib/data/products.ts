@@ -1,49 +1,63 @@
 import { isDatabaseAvailable } from "@/lib/data/db-available";
+import { mapProduct, parseProductRow } from "@/lib/data/mappers";
 import { mockProducts } from "@/lib/mock/catalog";
-import { prisma } from "@/lib/prisma";
-import { mapProduct } from "@/lib/data/mappers";
+import { getDb, TABLES } from "@/lib/supabase/db";
 import type { Product, ProductFilters } from "@/lib/types/catalog";
 
-async function fromDb(filters: ProductFilters): Promise<Product[] | null> {
+const PRODUCT_SELECT = "*, Category(*), ProductImage(*)";
+
+async function fromDb(filters: ProductFilters): Promise<Product[]> {
   try {
-    const products = await prisma.product.findMany({
-      where: {
-        active: true,
-        status: "ACTIVE",
-        ...(filters.categorySlug
-          ? { category: { slug: filters.categorySlug } }
-          : {}),
-        ...(filters.q
-          ? {
-              OR: [
-                { name: { contains: filters.q, mode: "insensitive" } },
-                { description: { contains: filters.q, mode: "insensitive" } },
-              ],
-            }
-          : {}),
-        ...(filters.minPriceCents != null
-          ? { priceCents: { gte: filters.minPriceCents } }
-          : {}),
-        ...(filters.maxPriceCents != null
-          ? { priceCents: { lte: filters.maxPriceCents } }
-          : {}),
-      },
-      include: {
-        category: true,
-        productImages: { orderBy: { sortOrder: "asc" } },
-      },
-      orderBy:
-        filters.sort === "price-asc"
-          ? { priceCents: "asc" }
-          : filters.sort === "price-desc"
-            ? { priceCents: "desc" }
-            : filters.sort === "name"
-              ? { name: "asc" }
-              : { createdAt: "desc" },
-    });
-    return products.map(mapProduct);
+    const db = getDb();
+    let query = db
+      .from(TABLES.Product)
+      .select(PRODUCT_SELECT)
+      .eq("active", true)
+      .eq("status", "ACTIVE");
+
+    if (filters.minPriceCents != null) {
+      query = query.gte("priceCents", filters.minPriceCents);
+    }
+    if (filters.maxPriceCents != null) {
+      query = query.lte("priceCents", filters.maxPriceCents);
+    }
+
+    const sortCol =
+      filters.sort === "price-asc" || filters.sort === "price-desc"
+        ? "priceCents"
+        : filters.sort === "name"
+          ? "name"
+          : "createdAt";
+    const ascending =
+      filters.sort === "price-asc" || filters.sort === "name";
+    query = query.order(sortCol, { ascending });
+
+    const { data, error } = await query;
+    if (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[getProducts]", error.message);
+      }
+      return [];
+    }
+    if (!data?.length) return [];
+
+    let rows = data.map((r) => parseProductRow(r as Record<string, unknown>));
+
+    if (filters.categorySlug) {
+      rows = rows.filter((p) => p.category?.slug === filters.categorySlug);
+    }
+    if (filters.q) {
+      const q = filters.q.toLowerCase();
+      rows = rows.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.description?.toLowerCase().includes(q) ?? false),
+      );
+    }
+
+    return rows.map(mapProduct);
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -87,10 +101,7 @@ export async function getProducts(
 ): Promise<Product[]> {
   if (!(await isDatabaseAvailable())) return filterMockProducts(filters);
 
-  const db = await fromDb(filters);
-  if (db) return db;
-
-  return filterMockProducts(filters);
+  return fromDb(filters);
 }
 
 export async function getFeaturedProducts(limit = 8): Promise<Product[]> {
@@ -99,36 +110,43 @@ export async function getFeaturedProducts(limit = 8): Promise<Product[]> {
   }
 
   try {
-    const products = await prisma.product.findMany({
-      where: { active: true, status: "ACTIVE" },
-      include: {
-        category: true,
-        productImages: { orderBy: { sortOrder: "asc" } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
-    if (products.length > 0) return products.map(mapProduct);
+    const { data, error } = await getDb()
+      .from(TABLES.Product)
+      .select(PRODUCT_SELECT)
+      .eq("active", true)
+      .eq("status", "ACTIVE")
+      .order("createdAt", { ascending: false })
+      .limit(limit);
+    if (!error && data?.length) {
+      return data.map((r) =>
+        mapProduct(parseProductRow(r as Record<string, unknown>)),
+      );
+    }
   } catch {
-    /* mock fallback */
+    /* empty */
   }
-  return mockProducts.filter((p) => p.featured).slice(0, limit);
+  return [];
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   try {
-    const product = await prisma.product.findFirst({
-      where: { slug, active: true, status: "ACTIVE" },
-      include: {
-        category: true,
-        productImages: { orderBy: { sortOrder: "asc" } },
-      },
-    });
-    if (product) return mapProduct(product);
+    const { data, error } = await getDb()
+      .from(TABLES.Product)
+      .select(PRODUCT_SELECT)
+      .eq("slug", slug)
+      .eq("active", true)
+      .eq("status", "ACTIVE")
+      .maybeSingle();
+    if (!error && data) {
+      return mapProduct(parseProductRow(data as Record<string, unknown>));
+    }
   } catch {
     /* mock fallback */
   }
-  return mockProducts.find((p) => p.slug === slug) ?? null;
+  if (!(await isDatabaseAvailable())) {
+    return mockProducts.find((p) => p.slug === slug) ?? null;
+  }
+  return null;
 }
 
 export async function getRelatedProducts(

@@ -6,7 +6,6 @@ import { getCategories } from "@/lib/data/categories";
 import { isDatabaseAvailable } from "@/lib/data/db-available";
 import { getProducts } from "@/lib/data/products";
 import { getStorefrontUtilitySettings } from "@/lib/data/storefront-settings";
-import { mockProducts } from "@/lib/mock/catalog";
 import { organizationJsonLd } from "@/lib/seo/json-ld";
 
 export const dynamic = "force-dynamic";
@@ -18,27 +17,19 @@ export default async function StorefrontLayout({
 }) {
   await isDatabaseAvailable();
 
-  const [categories, utilitySettings, dbAvailable] = await Promise.all([
+  const [categories, utilitySettings] = await Promise.all([
     getCategories(),
     getStorefrontUtilitySettings(),
-    isDatabaseAvailable(),
   ]);
 
-  const categoryPreviews = dbAvailable
-    ? await Promise.all(
-        categories.map(async (category) => ({
-          category,
-          products: (
-            await getProducts({ categorySlug: category.slug, sort: "newest" })
-          ).slice(0, 5),
-        })),
-      )
-    : categories.map((category) => ({
-        category,
-        products: mockProducts
-          .filter((p) => p.categorySlug === category.slug)
-          .slice(0, 5),
-      }));
+  const categoryPreviews = await Promise.all(
+    categories.map(async (category) => ({
+      category,
+      products: (
+        await getProducts({ categorySlug: category.slug, sort: "newest" })
+      ).slice(0, 5),
+    })),
+  );
 
   return (
     <StorefrontTheme>

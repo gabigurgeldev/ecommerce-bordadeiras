@@ -1,5 +1,5 @@
 import { formatOrderStatus } from "@/lib/format";
-import type { OrderStatus } from "@prisma/client";
+import type { OrderStatus } from "@/lib/types/database";
 import { CheckCircle2, Package, Truck } from "lucide-react";
 
 const flow: OrderStatus[] = [

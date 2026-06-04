@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import Image from "next/image";
-import type { StorefrontBanner } from "@prisma/client";
+import type { StorefrontBanner } from "@/lib/types/database";
 import type { z } from "zod";
 import { upsertBanner } from "@/actions/admin/banners";
 import { bannerSchema } from "@/lib/validations/admin";

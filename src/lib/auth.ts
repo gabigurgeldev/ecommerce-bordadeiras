@@ -1,4 +1,4 @@
-import type { Role } from "@prisma/client";
+import type { Role } from "@/lib/types/database";
 import { auth as getAuthSession, type AppSessionUser } from "@/lib/auth/session";
 
 export type SessionUser = {

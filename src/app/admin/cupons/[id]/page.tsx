@@ -1,16 +1,21 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/admin/page-header";
 import { CouponForm } from "@/components/admin/coupon-form";
+import { getDb, TABLES } from "@/lib/supabase/db";
 
-export default async function EditCouponPage({ params }: { params: Promise<{ id: string }> }) {
+type Props = { params: Promise<{ id: string }> };
+
+export default async function EditCouponPage({ params }: Props) {
   const { id } = await params;
-  const coupon = await prisma.coupon.findUnique({ where: { id } });
+  const { data: coupon } = await getDb()
+    .from(TABLES.Coupon)
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
   if (!coupon) notFound();
 
   return (
     <div>
-      <PageHeader title={`Cupom ${coupon.code}`} />
+      <h1 className="text-2xl font-bold">Editar cupom</h1>
       <CouponForm coupon={coupon} />
     </div>
   );

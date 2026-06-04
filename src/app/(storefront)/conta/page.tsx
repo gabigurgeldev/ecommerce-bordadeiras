@@ -1,7 +1,7 @@
 import { getSessionUser } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { prisma } from "@/lib/prisma";
+import { getDb, TABLES } from "@/lib/supabase/db";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata = buildMetadata({
@@ -12,12 +12,22 @@ export const metadata = buildMetadata({
 
 export default async function ContaPerfilPage() {
   const sessionUser = await getSessionUser();
-  const user = sessionUser?.id
-    ? await prisma.user.findUnique({
-        where: { id: sessionUser.id },
-        select: { name: true, email: true, phone: true },
-      })
-    : null;
+  let user: { name: string | null; email: string; phone: string | null } | null = null;
+
+  if (sessionUser?.id) {
+    const { data } = await getDb()
+      .from(TABLES.User)
+      .select("name, email, phone")
+      .eq("id", sessionUser.id)
+      .maybeSingle();
+    if (data) {
+      user = {
+        name: data.name != null ? String(data.name) : null,
+        email: String(data.email),
+        phone: data.phone != null ? String(data.phone) : null,
+      };
+    }
+  }
 
   return (
     <div>

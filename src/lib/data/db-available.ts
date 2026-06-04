@@ -1,34 +1,19 @@
-import { prisma } from "@/lib/prisma";
-
-const CHECK_TIMEOUT_MS = 1_500;
+import { isDataApiAvailable } from "@/lib/supabase/db";
 
 export const DATABASE_UNAVAILABLE_MESSAGE =
-  "Banco de dados indisponível. Verifique se o PostgreSQL está acessível e se DATABASE_URL está correta.";
+  "Banco indisponível. Confira NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no .env.local.";
 
 let cached: boolean | undefined;
 let inflight: Promise<boolean> | null = null;
 
-/**
- * Fast, cached check used in dev/preview when the database may be offline.
- * Avoids stacking Prisma connection timeouts on every layout render.
- */
 export async function isDatabaseAvailable(): Promise<boolean> {
   if (cached !== undefined) return cached;
   if (inflight) return inflight;
 
   inflight = (async () => {
-    try {
-      await Promise.race([
-        prisma.$queryRaw`SELECT 1`,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("db-timeout")), CHECK_TIMEOUT_MS),
-        ),
-      ]);
-      cached = true;
-    } catch {
-      cached = false;
-    }
-    return cached;
+    const ok = await isDataApiAvailable();
+    cached = ok;
+    return ok;
   })();
 
   try {
@@ -36,4 +21,8 @@ export async function isDatabaseAvailable(): Promise<boolean> {
   } finally {
     inflight = null;
   }
+}
+
+export function resetDatabaseAvailabilityCache() {
+  cached = undefined;
 }

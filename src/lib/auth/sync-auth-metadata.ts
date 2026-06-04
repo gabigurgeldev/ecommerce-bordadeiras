@@ -1,4 +1,4 @@
-import type { Role } from "@prisma/client";
+import type { Role } from "@/lib/types/database";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserByEmail } from "@/lib/auth/find-auth-user";
 

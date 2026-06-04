@@ -1,15 +1,19 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { bannerSchema } from "@/lib/validations/admin";
 import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listBanners() {
-  return withAdminRead(() =>
-    prisma.storefrontBanner.findMany({
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    }),
-  );
+  return withAdminRead(async () => {
+    const { data, error } = await getDb()
+      .from(TABLES.StorefrontBanner)
+      .select("*")
+      .order("sortOrder", { ascending: true })
+      .order("createdAt", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  });
 }
 
 export async function upsertBanner(
@@ -25,31 +29,45 @@ export async function upsertBanner(
       };
     }
 
+    const db = getDb();
+    const now = new Date().toISOString();
     const payload = {
       title: parsed.data.title,
       imageUrl: parsed.data.imageUrl,
       link: parsed.data.link || null,
       sortOrder: parsed.data.sortOrder,
       active: parsed.data.active,
+      updatedAt: now,
     };
 
-    const banner = id
-      ? await prisma.storefrontBanner.update({ where: { id }, data: payload })
-      : await prisma.storefrontBanner.create({ data: payload });
+    let bannerId = id;
+    if (id) {
+      const { error } = await db.from(TABLES.StorefrontBanner).update(payload).eq("id", id);
+      if (error) return { success: false, error: error.message };
+    } else {
+      bannerId = newId();
+      const { error } = await db.from(TABLES.StorefrontBanner).insert({
+        id: bannerId,
+        ...payload,
+        createdAt: now,
+      });
+      if (error) return { success: false, error: error.message };
+    }
 
     await auditMutation(actor, {
       action: id ? "UPDATE" : "CREATE",
       entity: "StorefrontBanner",
-      entityId: banner.id,
+      entityId: bannerId!,
     });
     revalidateAdmin(["/admin/banners", "/"]);
-    return { success: true, data: { id: banner.id } };
+    return { success: true, data: { id: bannerId! } };
   });
 }
 
 export async function deleteBanner(id: string): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await prisma.storefrontBanner.delete({ where: { id } });
+    const { error } = await getDb().from(TABLES.StorefrontBanner).delete().eq("id", id);
+    if (error) return { success: false, error: error.message };
     await auditMutation(actor, {
       action: "DELETE",
       entity: "StorefrontBanner",
@@ -65,7 +83,11 @@ export async function toggleBannerActive(
   active: boolean,
 ): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await prisma.storefrontBanner.update({ where: { id }, data: { active } });
+    const { error } = await getDb()
+      .from(TABLES.StorefrontBanner)
+      .update({ active, updatedAt: new Date().toISOString() })
+      .eq("id", id);
+    if (error) return { success: false, error: error.message };
     await auditMutation(actor, {
       action: "UPDATE",
       entity: "StorefrontBanner",
@@ -81,11 +103,14 @@ export async function reorderBanners(
   orders: { id: string; sortOrder: number }[],
 ): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await prisma.$transaction(
-      orders.map(({ id, sortOrder }) =>
-        prisma.storefrontBanner.update({ where: { id }, data: { sortOrder } }),
-      ),
-    );
+    const db = getDb();
+    const now = new Date().toISOString();
+    for (const { id, sortOrder } of orders) {
+      await db
+        .from(TABLES.StorefrontBanner)
+        .update({ sortOrder, updatedAt: now })
+        .eq("id", id);
+    }
     await auditMutation(actor, {
       action: "UPDATE",
       entity: "StorefrontBanner",

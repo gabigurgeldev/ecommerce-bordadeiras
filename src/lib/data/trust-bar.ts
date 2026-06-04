@@ -1,5 +1,5 @@
 import { isDatabaseAvailable } from "@/lib/data/db-available";
-import { prisma } from "@/lib/prisma";
+import { getDb, TABLES } from "@/lib/supabase/db";
 import type { TrustIconKey } from "@/lib/trust-icons";
 
 export type TrustBarItem = {
@@ -45,18 +45,14 @@ export async function getActiveTrustItems(): Promise<TrustBarItem[]> {
   if (!(await isDatabaseAvailable())) return DEFAULT_TRUST_ITEMS;
 
   try {
-    const items = await prisma.storefrontTrustItem.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: "asc" },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        icon: true,
-        link: true,
-      },
-    });
-    if (items.length > 0) return items;
+    const { data, error } = await getDb()
+      .from(TABLES.StorefrontTrustItem)
+      .select("id, title, description, icon, link")
+      .eq("active", true)
+      .order("sortOrder", { ascending: true });
+    if (!error && data?.length) {
+      return data as TrustBarItem[];
+    }
   } catch {
     /* fallback below */
   }

@@ -1,20 +1,7 @@
 import bcrypt from "bcryptjs";
 import { credentialsMatchAdminEnv, ensureAdminUser } from "@/lib/admin-bootstrap";
 import { isDatabaseAvailable } from "@/lib/data/db-available";
-import { prisma } from "@/lib/prisma";
-
-async function findUserByEmail(email: string) {
-  const normalized = email.trim().toLowerCase();
-  const exact = await prisma.user.findUnique({ where: { email: normalized } });
-  if (exact) return exact;
-
-  const trimmed = email.trim();
-  if (trimmed !== normalized) {
-    return prisma.user.findUnique({ where: { email: trimmed } });
-  }
-
-  return null;
-}
+import { findUserByEmail } from "@/lib/supabase/db";
 
 /** Valida e-mail/senha; sincroniza admin a partir do env quando necessário. */
 export async function verifyUserCredentials(email: string, password: string) {

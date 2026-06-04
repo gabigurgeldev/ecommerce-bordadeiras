@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import type { StorefrontTrustItem } from "@prisma/client";
+import type { StorefrontTrustItem } from "@/lib/types/database";
 import {
   deleteTrustBarItem,
   reorderTrustBarItems,

@@ -1,15 +1,18 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { whatsappRecipientSchema } from "@/lib/validations/admin";
 import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listWhatsappRecipients() {
-  return withAdminRead(() =>
-    prisma.whatsappRecipient.findMany({
-      orderBy: { createdAt: "desc" },
-    }),
-  );
+  return withAdminRead(async () => {
+    const { data, error } = await getDb()
+      .from(TABLES.WhatsappRecipient)
+      .select("*")
+      .order("createdAt", { ascending: false });
+    if (error) throw error;
+    return data ?? [];
+  });
 }
 
 export async function createWhatsappRecipient(data: unknown): Promise<ActionResult> {
@@ -17,18 +20,22 @@ export async function createWhatsappRecipient(data: unknown): Promise<ActionResu
     const parsed = whatsappRecipientSchema.safeParse(data);
     if (!parsed.success) return { success: false, error: "Dados inválidos" };
 
-    const recipient = await prisma.whatsappRecipient.create({
-      data: {
-        label: parsed.data.label,
-        phone: parsed.data.phone,
-        active: parsed.data.active ?? true,
-      },
+    const id = newId();
+    const now = new Date().toISOString();
+    const { error } = await getDb().from(TABLES.WhatsappRecipient).insert({
+      id,
+      label: parsed.data.label,
+      phone: parsed.data.phone,
+      active: parsed.data.active ?? true,
+      createdAt: now,
+      updatedAt: now,
     });
+    if (error) return { success: false, error: error.message };
 
     await auditMutation(actor, {
       action: "CREATE",
       entity: "WhatsappRecipient",
-      entityId: recipient.id,
+      entityId: id,
     });
     revalidateAdmin(["/admin/whatsapp"]);
     return { success: true };
@@ -37,20 +44,22 @@ export async function createWhatsappRecipient(data: unknown): Promise<ActionResu
 
 export async function updateWhatsappRecipient(
   id: string,
-  data: unknown
+  data: unknown,
 ): Promise<ActionResult> {
   return withAdmin(async (actor) => {
     const parsed = whatsappRecipientSchema.safeParse(data);
     if (!parsed.success) return { success: false, error: "Dados inválidos" };
 
-    await prisma.whatsappRecipient.update({
-      where: { id },
-      data: {
+    const { error } = await getDb()
+      .from(TABLES.WhatsappRecipient)
+      .update({
         label: parsed.data.label,
         phone: parsed.data.phone,
         active: parsed.data.active ?? true,
-      },
-    });
+        updatedAt: new Date().toISOString(),
+      })
+      .eq("id", id);
+    if (error) return { success: false, error: error.message };
 
     await auditMutation(actor, {
       action: "UPDATE",
@@ -64,7 +73,8 @@ export async function updateWhatsappRecipient(
 
 export async function deleteWhatsappRecipient(id: string): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await prisma.whatsappRecipient.delete({ where: { id } });
+    const { error } = await getDb().from(TABLES.WhatsappRecipient).delete().eq("id", id);
+    if (error) return { success: false, error: error.message };
 
     await auditMutation(actor, {
       action: "DELETE",
@@ -78,13 +88,14 @@ export async function deleteWhatsappRecipient(id: string): Promise<ActionResult>
 
 export async function toggleWhatsappRecipient(
   id: string,
-  active: boolean
+  active: boolean,
 ): Promise<ActionResult> {
   return withAdmin(async (actor) => {
-    await prisma.whatsappRecipient.update({
-      where: { id },
-      data: { active },
-    });
+    const { error } = await getDb()
+      .from(TABLES.WhatsappRecipient)
+      .update({ active, updatedAt: new Date().toISOString() })
+      .eq("id", id);
+    if (error) return { success: false, error: error.message };
 
     await auditMutation(actor, {
       action: "UPDATE",
