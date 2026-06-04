@@ -29,13 +29,23 @@ export async function POST(request: Request) {
   const email = sanitizeEmail(parsed.data.email);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-  try {
-    const supabase = await createClient();
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${baseUrl}/auth/callback?next=/reset-password`,
-    });
-  } catch (err) {
-    console.error("[forgot-password] supabase reset", err);
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${baseUrl}/auth/callback?next=/reset-password`,
+  });
+
+  if (error) {
+    console.error("[forgot-password] supabase.auth.resetPasswordForEmail", error.message);
+    const lower = error.message.toLowerCase();
+    if (lower.includes("rate") || lower.includes("too many")) {
+      return jsonError("Muitas tentativas. Aguarde alguns minutos.", 429);
+    }
+    if (lower.includes("sending email") || lower.includes("smtp")) {
+      return jsonError(
+        "Não foi possível enviar o e-mail de recuperação. Verifique o SMTP do Supabase Auth na VPS.",
+        503,
+      );
+    }
   }
 
   return NextResponse.json({ message: "If the email exists, a reset link was sent." });

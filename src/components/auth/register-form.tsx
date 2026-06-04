@@ -133,9 +133,8 @@ export function RegisterForm() {
             <MailCheck className="h-8 w-8" />
           </span>
           <p className="mt-5 text-sm text-[var(--foreground)]/80">
-            O Supabase enviou um e-mail de confirmação (código de 6 dígitos ou link,
-            conforme a configuração do Auth). Verifique todas as caixas — incluindo
-            SPAM, Lixo eletrônico e Promoções.
+            Enviamos um e-mail de confirmação (código de 6 dígitos ou link, conforme o
+            Auth). Verifique todas as caixas — incluindo SPAM, Lixo eletrônico e Promoções.
           </p>
           <EmailSpamNotice className="mt-4 text-xs text-[var(--muted-foreground)]" />
           <Button className="mt-7 w-full" asChild>

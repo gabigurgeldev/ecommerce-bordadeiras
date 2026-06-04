@@ -101,7 +101,7 @@ SMTP_SENDER_NAME=Bordadeiras
 | Auth em Docker, Stalwart na mesma VPS | Use hostname da rede Docker (`stalwart`, `mail`, IP interno), não só o domínio público |
 | Certificado autoassinado | Instale TLS válido no Stalwart **ou** use Send Email Hook / relay SMTP da app |
 
-Enquanto o mailer do GoTrue estiver quebrado, a loja (com `SUPABASE_SERVICE_ROLE_KEY`) gera o OTP oficial via Admin API e envia pelo `SMTP_*` da **app** — o código continua válido em `verifyOtp` no Supabase.
+A loja usa apenas `supabase.auth.signUp` e `supabase.auth.resend` (API pública, chave **anon**) — nunca `/admin/generate_link` no cadastro.
 
 Teste na VPS:
 

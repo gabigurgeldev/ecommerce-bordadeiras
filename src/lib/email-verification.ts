@@ -1,4 +1,3 @@
-import { resendSignupConfirmation } from "@/lib/auth/signup-confirmation";
 import { upsertUserFromAuthUser } from "@/lib/auth/sync-user";
 import {
   DATABASE_UNAVAILABLE_MESSAGE,
@@ -76,7 +75,7 @@ export async function verifyEmailCode(email: string, code: string): Promise<Veri
   }
 
   if (verify.error) {
-    console.error("[verify-email] supabase verifyOtp", verify.error.message);
+    console.error("[verify-email] supabase.auth.verifyOtp", verify.error.message);
     const mapped = mapSupabaseOtpError(verify.error.message);
     return { ok: false, code: mapped.code, message: mapped.message };
   }
@@ -94,6 +93,7 @@ export async function verifyEmailCode(email: string, code: string): Promise<Veri
   return { ok: true };
 }
 
+/** Reenvia confirmação via API pública do Auth (aciona SMTP do GoTrue). */
 export async function resendEmailVerificationCode(
   email: string,
 ): Promise<{ ok: boolean; message?: string }> {
@@ -106,10 +106,15 @@ export async function resendEmailVerificationCode(
   const appUser = await findUserByEmail(identifier);
   if (!appUser || appUser.emailVerified) return { ok: true };
 
-  const name = appUser.name != null ? String(appUser.name) : identifier;
-  const result = await resendSignupConfirmation(identifier, name);
-  if (!result.ok) {
-    return { ok: false, message: result.message ?? mapSupabaseResendError("") };
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: identifier,
+  });
+
+  if (error) {
+    console.error("[resend-verification] supabase.auth.resend", error.message);
+    return { ok: false, message: mapSupabaseResendError(error.message) };
   }
 
   return { ok: true };

@@ -1,7 +1,5 @@
 import { z } from "zod";
 import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
-import { findAuthUserByEmail } from "@/lib/auth/find-auth-user";
-import { createSignupConfirmation } from "@/lib/auth/signup-confirmation";
 import { syncAuthAppMetadata } from "@/lib/auth/sync-auth-metadata";
 import { upsertUserFromAuthUser } from "@/lib/auth/sync-user";
 import {
@@ -9,7 +7,6 @@ import {
   isDatabaseAvailable,
 } from "@/lib/data/db-available";
 import { findUserByEmail, upsertUserByEmail } from "@/lib/supabase/db";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { Role } from "@/lib/types/database";
 import { sanitizeEmail, sanitizeText } from "@/lib/sanitize";
@@ -28,9 +25,11 @@ function mapAuthSignupError(message: string): string {
   const lower = message.toLowerCase();
   if (lower.includes("confirmation email") || lower.includes("sending email") || lower.includes("smtp")) {
     return (
-      "Não foi possível enviar o e-mail de confirmação. Verifique o SMTP do Supabase Auth (Stalwart) na VPS " +
-      "ou SMTP_* no .env da aplicação."
+      "Não foi possível enviar o e-mail de confirmação. Verifique o SMTP do Supabase Auth (Stalwart) na VPS."
     );
+  }
+  if (lower.includes("already") || lower.includes("registered")) {
+    return "Este e-mail já está cadastrado.";
   }
   if (lower.includes("password")) {
     return "Senha rejeitada pelo servidor de autenticação. Use ao menos 8 caracteres.";
@@ -38,8 +37,8 @@ function mapAuthSignupError(message: string): string {
   return "Não foi possível criar a conta. Verifique os dados e tente novamente.";
 }
 
-/** Fallback sem service role: signUp (depende do mailer GoTrue na VPS). */
-async function createAuthUserWithSignUp(
+/** Cadastro via API pública do Auth — dispara e-mail pelo SMTP configurado no GoTrue. */
+async function signUpWithSupabase(
   email: string,
   password: string,
   name: string,
@@ -49,6 +48,7 @@ async function createAuthUserWithSignUp(
 > {
   const supabase = await createClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -60,21 +60,11 @@ async function createAuthUserWithSignUp(
 
   if (error) {
     const lower = error.message.toLowerCase();
-    if (lower.includes("already")) {
+    if (lower.includes("already") || lower.includes("registered")) {
       return { ok: false, code: "exists", message: "Este e-mail já está cadastrado." };
     }
 
-    if (lower.includes("confirmation email") || lower.includes("sending email")) {
-      const admin = createAdminClient();
-      if (admin) {
-        const recovered = await findAuthUserByEmail(admin, email);
-        if (recovered) {
-          return { ok: true, authUser: recovered };
-        }
-      }
-    }
-
-    console.error("[register] supabase signUp", error.message);
+    console.error("[register] supabase.auth.signUp", error.message);
     return {
       ok: false,
       code: "validation",
@@ -137,14 +127,12 @@ export async function registerUser(input: {
     return { ok: false, code: "exists", message: "Este e-mail já está cadastrado." };
   }
 
-  const authResult = createAdminClient()
-    ? await createSignupConfirmation(email, password, name)
-    : await createAuthUserWithSignUp(email, password, name);
+  const authResult = await signUpWithSupabase(email, password, name);
 
   if (!authResult.ok) {
     return {
       ok: false,
-      code: authResult.code === "exists" ? "exists" : authResult.code,
+      code: authResult.code,
       message: authResult.message,
     };
   }
