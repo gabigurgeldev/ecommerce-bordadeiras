@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -94,12 +94,13 @@ type OpenRouterFormValues = OpenRouterValues & { hasApiKey?: boolean };
 type ShippingValues = z.infer<typeof shippingSettingsFormSchema>;
 type MelhorEnvioValues = z.infer<typeof melhorEnvioSettingsFormSchema>;
 type MelhorEnvioAdminState = MelhorEnvioValues & {
-  hasSandboxClientSecret?: boolean;
-  hasProductionClientSecret?: boolean;
+  hasSandboxToken?: boolean;
+  hasProductionToken?: boolean;
   sandboxConnected?: boolean;
   productionConnected?: boolean;
+  sandboxExpiresAt?: string | null;
+  productionExpiresAt?: string | null;
   activeConnected?: boolean;
-  redirectUri?: string;
 };
 
 function maskCep(raw: string): string {
@@ -327,14 +328,8 @@ export function SettingsTabs({
   const [loadingRates, setLoadingRates] = useState(false);
   const router = useRouter();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
-  const [copiedMelhorEnvioRedirect, setCopiedMelhorEnvioRedirect] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
-  const [connectingMelhorEnvio, setConnectingMelhorEnvio] = useState(false);
   const [probingMelhorEnvio, setProbingMelhorEnvio] = useState(false);
-  const [melhorEnvioSecrets, setMelhorEnvioSecrets] = useState({
-    sandbox: melhorEnvio.hasSandboxClientSecret ?? false,
-    production: melhorEnvio.hasProductionClientSecret ?? false,
-  });
   const mpForm = useForm<MpFormValues>({
     resolver: zodResolver(mercadoPagoSettingsSchema),
     defaultValues: mercadoPago,
@@ -372,68 +367,10 @@ export function SettingsTabs({
     resolver: zodResolver(melhorEnvioSettingsFormSchema),
     defaultValues: {
       useSandbox: melhorEnvio.useSandbox,
-      sandboxClientId: melhorEnvio.sandboxClientId,
-      sandboxClientSecret: "",
-      productionClientId: melhorEnvio.productionClientId,
-      productionClientSecret: "",
+      sandboxAccessToken: "",
+      productionAccessToken: "",
     },
   });
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("melhorEnvio");
-    const message = params.get("message");
-    if (status === "connected") {
-      toast.success("Melhor Envio conectado com sucesso");
-      window.history.replaceState({}, "", "/admin/configuracoes#shipping");
-    } else if (status === "error") {
-      if (message === "missing_client_id") {
-        toast.error(
-          "Salve o Client ID do ambiente ativo (Sandbox ou Produção) antes de conectar.",
-        );
-      } else if (message === "missing_client_secret") {
-        toast.error(
-          "Salve o Client Secret do ambiente ativo antes de conectar.",
-        );
-      } else if (message === "token_exchange_failed") {
-        const detail = params.get("detail");
-        const description = params.get("description");
-        if (
-          detail === "invalid_client" ||
-          description?.toLowerCase().includes("client authentication failed")
-        ) {
-          toast.error(
-            "Client Secret incorreto ou credenciais do ambiente errado. No painel ME (sandbox ≠ produção), copie o Secret novamente, salve e clique em Conectar.",
-          );
-        } else if (detail === "missing_credentials" || detail === "invalid_request") {
-          toast.error(
-            description ??
-              "Credenciais incompletas. Preencha Client ID e Secret do ambiente ativo (sandbox ou produção) e salve antes de conectar.",
-          );
-        } else if (detail === "html_response") {
-          toast.error(
-            description ??
-              "Resposta inválida do Melhor Envio. Verifique credenciais, Redirect URI e se o servidor permite acesso de saída a melhorenvio.com.br.",
-          );
-        } else if (description && !description.trimStart().startsWith("<")) {
-          toast.error(`Melhor Envio: ${description}`);
-        } else {
-          toast.error(
-            "Falha ao trocar o código de autorização. Confira Client Secret, Redirect URI completa no painel ME e se o ambiente (sandbox/produção) está correto.",
-          );
-        }
-      } else if (message === "invalid_client") {
-        toast.error(
-          "Melhor Envio rejeitou o app: verifique Client ID do ambiente ativo e cadastre a Redirect URI completa (incluindo /api/integrations/melhor-envio/callback) no painel ME.",
-        );
-      } else if (message) {
-        toast.error(`Melhor Envio: ${message}`);
-      } else {
-        toast.error("Não foi possível conectar o Melhor Envio. Tente novamente.");
-      }
-      window.history.replaceState({}, "", "/admin/configuracoes#shipping");
-    }
-  }, []);
 
   const whatsappStatusLabel =
     whatsapp.status === "connected" ? "Conectado" : whatsapp.status;
@@ -1388,99 +1325,96 @@ export function SettingsTabs({
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-3 rounded-xl border p-4">
-                    <p className="text-sm font-medium">Sandbox</p>
-                    <div className="space-y-2">
-                      <Label htmlFor="me-sandbox-id">Client ID</Label>
-                      <Input
-                        id="me-sandbox-id"
-                        {...melhorEnvioForm.register("sandboxClientId")}
-                      />
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium">Sandbox</p>
+                      <Badge
+                        variant={melhorEnvio.sandboxConnected ? "default" : "secondary"}
+                      >
+                        {melhorEnvio.sandboxConnected ? "Conectado" : "Não conectado"}
+                      </Badge>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="me-sandbox-secret">Client Secret</Label>
+                      <Label htmlFor="me-sandbox-token">Access Token</Label>
                       <Input
-                        id="me-sandbox-secret"
+                        id="me-sandbox-token"
                         type="password"
                         placeholder={
-                          melhorEnvioSecrets.sandbox
+                          melhorEnvio.hasSandboxToken
                             ? "•••••••• (deixe em branco para manter)"
-                            : "Cole o Client Secret"
+                            : "Cole o token do painel ME"
                         }
-                        {...melhorEnvioForm.register("sandboxClientSecret")}
+                        {...melhorEnvioForm.register("sandboxAccessToken")}
                       />
                     </div>
-                    <Badge variant={melhorEnvio.sandboxConnected ? "default" : "secondary"}>
-                      {melhorEnvio.sandboxConnected ? "Conectado" : "Não conectado"}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-3 rounded-xl border p-4">
-                    <p className="text-sm font-medium">Produção</p>
-                    <div className="space-y-2">
-                      <Label htmlFor="me-prod-id">Client ID</Label>
-                      <Input
-                        id="me-prod-id"
-                        {...melhorEnvioForm.register("productionClientId")}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="me-prod-secret">Client Secret</Label>
-                      <Input
-                        id="me-prod-secret"
-                        type="password"
-                        placeholder={
-                          melhorEnvioSecrets.production
-                            ? "•••••••• (deixe em branco para manter)"
-                            : "Cole o Client Secret"
-                        }
-                        {...melhorEnvioForm.register("productionClientSecret")}
-                      />
-                    </div>
-                    <Badge variant={melhorEnvio.productionConnected ? "default" : "secondary"}>
-                      {melhorEnvio.productionConnected ? "Conectado" : "Não conectado"}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Redirect URI (cadastrar no app Melhor Envio)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value={melhorEnvio.redirectUri ?? ""}
-                      className="flex-1 font-mono text-xs"
-                    />
+                    {melhorEnvio.sandboxExpiresAt ? (
+                      <p className="text-xs text-muted-foreground">
+                        Expira em: {melhorEnvio.sandboxExpiresAt}
+                      </p>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        if (!melhorEnvio.redirectUri) return;
-                        navigator.clipboard.writeText(melhorEnvio.redirectUri);
-                        setCopiedMelhorEnvioRedirect(true);
-                        setTimeout(() => setCopiedMelhorEnvioRedirect(false), 2000);
+                      size="sm"
+                      onClick={async () => {
+                        const res = await disconnectMelhorEnvioSettings("sandbox");
+                        if (res.success) {
+                          toast.success("Token sandbox removido");
+                          melhorEnvioForm.setValue("sandboxAccessToken", "");
+                          router.refresh();
+                        } else {
+                          toast.error(res.error);
+                        }
                       }}
-                      title="Copiar Redirect URI"
                     >
-                      {copiedMelhorEnvioRedirect ? (
-                        <Check className="h-4 w-4 text-emerald-500" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
+                      Remover token
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    No painel Melhor Envio (Área Dev → seu app), cadastre{" "}
-                    <strong>exatamente</strong> esta URL no campo de callback — incluindo o caminho{" "}
-                    <code className="rounded bg-muted px-1 py-0.5">
-                      /api/integrations/melhor-envio/callback
-                    </code>
-                    . Cadastrar só o domínio (ex.:{" "}
-                    <code className="rounded bg-muted px-1 py-0.5">
-                      https://seusite.com.br
-                    </code>
-                    ) causa erro <strong>invalid_client</strong>.
-                  </p>
+
+                  <div className="space-y-3 rounded-xl border p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium">Produção</p>
+                      <Badge
+                        variant={melhorEnvio.productionConnected ? "default" : "secondary"}
+                      >
+                        {melhorEnvio.productionConnected ? "Conectado" : "Não conectado"}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="me-prod-token">Access Token</Label>
+                      <Input
+                        id="me-prod-token"
+                        type="password"
+                        placeholder={
+                          melhorEnvio.hasProductionToken
+                            ? "•••••••• (deixe em branco para manter)"
+                            : "Cole o token do painel ME"
+                        }
+                        {...melhorEnvioForm.register("productionAccessToken")}
+                      />
+                    </div>
+                    {melhorEnvio.productionExpiresAt ? (
+                      <p className="text-xs text-muted-foreground">
+                        Expira em: {melhorEnvio.productionExpiresAt}
+                      </p>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        const res = await disconnectMelhorEnvioSettings("production");
+                        if (res.success) {
+                          toast.success("Token de produção removido");
+                          melhorEnvioForm.setValue("productionAccessToken", "");
+                          router.refresh();
+                        } else {
+                          toast.error(res.error);
+                        }
+                      }}
+                    >
+                      Remover token
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -1490,78 +1424,16 @@ export function SettingsTabs({
                     onClick={melhorEnvioForm.handleSubmit(async (data) => {
                       const res = await saveMelhorEnvioSettings(data);
                       if (res.success) {
-                        toast.success("Credenciais Melhor Envio salvas");
-                        if (data.sandboxClientSecret?.trim()) {
-                          setMelhorEnvioSecrets((prev) => ({ ...prev, sandbox: true }));
-                        }
-                        if (data.productionClientSecret?.trim()) {
-                          setMelhorEnvioSecrets((prev) => ({ ...prev, production: true }));
-                        }
-                        melhorEnvioForm.setValue("sandboxClientSecret", "");
-                        melhorEnvioForm.setValue("productionClientSecret", "");
+                        toast.success("Token Melhor Envio salvo");
+                        melhorEnvioForm.setValue("sandboxAccessToken", "");
+                        melhorEnvioForm.setValue("productionAccessToken", "");
                         router.refresh();
                       } else {
                         toast.error(res.error);
                       }
                     })}
                   >
-                    Salvar credenciais
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={connectingMelhorEnvio}
-                    onClick={async () => {
-                      const data = melhorEnvioForm.getValues();
-                      const useSandbox = data.useSandbox;
-                      const clientId = useSandbox
-                        ? data.sandboxClientId?.trim()
-                        : data.productionClientId?.trim();
-                      const clientSecret = useSandbox
-                        ? data.sandboxClientSecret?.trim()
-                        : data.productionClientSecret?.trim();
-
-                      if (!clientId) {
-                        toast.error(
-                          `Informe o Client ID de ${useSandbox ? "Sandbox" : "Produção"} antes de conectar.`,
-                        );
-                        return;
-                      }
-
-                      if (!clientSecret) {
-                        toast.error(
-                          `Cole o Client Secret de ${useSandbox ? "Sandbox" : "Produção"} antes de conectar (copie do painel Área Dev do Melhor Envio).`,
-                        );
-                        return;
-                      }
-
-                      setConnectingMelhorEnvio(true);
-                      try {
-                        const res = await saveMelhorEnvioSettings(data);
-                        if (!res.success) {
-                          toast.error(res.error);
-                          return;
-                        }
-                        if (data.sandboxClientSecret?.trim()) {
-                          setMelhorEnvioSecrets((prev) => ({ ...prev, sandbox: true }));
-                        }
-                        if (data.productionClientSecret?.trim()) {
-                          setMelhorEnvioSecrets((prev) => ({ ...prev, production: true }));
-                        }
-                        window.location.href =
-                          "/api/integrations/melhor-envio/authorize";
-                      } finally {
-                        setConnectingMelhorEnvio(false);
-                      }
-                    }}
-                  >
-                    {connectingMelhorEnvio ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Conectando…
-                      </>
-                    ) : (
-                      "Conectar Melhor Envio"
-                    )}
+                    Salvar token
                   </Button>
                   <Button
                     type="button"
@@ -1587,21 +1459,6 @@ export function SettingsTabs({
                       "Testar conexão API"
                     )}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={async () => {
-                      const res = await disconnectMelhorEnvioSettings();
-                      if (res.success) {
-                        toast.success("Melhor Envio desconectado");
-                        router.refresh();
-                      } else {
-                        toast.error(res.error);
-                      }
-                    }}
-                  >
-                    Desconectar
-                  </Button>
                 </div>
 
                 <p className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/20 dark:text-sky-200">
@@ -1611,24 +1468,36 @@ export function SettingsTabs({
                     <strong>
                       {melhorEnvioForm.watch("useSandbox") ? "Sandbox" : "Produção"}
                     </strong>
-                    . Preencha Client ID e Secret do ambiente ativo, depois clique em{" "}
-                    <strong>Conectar Melhor Envio</strong> (as credenciais são salvas
-                    automaticamente).
+                    . Gere o token no painel Melhor Envio com permissão{" "}
+                    <code className="rounded bg-muted px-1 py-0.5">shipping-calculate</code>{" "}
+                    (válido por ~30 dias) e cole acima.
                   </span>
                 </p>
 
                 <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
                   <Info className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    O Melhor Envio exige URL de callback em <strong>HTTPS</strong> — não aceita{" "}
-                    <code className="rounded bg-muted px-1 py-0.5">http://localhost</code>. Para
-                    desenvolver localmente, cadastre a URL HTTPS de produção acima no app ME e
-                    defina{" "}
-                    <code className="rounded bg-muted px-1 py-0.5">
-                      MELHOR_ENVIO_REDIRECT_URI
-                    </code>{" "}
-                    no <code className="rounded bg-muted px-1 py-0.5">.env</code> com o mesmo
-                    valor.
+                    <strong>Sandbox:</strong>{" "}
+                    <a
+                      href="https://sandbox.melhorenvio.com.br"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      sandbox.melhorenvio.com.br
+                    </a>{" "}
+                    → Integrações → Permissões de Acesso.{" "}
+                    <strong>Produção:</strong>{" "}
+                    <a
+                      href="https://melhorenvio.com.br/painel/gerenciar/tokens"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      painel/gerenciar/tokens
+                    </a>
+                    . Se &quot;Testar conexão API&quot; retornar HTTP 403, o servidor pode estar
+                    bloqueando saída para melhorenvio.com.br — libere na hospedagem.
                   </span>
                 </div>
               </CardContent>

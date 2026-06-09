@@ -223,10 +223,8 @@ export const shippingSettingsFormSchema = z.object({
 
 export const melhorEnvioSettingsFormSchema = z.object({
   useSandbox: z.coerce.boolean().default(true),
-  sandboxClientId: z.string().optional().or(z.literal("")),
-  sandboxClientSecret: z.string().optional().or(z.literal("")),
-  productionClientId: z.string().optional().or(z.literal("")),
-  productionClientSecret: z.string().optional().or(z.literal("")),
+  sandboxAccessToken: z.string().optional().or(z.literal("")),
+  productionAccessToken: z.string().optional().or(z.literal("")),
 });
 
 export const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";

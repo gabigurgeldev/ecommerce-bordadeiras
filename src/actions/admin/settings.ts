@@ -13,10 +13,10 @@ import {
   getActiveMelhorEnvioEnvironment,
   getMelhorEnvioSettings,
   isMelhorEnvioConnected,
-  saveMelhorEnvioCredentials,
+  saveMelhorEnvioTokenSettings,
 } from "@/lib/data/melhor-envio-settings";
 import { disconnectMelhorEnvio } from "@/lib/melhor-envio/auth";
-import { getMelhorEnvioRedirectUri } from "@/lib/melhor-envio/config";
+import { formatMelhorEnvioExpiry } from "@/lib/melhor-envio/token-utils";
 import {
   getPaymentSettings,
   savePaymentSettings,
@@ -411,18 +411,13 @@ export async function getMelhorEnvioSettingsForAdmin() {
 
     return {
       useSandbox: settings.useSandbox,
-      sandboxClientId: settings.sandbox.clientId,
-      hasSandboxClientSecret: Boolean(settings.sandbox.clientSecret),
-      productionClientId: settings.production.clientId,
-      hasProductionClientSecret: Boolean(settings.production.clientSecret),
-      sandboxConnected: Boolean(
-        settings.sandbox.accessToken && settings.sandbox.refreshToken,
-      ),
-      productionConnected: Boolean(
-        settings.production.accessToken && settings.production.refreshToken,
-      ),
+      hasSandboxToken: Boolean(settings.sandbox.accessToken),
+      hasProductionToken: Boolean(settings.production.accessToken),
+      sandboxConnected: Boolean(settings.sandbox.accessToken),
+      productionConnected: Boolean(settings.production.accessToken),
+      sandboxExpiresAt: formatMelhorEnvioExpiry(settings.sandbox.expiresAt),
+      productionExpiresAt: formatMelhorEnvioExpiry(settings.production.expiresAt),
       activeConnected,
-      redirectUri: getMelhorEnvioRedirectUri(),
     };
   });
 }
@@ -439,18 +434,10 @@ export async function saveMelhorEnvioSettings(data: unknown): Promise<ActionResu
       return { success: false, error: msg };
     }
 
-    const current = await getMelhorEnvioSettings();
-    const sandboxSecret =
-      parsed.data.sandboxClientSecret?.trim() || current.sandbox.clientSecret;
-    const productionSecret =
-      parsed.data.productionClientSecret?.trim() || current.production.clientSecret;
-
-    await saveMelhorEnvioCredentials({
+    await saveMelhorEnvioTokenSettings({
       useSandbox: parsed.data.useSandbox,
-      sandboxClientId: parsed.data.sandboxClientId?.trim() ?? "",
-      sandboxClientSecret: sandboxSecret,
-      productionClientId: parsed.data.productionClientId?.trim() ?? "",
-      productionClientSecret: productionSecret,
+      sandboxAccessToken: parsed.data.sandboxAccessToken?.trim() ?? "",
+      productionAccessToken: parsed.data.productionAccessToken?.trim() ?? "",
     });
 
     await auditMutation(actor, { action: "SETTINGS_CHANGE", entity: "MelhorEnvio" });
@@ -477,8 +464,20 @@ export async function probeMelhorEnvioApiAccessForAdmin(): Promise<
   return withAdminRead(async () => {
     const settings = await getMelhorEnvioSettings();
     const env = getActiveMelhorEnvioEnvironment(settings);
-    const { probeMelhorEnvioApiAccess } = await import("@/lib/melhor-envio/auth");
-    const result = await probeMelhorEnvioApiAccess(env);
+    const token =
+      env === "sandbox"
+        ? settings.sandbox.accessToken
+        : settings.production.accessToken;
+
+    if (!token) {
+      return {
+        success: false,
+        error: `Cole o Access Token de ${env === "sandbox" ? "Sandbox" : "Produção"} e salve antes de testar.`,
+      };
+    }
+
+    const { probeMelhorEnvioTokenAccess } = await import("@/lib/melhor-envio/auth");
+    const result = await probeMelhorEnvioTokenAccess(env, token);
     if (result.ok) {
       return { success: true, message: result.message };
     }

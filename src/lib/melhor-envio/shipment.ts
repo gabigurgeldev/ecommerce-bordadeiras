@@ -158,7 +158,7 @@ export async function calculateMelhorEnvioShipment(input: {
       ok: false,
       error: "Melhor Envio não conectado",
       fallbackMessage:
-        "Conecte o Melhor Envio em Admin → Configurações → Frete e Envio.",
+        "Cole o Access Token em Admin → Configurações → Frete e Envio.",
     };
   }
 
@@ -168,7 +168,7 @@ export async function calculateMelhorEnvioShipment(input: {
       ok: false,
       error: "Token Melhor Envio inválido",
       fallbackMessage:
-        "Sessão do Melhor Envio expirou. Reconecte em Admin → Configurações → Frete e Envio.",
+        "Token Melhor Envio expirado. Gere um novo no painel ME e cole em Admin → Configurações → Frete e Envio.",
     };
   }
 

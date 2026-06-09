@@ -44,17 +44,10 @@ export const SETTING_KEYS = {
   },
   melhorEnvio: {
     useSandbox: "melhorenvio.useSandbox",
-    sandboxClientId: "melhorenvio.sandbox.clientId",
-    sandboxClientSecret: "melhorenvio.sandbox.clientSecret",
     sandboxAccessToken: "melhorenvio.sandbox.accessToken",
-    sandboxRefreshToken: "melhorenvio.sandbox.refreshToken",
     sandboxExpiresAt: "melhorenvio.sandbox.expiresAt",
-    productionClientId: "melhorenvio.production.clientId",
-    productionClientSecret: "melhorenvio.production.clientSecret",
     productionAccessToken: "melhorenvio.production.accessToken",
-    productionRefreshToken: "melhorenvio.production.refreshToken",
     productionExpiresAt: "melhorenvio.production.expiresAt",
-    oauthPending: "melhorenvio.oauth.pending",
   },
 } as const;
 

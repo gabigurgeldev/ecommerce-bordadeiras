@@ -7,7 +7,7 @@ See `env.example` (dev) and `env.production.example` (prod). Full table: [ENV_RE
 - `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_APP_URL`
 - `WHATSAPP_SERVICE_URL`, `WHATSAPP_SERVICE_SECRET`
 - Mercado Pago: **Admin → Configurações** (banco Postgres/Supabase, not env)
-- Melhor Envio (frete): **Admin → Configurações → Frete e Envio** (OAuth + credenciais no banco)
+- Melhor Envio (frete): **Admin → Configurações → Frete e Envio** (Access Token no banco)
 - WhatsApp destinatários: **Admin → WhatsApp** (`WhatsappRecipient` table)
 - `S3_*` (MinIO)
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (if using Google login)
@@ -32,19 +32,32 @@ Optional: `REDIS_URL`, `UPSTASH_*`, `SMTP_*`
 
 ## Melhor Envio (cálculo de frete)
 
-1. Crie um aplicativo em [Melhor Envio Sandbox](https://sandbox.melhorenvio.com.br) e/ou [Produção](https://melhorenvio.com.br) (Área Dev / Integrações).
-2. Cadastre a **Redirect URI** exatamente como exibida no admin (botão copiar), incluindo o caminho completo:
-   `{NEXT_PUBLIC_APP_URL}/api/integrations/melhor-envio/callback`
-   Cadastrar só o domínio (sem `/api/integrations/...`) causa erro **invalid_client**.
-3. Em desenvolvimento local, o Melhor Envio não aceita `http://localhost`. Use a URL HTTPS de produção no app ME e defina `MELHOR_ENVIO_REDIRECT_URI` no `.env` com o mesmo valor.
-4. Em **Admin → Configurações → Frete e Envio**:
-   - Preencha o endereço de origem (CEP obrigatório)
-   - Salve Client ID e Client Secret (sandbox e/ou produção)
-   - Ative o toggle **Modo sandbox** para testes
-   - Clique em **Conectar Melhor Envio** (OAuth, scope `shipping-calculate`)
+A integração usa **Access Token** gerado no painel do Melhor Envio (sem OAuth). O token é enviado como `Authorization: Bearer {token}` nas chamadas à API.
+
+### Onde gerar o token
+
+| Ambiente | Painel | Caminho |
+|----------|--------|---------|
+| Sandbox | [sandbox.melhorenvio.com.br](https://sandbox.melhorenvio.com.br) | Integrações → **Permissões de Acesso** → gerar token com permissão `shipping-calculate` |
+| Produção | [melhorenvio.com.br](https://melhorenvio.com.br) | [painel/gerenciar/tokens](https://melhorenvio.com.br/painel/gerenciar/tokens) ou Permissões de Acesso |
+
+O token expira em ~30 dias (JWT). O admin exibe a data de validade decodificando o campo `exp`.
+
+### Configuração no admin
+
+1. Em **Admin → Configurações → Frete e Envio**, preencha o endereço de origem (CEP obrigatório).
+2. Ative **Modo sandbox** para testes ou desative para produção.
+3. Cole o **Access Token** do ambiente correspondente (Sandbox ou Produção) e clique em **Salvar token**.
+4. Clique em **Testar conexão API** para validar o token contra a API real do Melhor Envio.
 5. Nos produtos, use o modo **Calculado via Melhor Envio** e informe peso/dimensões.
 
-Tokens expiram em ~30 dias; o sistema renova automaticamente via `refresh_token` quando possível.
+### Renovação
+
+Quando o token expirar, gere um novo no painel ME e cole novamente no admin. Não há renovação automática.
+
+### Bloqueio de rede (HTTP 403)
+
+Se **Testar conexão API** retornar HTTP 403 com resposta HTML, o servidor de hospedagem pode estar bloqueando saída HTTPS para `melhorenvio.com.br` ou `sandbox.melhorenvio.com.br`. Nesse caso, libere o acesso na hospedagem ou verifique variáveis `HTTP_PROXY`/`HTTPS_PROXY`.
 
 ## Blockers / follow-ups
 

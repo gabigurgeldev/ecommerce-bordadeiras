@@ -1,26 +1,21 @@
-import { getSetting, getSettings, setSettings } from "@/lib/settings";
+import { getSettings, setSettings } from "@/lib/settings";
 import { SETTING_KEYS } from "@/lib/settings-keys";
+import { decodeMelhorEnvioTokenExpiry } from "@/lib/melhor-envio/token-utils";
 import type { MelhorEnvioEnvironment } from "@/lib/melhor-envio/config";
 
-export type MelhorEnvioEnvCredentials = {
-  clientId: string;
-  clientSecret: string;
+export type MelhorEnvioEnvToken = {
   accessToken: string;
-  refreshToken: string;
   expiresAt: number | null;
 };
 
 export type MelhorEnvioSettings = {
   useSandbox: boolean;
-  sandbox: MelhorEnvioEnvCredentials;
-  production: MelhorEnvioEnvCredentials;
+  sandbox: MelhorEnvioEnvToken;
+  production: MelhorEnvioEnvToken;
 };
 
-const EMPTY_CREDS: MelhorEnvioEnvCredentials = {
-  clientId: "",
-  clientSecret: "",
+const EMPTY_TOKEN: MelhorEnvioEnvToken = {
   accessToken: "",
-  refreshToken: "",
   expiresAt: null,
 };
 
@@ -35,32 +30,14 @@ function parseExpiresAt(raw: string | undefined): number | null {
 export async function getMelhorEnvioSettings(): Promise<MelhorEnvioSettings> {
   const values = await getSettings([...ALL_KEYS]);
 
-  const readEnv = (prefix: "sandbox" | "production"): MelhorEnvioEnvCredentials => {
+  const readEnv = (prefix: "sandbox" | "production"): MelhorEnvioEnvToken => {
     const isSandbox = prefix === "sandbox";
     return {
-      clientId:
-        values[
-          isSandbox
-            ? SETTING_KEYS.melhorEnvio.sandboxClientId
-            : SETTING_KEYS.melhorEnvio.productionClientId
-        ]?.trim() ?? "",
-      clientSecret:
-        values[
-          isSandbox
-            ? SETTING_KEYS.melhorEnvio.sandboxClientSecret
-            : SETTING_KEYS.melhorEnvio.productionClientSecret
-        ]?.trim() ?? "",
       accessToken:
         values[
           isSandbox
             ? SETTING_KEYS.melhorEnvio.sandboxAccessToken
             : SETTING_KEYS.melhorEnvio.productionAccessToken
-        ]?.trim() ?? "",
-      refreshToken:
-        values[
-          isSandbox
-            ? SETTING_KEYS.melhorEnvio.sandboxRefreshToken
-            : SETTING_KEYS.melhorEnvio.productionRefreshToken
         ]?.trim() ?? "",
       expiresAt: parseExpiresAt(
         values[
@@ -85,126 +62,85 @@ export function getActiveMelhorEnvioEnvironment(
   return settings.useSandbox ? "sandbox" : "production";
 }
 
+export function getMelhorEnvioTokenForEnv(
+  settings: MelhorEnvioSettings,
+  env: MelhorEnvioEnvironment,
+): MelhorEnvioEnvToken {
+  return env === "sandbox" ? settings.sandbox : settings.production;
+}
+
+/** @deprecated Use getMelhorEnvioTokenForEnv */
 export function getMelhorEnvioCredentialsForEnv(
   settings: MelhorEnvioSettings,
   env: MelhorEnvioEnvironment,
-): MelhorEnvioEnvCredentials {
-  return env === "sandbox" ? settings.sandbox : settings.production;
+): MelhorEnvioEnvToken {
+  return getMelhorEnvioTokenForEnv(settings, env);
 }
 
 export function isMelhorEnvioConnected(settings: MelhorEnvioSettings): boolean {
   const env = getActiveMelhorEnvioEnvironment(settings);
-  const creds = getMelhorEnvioCredentialsForEnv(settings, env);
-  return Boolean(creds.accessToken && creds.refreshToken);
+  const token = getMelhorEnvioTokenForEnv(settings, env);
+  return Boolean(token.accessToken);
 }
 
-export async function saveMelhorEnvioCredentials(data: {
-  useSandbox: boolean;
-  sandboxClientId: string;
-  sandboxClientSecret: string;
-  productionClientId: string;
-  productionClientSecret: string;
-}): Promise<void> {
-  const current = await getMelhorEnvioSettings();
-
-  await setSettings({
-    [SETTING_KEYS.melhorEnvio.useSandbox]: data.useSandbox ? "true" : "false",
-    [SETTING_KEYS.melhorEnvio.sandboxClientId]: data.sandboxClientId.trim(),
-    [SETTING_KEYS.melhorEnvio.sandboxClientSecret]: data.sandboxClientSecret.trim(),
-    [SETTING_KEYS.melhorEnvio.productionClientId]: data.productionClientId.trim(),
-    [SETTING_KEYS.melhorEnvio.productionClientSecret]:
-      data.productionClientSecret.trim(),
-    // Preserve tokens when only updating credentials
-    [SETTING_KEYS.melhorEnvio.sandboxAccessToken]: current.sandbox.accessToken,
-    [SETTING_KEYS.melhorEnvio.sandboxRefreshToken]: current.sandbox.refreshToken,
-    [SETTING_KEYS.melhorEnvio.sandboxExpiresAt]:
-      current.sandbox.expiresAt != null ? String(current.sandbox.expiresAt) : "",
-    [SETTING_KEYS.melhorEnvio.productionAccessToken]: current.production.accessToken,
-    [SETTING_KEYS.melhorEnvio.productionRefreshToken]: current.production.refreshToken,
-    [SETTING_KEYS.melhorEnvio.productionExpiresAt]:
-      current.production.expiresAt != null
-        ? String(current.production.expiresAt)
-        : "",
-  });
-}
-
-export async function saveMelhorEnvioTokens(
+export async function saveMelhorEnvioAccessToken(
   env: MelhorEnvioEnvironment,
-  tokens: {
-    accessToken: string;
-    refreshToken: string;
-    expiresAt: number;
-  },
+  accessToken: string,
 ): Promise<void> {
+  const trimmed = accessToken.trim();
+  const expiresAt = decodeMelhorEnvioTokenExpiry(trimmed);
   const current = await getMelhorEnvioSettings();
   const isSandbox = env === "sandbox";
 
   await setSettings({
     [SETTING_KEYS.melhorEnvio.sandboxAccessToken]: isSandbox
-      ? tokens.accessToken
+      ? trimmed
       : current.sandbox.accessToken,
-    [SETTING_KEYS.melhorEnvio.sandboxRefreshToken]: isSandbox
-      ? tokens.refreshToken
-      : current.sandbox.refreshToken,
     [SETTING_KEYS.melhorEnvio.sandboxExpiresAt]: isSandbox
-      ? String(tokens.expiresAt)
+      ? expiresAt != null
+        ? String(expiresAt)
+        : ""
       : String(current.sandbox.expiresAt ?? ""),
     [SETTING_KEYS.melhorEnvio.productionAccessToken]: isSandbox
       ? current.production.accessToken
-      : tokens.accessToken,
-    [SETTING_KEYS.melhorEnvio.productionRefreshToken]: isSandbox
-      ? current.production.refreshToken
-      : tokens.refreshToken,
+      : trimmed,
     [SETTING_KEYS.melhorEnvio.productionExpiresAt]: isSandbox
       ? String(current.production.expiresAt ?? "")
-      : String(tokens.expiresAt),
+      : expiresAt != null
+        ? String(expiresAt)
+        : "",
   });
 }
 
-export type MelhorEnvioOAuthPending = {
-  state: string;
-  env: MelhorEnvioEnvironment;
-  redirectUri: string;
-  expiresAt: number;
-};
-
-const OAUTH_PENDING_TTL_MS = 10 * 60 * 1000;
-
-export async function saveMelhorEnvioOAuthPending(data: {
-  state: string;
-  env: MelhorEnvioEnvironment;
-  redirectUri: string;
+export async function saveMelhorEnvioTokenSettings(data: {
+  useSandbox: boolean;
+  sandboxAccessToken: string;
+  productionAccessToken: string;
 }): Promise<void> {
-  const pending: MelhorEnvioOAuthPending = {
-    state: data.state,
-    env: data.env,
-    redirectUri: data.redirectUri,
-    expiresAt: Date.now() + OAUTH_PENDING_TTL_MS,
-  };
+  const current = await getMelhorEnvioSettings();
+  const sandboxToken =
+    data.sandboxAccessToken.trim() || current.sandbox.accessToken;
+  const productionToken =
+    data.productionAccessToken.trim() || current.production.accessToken;
+
+  const sandboxExpires =
+    sandboxToken !== current.sandbox.accessToken
+      ? decodeMelhorEnvioTokenExpiry(sandboxToken)
+      : current.sandbox.expiresAt;
+  const productionExpires =
+    productionToken !== current.production.accessToken
+      ? decodeMelhorEnvioTokenExpiry(productionToken)
+      : current.production.expiresAt;
+
   await setSettings({
-    [SETTING_KEYS.melhorEnvio.oauthPending]: JSON.stringify(pending),
+    [SETTING_KEYS.melhorEnvio.useSandbox]: data.useSandbox ? "true" : "false",
+    [SETTING_KEYS.melhorEnvio.sandboxAccessToken]: sandboxToken,
+    [SETTING_KEYS.melhorEnvio.sandboxExpiresAt]:
+      sandboxExpires != null ? String(sandboxExpires) : "",
+    [SETTING_KEYS.melhorEnvio.productionAccessToken]: productionToken,
+    [SETTING_KEYS.melhorEnvio.productionExpiresAt]:
+      productionExpires != null ? String(productionExpires) : "",
   });
-}
-
-export async function consumeMelhorEnvioOAuthPending(
-  state: string | null,
-): Promise<{ env: MelhorEnvioEnvironment; redirectUri: string } | null> {
-  if (!state?.trim()) return null;
-
-  const raw = await getSetting(SETTING_KEYS.melhorEnvio.oauthPending);
-  await setSettings({ [SETTING_KEYS.melhorEnvio.oauthPending]: "" });
-  if (!raw?.trim()) return null;
-
-  try {
-    const pending = JSON.parse(raw) as MelhorEnvioOAuthPending;
-    if (pending.state !== state) return null;
-    if (!pending.expiresAt || pending.expiresAt < Date.now()) return null;
-    if (pending.env !== "sandbox" && pending.env !== "production") return null;
-    if (!pending.redirectUri?.trim()) return null;
-    return { env: pending.env, redirectUri: pending.redirectUri.trim() };
-  } catch {
-    return null;
-  }
 }
 
 export async function clearMelhorEnvioTokens(
@@ -217,17 +153,11 @@ export async function clearMelhorEnvioTokens(
     [SETTING_KEYS.melhorEnvio.sandboxAccessToken]: isSandbox
       ? ""
       : current.sandbox.accessToken,
-    [SETTING_KEYS.melhorEnvio.sandboxRefreshToken]: isSandbox
-      ? ""
-      : current.sandbox.refreshToken,
     [SETTING_KEYS.melhorEnvio.sandboxExpiresAt]: isSandbox
       ? ""
       : String(current.sandbox.expiresAt ?? ""),
     [SETTING_KEYS.melhorEnvio.productionAccessToken]: isSandbox
       ? current.production.accessToken
-      : "",
-    [SETTING_KEYS.melhorEnvio.productionRefreshToken]: isSandbox
-      ? current.production.refreshToken
       : "",
     [SETTING_KEYS.melhorEnvio.productionExpiresAt]: isSandbox
       ? String(current.production.expiresAt ?? "")
@@ -235,4 +165,4 @@ export async function clearMelhorEnvioTokens(
   });
 }
 
-export { EMPTY_CREDS };
+export { EMPTY_TOKEN };

@@ -7,29 +7,26 @@ export type MelhorEnvioHttpResponse = {
   body: string;
 };
 
-/**
- * Direct HTTPS POST to Melhor Envio (bypasses Node fetch / HTTP_PROXY).
- * Matches the official PHP SDK which uses Guzzle without system proxy.
- */
-export function melhorEnvioHttpsPost(
+function melhorEnvioHttpsRequest(
+  method: "GET" | "POST",
   url: string,
-  body: string,
   headers: Record<string, string>,
+  body?: string,
   timeoutMs = 15_000,
 ): Promise<MelhorEnvioHttpResponse> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
-    const payload = Buffer.from(body, "utf8");
+    const payload = body ? Buffer.from(body, "utf8") : null;
 
     const req = https.request(
       {
         hostname: parsed.hostname,
         port: parsed.port ? Number(parsed.port) : 443,
         path: `${parsed.pathname}${parsed.search}`,
-        method: "POST",
+        method,
         headers: {
           ...headers,
-          "Content-Length": payload.length,
+          ...(payload ? { "Content-Length": payload.length } : {}),
         },
         family: 4,
       },
@@ -50,7 +47,26 @@ export function melhorEnvioHttpsPost(
     req.setTimeout(timeoutMs, () => {
       req.destroy(new Error("Melhor Envio request timeout"));
     });
-    req.write(payload);
+    if (payload) req.write(payload);
     req.end();
   });
+}
+
+/** Direct HTTPS POST (bypasses Node fetch / HTTP_PROXY). */
+export function melhorEnvioHttpsPost(
+  url: string,
+  body: string,
+  headers: Record<string, string>,
+  timeoutMs = 15_000,
+): Promise<MelhorEnvioHttpResponse> {
+  return melhorEnvioHttpsRequest("POST", url, headers, body, timeoutMs);
+}
+
+/** Direct HTTPS GET (bypasses Node fetch / HTTP_PROXY). */
+export function melhorEnvioHttpsGet(
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs = 15_000,
+): Promise<MelhorEnvioHttpResponse> {
+  return melhorEnvioHttpsRequest("GET", url, headers, undefined, timeoutMs);
 }
