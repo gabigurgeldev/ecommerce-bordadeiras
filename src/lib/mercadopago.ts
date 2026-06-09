@@ -128,6 +128,7 @@ type MpOrderPayment = {
   id?: string;
   status?: string;
   status_detail?: string;
+  amount?: string | number;
   payment_method?: MpOrderPaymentMethod;
 };
 
@@ -136,6 +137,7 @@ type MpOrderResponse = {
   status?: string;
   status_detail?: string;
   external_reference?: string;
+  total_amount?: string | number;
   transactions?: { payments?: MpOrderPayment[] };
 };
 
@@ -178,11 +180,18 @@ async function getOrderAsPayment(orderId: string) {
   const pm = payment?.payment_method;
   const status = mapOrderStatusToPaymentStatus(payment?.status, order.status);
 
+  const rawAmount = payment?.amount ?? order.total_amount;
+  const parsedAmount = rawAmount != null && rawAmount !== "" ? Number(rawAmount) : undefined;
+  const transaction_amount =
+    parsedAmount != null && Number.isFinite(parsedAmount) ? parsedAmount : undefined;
+
   return {
     id: payment?.id ?? orderId,
     status,
     status_detail: payment?.status_detail ?? order.status_detail,
     external_reference: order.external_reference,
+    transaction_amount,
+    payment_method_id: pm?.id,
     point_of_interaction: pm?.qr_code
       ? {
           transaction_data: {
@@ -438,10 +447,10 @@ export async function createPixPayment(input: {
     throw new Error("Mercado Pago não retornou dados do PIX");
   }
 
-  const status = mapOrderStatusToPaymentStatus(payment.status, order.status);
+  const status = mapOrderStatusToPaymentStatus(payment?.status, order.status);
 
   return {
-    id: order.id ?? payment.id ?? "",
+    id: order.id ?? payment?.id ?? "",
     status,
     qrCodeBase64: pm.qr_code_base64,
     qrCode: pm.qr_code,

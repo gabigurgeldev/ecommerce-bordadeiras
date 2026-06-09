@@ -8,7 +8,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import Image from "next/image";
 import { ProductStatus } from "@/lib/types/database";
-import { productSchema } from "@/lib/validations/admin";
+import { productSchemaFields } from "@/lib/validations/admin";
 import { syncProductImages, upsertProduct } from "@/actions/admin/products";
 import { slugify } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import type { Category, Product, ProductImage } from "@/lib/types/database";
 import { ImagePlus, X } from "lucide-react";
 import { uploadImageViaApi } from "@/lib/upload-via-api";
 
-const formSchema = productSchema.extend({
+const formSchema = productSchemaFields.extend({
   priceReais: z.string(),
   compareReais: z.string().optional(),
 });

@@ -43,7 +43,7 @@ function BannerPreview({
   className?: string;
   sizes: string;
 }) {
-  const imageUrl = banner.desktopImageUrl || banner.imageUrl;
+  const imageUrl = banner.desktopImageUrl;
   return (
     <div
       className={`relative aspect-[21/9] overflow-hidden rounded-md border bg-muted/30 ${className ?? ""}`}

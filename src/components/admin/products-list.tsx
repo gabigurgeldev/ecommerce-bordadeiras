@@ -7,18 +7,13 @@ import { ProductsTable } from "@/components/admin/products-table";
 import { AdminListToolbar, adminFilterSelectClass } from "@/components/admin/admin-list-toolbar";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { Button } from "@/components/ui/button";
-import type { Category, Product, ProductImage } from "@/lib/types/database";
-
-type Row = Product & {
-  category: Category | null;
-  productImages: ProductImage[];
-};
+import type { Category, ProductWithRelations } from "@/lib/types/database";
 
 export function ProductsList({
   products,
   categories,
 }: {
-  products: Row[];
+  products: ProductWithRelations[];
   categories: Category[];
 }) {
   const [search, setSearch] = useState("");

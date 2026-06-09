@@ -47,6 +47,7 @@ export const mockProducts: Product[] = [
     featured: true,
     categoryId: "cat-1",
     categorySlug: "maquinas",
+    videoUrls: [],
     images: [
       "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=1200&q=80",
       "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=1200&q=80",
@@ -68,6 +69,7 @@ export const mockProducts: Product[] = [
     featured: true,
     categoryId: "cat-1",
     categorySlug: "maquinas",
+    videoUrls: [],
     images: [
       "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=1200&q=80",
     ],
@@ -85,6 +87,7 @@ export const mockProducts: Product[] = [
     featured: true,
     categoryId: "cat-2",
     categorySlug: "linhas",
+    videoUrls: [],
     images: [
       "https://images.unsplash.com/photo-1558171813-4c088753af8f?w=1200&q=80",
     ],
@@ -102,6 +105,7 @@ export const mockProducts: Product[] = [
     featured: false,
     categoryId: "cat-3",
     categorySlug: "acessorios",
+    videoUrls: [],
     images: [
       "https://images.unsplash.com/photo-1615529328331-f8917597711f?w=1200&q=80",
     ],
@@ -118,6 +122,7 @@ export const mockProducts: Product[] = [
     featured: false,
     categoryId: "cat-3",
     categorySlug: "acessorios",
+    videoUrls: [],
     images: [
       "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1200&q=80",
     ],
@@ -134,6 +139,7 @@ export const mockProducts: Product[] = [
     featured: false,
     categoryId: "cat-3",
     categorySlug: "acessorios",
+    videoUrls: [],
     images: [
       "https://images.unsplash.com/photo-1581092160607-ee226afe6bb8?w=1200&q=80",
     ],
@@ -150,6 +156,7 @@ export const mockProducts: Product[] = [
     featured: false,
     categoryId: "cat-2",
     categorySlug: "linhas",
+    videoUrls: [],
     images: [
       "https://images.unsplash.com/photo-1558171813-4c088753af8f?w=1200&q=80",
     ],

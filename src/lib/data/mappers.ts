@@ -22,7 +22,7 @@ export function mapCategory(c: DbCategory & { _count?: { products: number } }): 
 }
 
 export function mapProduct(p: ProductWithRelations): Product {
-  const imagesFromRelation = [...p.productImages]
+  const imagesFromRelation = [...(p.productImages ?? [])]
     .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.sortOrder - b.sortOrder)
     .map((i) => i.url);
   const legacyImages = Array.isArray(p.images)
@@ -171,7 +171,7 @@ export function parseProductRow(row: Record<string, unknown>): ProductWithRelati
         }
       : null,
     productImages: imageList.map((img) => ({
-      ...(img as unknown as ProductWithRelations["productImages"][0]),
+      ...(img as unknown as NonNullable<ProductWithRelations["productImages"]>[number]),
       createdAt: new Date(String(img.createdAt)),
     })),
     productOptions,

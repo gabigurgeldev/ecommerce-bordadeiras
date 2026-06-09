@@ -231,7 +231,13 @@ export function ProductFormPage({
   const [dragOver, setDragOver] = useState(false);
   const [gallery, setGallery] = useState<GalleryImage[]>(() => buildGalleryFromProduct(product));
   const [variantOptions, setVariantOptions] = useState<VariantOptionDraft[]>(() =>
-    optionsFromProduct(product?.productOptions),
+    optionsFromProduct(
+      product?.productOptions?.map((o) => ({
+        name: o.name,
+        sortOrder: o.sortOrder,
+        values: (o.values ?? []).map((v) => ({ value: v.value, sortOrder: v.sortOrder })),
+      })),
+    ),
   );
   const [variants, setVariants] = useState<VariantDraft[]>(() =>
     variantsFromProduct(
@@ -335,7 +341,9 @@ export function ProductFormPage({
           values.shippingMode === ShippingMode.FIXED && values.fixedShippingReais
             ? reaisToCents(values.fixedShippingReais)
             : null,
-        videoUrls: values.videoUrls.filter(url => url.trim() !== ""),
+        videoUrls: (values.videoUrls ?? []).filter(
+          (url): url is string => typeof url === "string" && url.trim() !== "",
+        ),
       };
 
       const res = await upsertProduct(payload, product?.id);

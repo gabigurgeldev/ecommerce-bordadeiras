@@ -19,12 +19,7 @@ import {
 } from "@/components/ui/table";
 import { deleteProduct, duplicateProduct } from "@/actions/admin/products";
 import { formatCurrency } from "@/lib/utils";
-import type { Category, Product, ProductImage } from "@/lib/types/database";
-
-type Row = Product & {
-  category: Category | null;
-  productImages: ProductImage[];
-};
+import type { Category, ProductImage, ProductWithRelations } from "@/lib/types/database";
 
 function productThumbnail(productImages: ProductImage[] | undefined): string | null {
   const images = productImages ?? [];
@@ -33,7 +28,7 @@ function productThumbnail(productImages: ProductImage[] | undefined): string | n
   return primary?.url ?? first?.url ?? null;
 }
 
-function ProductThumbnail({ images }: { images: ProductImage[] }) {
+function ProductThumbnail({ images }: { images: ProductImage[] | undefined }) {
   const url = productThumbnail(images);
   if (url) {
     return (
@@ -60,7 +55,7 @@ function ProductRowActions({
   product,
   onDelete,
 }: {
-  product: Row;
+  product: ProductWithRelations;
   onDelete: () => void;
 }) {
   const router = useRouter();
@@ -93,7 +88,7 @@ function ProductRowActions({
 export function ProductsTable({
   products,
 }: {
-  products: Row[];
+  products: ProductWithRelations[];
   categories?: Category[];
 }) {
   const router = useRouter();

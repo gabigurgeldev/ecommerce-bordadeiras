@@ -14,25 +14,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-declare global {
-  interface Window {
-    MercadoPago?: new (
-      publicKey: string,
-      options?: { locale: string },
-    ) => {
-      createCardToken: (cardData: {
-        cardNumber: string;
-        cardholderName: string;
-        cardExpirationMonth: string;
-        cardExpirationYear: string;
-        securityCode: string;
-        identificationType: string;
-        identificationNumber: string;
-      }) => Promise<{ id: string }>;
-    };
-  }
-}
-
 function loadMpScript(): Promise<void> {
   if (window.MercadoPago) return Promise.resolve();
   return new Promise((resolve, reject) => {

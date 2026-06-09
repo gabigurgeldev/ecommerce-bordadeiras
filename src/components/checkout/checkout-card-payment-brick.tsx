@@ -30,6 +30,15 @@ declare global {
           settings: Record<string, unknown>,
         ) => Promise<{ unmount: () => void }>;
       };
+      createCardToken: (cardData: {
+        cardNumber: string;
+        cardholderName: string;
+        cardExpirationMonth: string;
+        cardExpirationYear: string;
+        securityCode: string;
+        identificationType: string;
+        identificationNumber: string;
+      }) => Promise<{ id: string }>;
     };
   }
 }

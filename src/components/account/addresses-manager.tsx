@@ -33,6 +33,7 @@ export function AddressesManager({ addresses }: { addresses: Address[] }) {
       neighborhood: String(form.get("neighborhood") ?? ""),
       city: String(form.get("city") ?? ""),
       state: String(form.get("state") ?? "").toUpperCase(),
+      country: "BR",
       isDefault: form.get("isDefault") === "on",
     });
     setLoading(false);

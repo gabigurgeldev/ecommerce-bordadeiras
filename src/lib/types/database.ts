@@ -255,6 +255,7 @@ export type Order = {
   subtotalCents: number;
   totalCents: number;
   trackingCode: string | null;
+  carrier: string | null;
   trackingUrl: string | null;
   notes: string | null;
   internalNotes: string | null;
@@ -379,6 +380,59 @@ export type TrustItem = {
   title: string;
   description: string | null;
   iconKey: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type BlogCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type BlogTag = {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: Date;
+};
+
+export type BlogPost = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: string;
+  coverImage: string | null;
+  published: boolean;
+  publishedAt: Date | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  categoryId: string | null;
+  authorId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type WhatsappRecipient = {
+  id: string;
+  label: string | null;
+  phone: string;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type StorefrontTrustItem = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  link: string | null;
   sortOrder: number;
   active: boolean;
   createdAt: Date;

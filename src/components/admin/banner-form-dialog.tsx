@@ -51,7 +51,7 @@ const STEP_FIELDS: (keyof FormValues)[][] = [
 function bannerToFormValues(banner?: StorefrontBanner): FormValues {
   return {
     title: banner?.title ?? "",
-    desktopImageUrl: banner?.desktopImageUrl ?? banner?.imageUrl ?? "",
+    desktopImageUrl: banner?.desktopImageUrl ?? "",
     mobileImageUrl: banner?.mobileImageUrl ?? "",
     altText: banner?.altText ?? "",
     link: banner?.link ?? "",
