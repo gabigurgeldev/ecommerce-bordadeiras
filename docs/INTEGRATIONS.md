@@ -33,14 +33,16 @@ Optional: `REDIS_URL`, `UPSTASH_*`, `SMTP_*`
 ## Melhor Envio (cálculo de frete)
 
 1. Crie um aplicativo em [Melhor Envio Sandbox](https://sandbox.melhorenvio.com.br) e/ou [Produção](https://melhorenvio.com.br) (Área Dev / Integrações).
-2. Cadastre a **Redirect URI** exatamente como:
+2. Cadastre a **Redirect URI** exatamente como exibida no admin (botão copiar), incluindo o caminho completo:
    `{NEXT_PUBLIC_APP_URL}/api/integrations/melhor-envio/callback`
-3. Em **Admin → Configurações → Frete e Envio**:
+   Cadastrar só o domínio (sem `/api/integrations/...`) causa erro **invalid_client**.
+3. Em desenvolvimento local, o Melhor Envio não aceita `http://localhost`. Use a URL HTTPS de produção no app ME e defina `MELHOR_ENVIO_REDIRECT_URI` no `.env` com o mesmo valor.
+4. Em **Admin → Configurações → Frete e Envio**:
    - Preencha o endereço de origem (CEP obrigatório)
    - Salve Client ID e Client Secret (sandbox e/ou produção)
    - Ative o toggle **Modo sandbox** para testes
    - Clique em **Conectar Melhor Envio** (OAuth, scope `shipping-calculate`)
-4. Nos produtos, use o modo **Calculado via Melhor Envio** e informe peso/dimensões.
+5. Nos produtos, use o modo **Calculado via Melhor Envio** e informe peso/dimensões.
 
 Tokens expiram em ~30 dias; o sistema renova automaticamente via `refresh_token` quando possível.
 

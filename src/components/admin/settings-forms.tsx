@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -323,9 +324,15 @@ export function SettingsTabs({
   const [installmentResults, setInstallmentResults] = useState<InstallmentResult[]>([]);
   const [ratesDialogOpen, setRatesDialogOpen] = useState(false);
   const [loadingRates, setLoadingRates] = useState(false);
+  const router = useRouter();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [copiedMelhorEnvioRedirect, setCopiedMelhorEnvioRedirect] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [connectingMelhorEnvio, setConnectingMelhorEnvio] = useState(false);
+  const [melhorEnvioSecrets, setMelhorEnvioSecrets] = useState({
+    sandbox: melhorEnvio.hasSandboxClientSecret ?? false,
+    production: melhorEnvio.hasProductionClientSecret ?? false,
+  });
   const mpForm = useForm<MpFormValues>({
     resolver: zodResolver(mercadoPagoSettingsSchema),
     defaultValues: mercadoPago,
@@ -390,6 +397,12 @@ export function SettingsTabs({
         toast.error(
           "Falha ao trocar o código de autorização. Verifique Client ID, Secret e Redirect URI.",
         );
+      } else if (message === "invalid_client") {
+        toast.error(
+          "Melhor Envio rejeitou o app: verifique Client ID do ambiente ativo e cadastre a Redirect URI completa (incluindo /api/integrations/melhor-envio/callback) no painel ME.",
+        );
+      } else if (message) {
+        toast.error(`Melhor Envio: ${message}`);
       } else {
         toast.error("Não foi possível conectar o Melhor Envio. Tente novamente.");
       }
@@ -1289,189 +1302,6 @@ export function SettingsTabs({
 
               <Card className="shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold">Melhor Envio</CardTitle>
-                  <CardDescription>
-                    Cotação de frete via API do Melhor Envio (Correios, Jadlog e outras
-                    transportadoras).
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <form
-                    className="space-y-4"
-                    onSubmit={melhorEnvioForm.handleSubmit(async (data) => {
-                      const res = await saveMelhorEnvioSettings(data);
-                      if (res.success) toast.success("Credenciais Melhor Envio salvas");
-                      else toast.error(res.error);
-                    })}
-                  >
-                    <label className="flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 transition-all hover:border-primary/40">
-                      <div>
-                        <p className="text-sm font-medium">Modo sandbox</p>
-                        <p className="text-xs text-muted-foreground">
-                          Use sandbox para testes sem cobranças reais
-                        </p>
-                      </div>
-                      <Switch
-                        checked={melhorEnvioForm.watch("useSandbox")}
-                        onCheckedChange={(checked) =>
-                          melhorEnvioForm.setValue("useSandbox", checked, {
-                            shouldValidate: true,
-                          })
-                        }
-                      />
-                    </label>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-3 rounded-xl border p-4">
-                        <p className="text-sm font-medium">Sandbox</p>
-                        <div className="space-y-2">
-                          <Label htmlFor="me-sandbox-id">Client ID</Label>
-                          <Input
-                            id="me-sandbox-id"
-                            {...melhorEnvioForm.register("sandboxClientId")}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="me-sandbox-secret">Client Secret</Label>
-                          <Input
-                            id="me-sandbox-secret"
-                            type="password"
-                            placeholder={
-                              melhorEnvio.hasSandboxClientSecret
-                                ? "•••••••• (deixe em branco para manter)"
-                                : "Cole o Client Secret"
-                            }
-                            {...melhorEnvioForm.register("sandboxClientSecret")}
-                          />
-                        </div>
-                        <Badge variant={melhorEnvio.sandboxConnected ? "default" : "secondary"}>
-                          {melhorEnvio.sandboxConnected ? "Conectado" : "Não conectado"}
-                        </Badge>
-                      </div>
-
-                      <div className="space-y-3 rounded-xl border p-4">
-                        <p className="text-sm font-medium">Produção</p>
-                        <div className="space-y-2">
-                          <Label htmlFor="me-prod-id">Client ID</Label>
-                          <Input
-                            id="me-prod-id"
-                            {...melhorEnvioForm.register("productionClientId")}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="me-prod-secret">Client Secret</Label>
-                          <Input
-                            id="me-prod-secret"
-                            type="password"
-                            placeholder={
-                              melhorEnvio.hasProductionClientSecret
-                                ? "•••••••• (deixe em branco para manter)"
-                                : "Cole o Client Secret"
-                            }
-                            {...melhorEnvioForm.register("productionClientSecret")}
-                          />
-                        </div>
-                        <Badge variant={melhorEnvio.productionConnected ? "default" : "secondary"}>
-                          {melhorEnvio.productionConnected ? "Conectado" : "Não conectado"}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-muted-foreground">
-                      Redirect URI para cadastrar no app Melhor Envio:{" "}
-                      <code className="rounded bg-muted px-1 py-0.5">
-                        {melhorEnvio.redirectUri}
-                      </code>
-                    </p>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="submit" variant="secondary">
-                        Salvar credenciais
-                      </Button>
-                      <Button
-                        type="button"
-                        disabled={connectingMelhorEnvio}
-                        onClick={async () => {
-                          const data = melhorEnvioForm.getValues();
-                          const useSandbox = data.useSandbox;
-                          const clientId = useSandbox
-                            ? data.sandboxClientId?.trim()
-                            : data.productionClientId?.trim();
-                          const clientSecret = useSandbox
-                            ? data.sandboxClientSecret?.trim()
-                            : data.productionClientSecret?.trim();
-                          const hasStoredSecret = useSandbox
-                            ? melhorEnvio.hasSandboxClientSecret
-                            : melhorEnvio.hasProductionClientSecret;
-
-                          if (!clientId) {
-                            toast.error(
-                              `Informe o Client ID de ${useSandbox ? "Sandbox" : "Produção"} antes de conectar.`,
-                            );
-                            return;
-                          }
-
-                          if (!clientSecret && !hasStoredSecret) {
-                            toast.error(
-                              `Informe o Client Secret de ${useSandbox ? "Sandbox" : "Produção"} antes de conectar.`,
-                            );
-                            return;
-                          }
-
-                          setConnectingMelhorEnvio(true);
-                          try {
-                            const res = await saveMelhorEnvioSettings(data);
-                            if (!res.success) {
-                              toast.error(res.error);
-                              return;
-                            }
-                            window.location.href =
-                              "/api/integrations/melhor-envio/authorize";
-                          } finally {
-                            setConnectingMelhorEnvio(false);
-                          }
-                        }}
-                      >
-                        {connectingMelhorEnvio ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Conectando…
-                          </>
-                        ) : (
-                          "Conectar Melhor Envio"
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={async () => {
-                          const res = await disconnectMelhorEnvioSettings();
-                          if (res.success) toast.success("Melhor Envio desconectado");
-                          else toast.error(res.error);
-                        }}
-                      >
-                        Desconectar
-                      </Button>
-                    </div>
-
-                    <p className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/20 dark:text-sky-200">
-                      <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>
-                        Ambiente ativo:{" "}
-                        <strong>
-                          {melhorEnvioForm.watch("useSandbox") ? "Sandbox" : "Produção"}
-                        </strong>
-                        . Preencha Client ID e Secret do ambiente ativo, depois clique em{" "}
-                        <strong>Conectar Melhor Envio</strong> (as credenciais são salvas
-                        automaticamente).
-                      </span>
-                    </p>
-                  </form>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-sm">
-                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold">Frete grátis global</CardTitle>
                   <CardDescription>
                     Valor mínimo do pedido (subtotal) para frete grátis em toda a loja. Deixe em
@@ -1504,6 +1334,259 @@ export function SettingsTabs({
                 <Button type="submit">Salvar configurações</Button>
               </FormActions>
             </form>
+
+            <Card className="mt-6 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Melhor Envio</CardTitle>
+                <CardDescription>
+                  Cotação de frete via API do Melhor Envio (Correios, Jadlog e outras
+                  transportadoras).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <label className="flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 transition-all hover:border-primary/40">
+                  <div>
+                    <p className="text-sm font-medium">Modo sandbox</p>
+                    <p className="text-xs text-muted-foreground">
+                      Use sandbox para testes sem cobranças reais
+                    </p>
+                  </div>
+                  <Switch
+                    checked={melhorEnvioForm.watch("useSandbox")}
+                    onCheckedChange={(checked) =>
+                      melhorEnvioForm.setValue("useSandbox", checked, {
+                        shouldValidate: true,
+                      })
+                    }
+                  />
+                </label>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-3 rounded-xl border p-4">
+                    <p className="text-sm font-medium">Sandbox</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="me-sandbox-id">Client ID</Label>
+                      <Input
+                        id="me-sandbox-id"
+                        {...melhorEnvioForm.register("sandboxClientId")}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="me-sandbox-secret">Client Secret</Label>
+                      <Input
+                        id="me-sandbox-secret"
+                        type="password"
+                        placeholder={
+                          melhorEnvioSecrets.sandbox
+                            ? "•••••••• (deixe em branco para manter)"
+                            : "Cole o Client Secret"
+                        }
+                        {...melhorEnvioForm.register("sandboxClientSecret")}
+                      />
+                    </div>
+                    <Badge variant={melhorEnvio.sandboxConnected ? "default" : "secondary"}>
+                      {melhorEnvio.sandboxConnected ? "Conectado" : "Não conectado"}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-3 rounded-xl border p-4">
+                    <p className="text-sm font-medium">Produção</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="me-prod-id">Client ID</Label>
+                      <Input
+                        id="me-prod-id"
+                        {...melhorEnvioForm.register("productionClientId")}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="me-prod-secret">Client Secret</Label>
+                      <Input
+                        id="me-prod-secret"
+                        type="password"
+                        placeholder={
+                          melhorEnvioSecrets.production
+                            ? "•••••••• (deixe em branco para manter)"
+                            : "Cole o Client Secret"
+                        }
+                        {...melhorEnvioForm.register("productionClientSecret")}
+                      />
+                    </div>
+                    <Badge variant={melhorEnvio.productionConnected ? "default" : "secondary"}>
+                      {melhorEnvio.productionConnected ? "Conectado" : "Não conectado"}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Redirect URI (cadastrar no app Melhor Envio)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={melhorEnvio.redirectUri ?? ""}
+                      className="flex-1 font-mono text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        if (!melhorEnvio.redirectUri) return;
+                        navigator.clipboard.writeText(melhorEnvio.redirectUri);
+                        setCopiedMelhorEnvioRedirect(true);
+                        setTimeout(() => setCopiedMelhorEnvioRedirect(false), 2000);
+                      }}
+                      title="Copiar Redirect URI"
+                    >
+                      {copiedMelhorEnvioRedirect ? (
+                        <Check className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    No painel Melhor Envio (Área Dev → seu app), cadastre{" "}
+                    <strong>exatamente</strong> esta URL no campo de callback — incluindo o caminho{" "}
+                    <code className="rounded bg-muted px-1 py-0.5">
+                      /api/integrations/melhor-envio/callback
+                    </code>
+                    . Cadastrar só o domínio (ex.:{" "}
+                    <code className="rounded bg-muted px-1 py-0.5">
+                      https://seusite.com.br
+                    </code>
+                    ) causa erro <strong>invalid_client</strong>.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={melhorEnvioForm.handleSubmit(async (data) => {
+                      const res = await saveMelhorEnvioSettings(data);
+                      if (res.success) {
+                        toast.success("Credenciais Melhor Envio salvas");
+                        if (data.sandboxClientSecret?.trim()) {
+                          setMelhorEnvioSecrets((prev) => ({ ...prev, sandbox: true }));
+                        }
+                        if (data.productionClientSecret?.trim()) {
+                          setMelhorEnvioSecrets((prev) => ({ ...prev, production: true }));
+                        }
+                        melhorEnvioForm.setValue("sandboxClientSecret", "");
+                        melhorEnvioForm.setValue("productionClientSecret", "");
+                        router.refresh();
+                      } else {
+                        toast.error(res.error);
+                      }
+                    })}
+                  >
+                    Salvar credenciais
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={connectingMelhorEnvio}
+                    onClick={async () => {
+                      const data = melhorEnvioForm.getValues();
+                      const useSandbox = data.useSandbox;
+                      const clientId = useSandbox
+                        ? data.sandboxClientId?.trim()
+                        : data.productionClientId?.trim();
+                      const clientSecret = useSandbox
+                        ? data.sandboxClientSecret?.trim()
+                        : data.productionClientSecret?.trim();
+                      const hasStoredSecret = useSandbox
+                        ? melhorEnvioSecrets.sandbox
+                        : melhorEnvioSecrets.production;
+
+                      if (!clientId) {
+                        toast.error(
+                          `Informe o Client ID de ${useSandbox ? "Sandbox" : "Produção"} antes de conectar.`,
+                        );
+                        return;
+                      }
+
+                      if (!clientSecret && !hasStoredSecret) {
+                        toast.error(
+                          `Informe o Client Secret de ${useSandbox ? "Sandbox" : "Produção"} antes de conectar.`,
+                        );
+                        return;
+                      }
+
+                      setConnectingMelhorEnvio(true);
+                      try {
+                        const res = await saveMelhorEnvioSettings(data);
+                        if (!res.success) {
+                          toast.error(res.error);
+                          return;
+                        }
+                        if (data.sandboxClientSecret?.trim()) {
+                          setMelhorEnvioSecrets((prev) => ({ ...prev, sandbox: true }));
+                        }
+                        if (data.productionClientSecret?.trim()) {
+                          setMelhorEnvioSecrets((prev) => ({ ...prev, production: true }));
+                        }
+                        window.location.href =
+                          "/api/integrations/melhor-envio/authorize";
+                      } finally {
+                        setConnectingMelhorEnvio(false);
+                      }
+                    }}
+                  >
+                    {connectingMelhorEnvio ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Conectando…
+                      </>
+                    ) : (
+                      "Conectar Melhor Envio"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      const res = await disconnectMelhorEnvioSettings();
+                      if (res.success) {
+                        toast.success("Melhor Envio desconectado");
+                        router.refresh();
+                      } else {
+                        toast.error(res.error);
+                      }
+                    }}
+                  >
+                    Desconectar
+                  </Button>
+                </div>
+
+                <p className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/20 dark:text-sky-200">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Ambiente ativo:{" "}
+                    <strong>
+                      {melhorEnvioForm.watch("useSandbox") ? "Sandbox" : "Produção"}
+                    </strong>
+                    . Preencha Client ID e Secret do ambiente ativo, depois clique em{" "}
+                    <strong>Conectar Melhor Envio</strong> (as credenciais são salvas
+                    automaticamente).
+                  </span>
+                </p>
+
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    O Melhor Envio exige URL de callback em <strong>HTTPS</strong> — não aceita{" "}
+                    <code className="rounded bg-muted px-1 py-0.5">http://localhost</code>. Para
+                    desenvolver localmente, cadastre a URL HTTPS de produção acima no app ME e
+                    defina{" "}
+                    <code className="rounded bg-muted px-1 py-0.5">
+                      MELHOR_ENVIO_REDIRECT_URI
+                    </code>{" "}
+                    no <code className="rounded bg-muted px-1 py-0.5">.env</code> com o mesmo
+                    valor.
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
           </SettingsPanel>
         </TabsContent>
       </div>
