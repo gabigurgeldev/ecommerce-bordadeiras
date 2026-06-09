@@ -3,11 +3,9 @@ import {
   getMelhorEnvioSettings,
   isMelhorEnvioConnected,
 } from "@/lib/data/melhor-envio-settings";
-import {
-  getValidMelhorEnvioAccessToken,
-  melhorEnvioAuthHeaders,
-} from "@/lib/melhor-envio/auth";
-import { getMelhorEnvioApiUrl } from "@/lib/melhor-envio/config";
+import { getValidMelhorEnvioAccessToken } from "@/lib/melhor-envio/auth";
+import { getMelhorEnvioApiUrl, MELHOR_ENVIO_USER_AGENT } from "@/lib/melhor-envio/config";
+import { melhorEnvioHttpsPost } from "@/lib/melhor-envio/http";
 
 const CALCULATE_TIMEOUT_MS = 12_000;
 
@@ -176,25 +174,27 @@ export async function calculateMelhorEnvioShipment(input: {
 
   const env = getActiveMelhorEnvioEnvironment(settings);
   const url = getMelhorEnvioApiUrl(env, "/api/v2/me/shipment/calculate");
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), CALCULATE_TIMEOUT_MS);
+  const body = JSON.stringify({
+    from: { postal_code: originCep },
+    to: { postal_code: destCep },
+    products: toMeProducts(input.products),
+  });
 
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: melhorEnvioAuthHeaders(accessToken),
-      body: JSON.stringify({
-        from: { postal_code: originCep },
-        to: { postal_code: destCep },
-        products: toMeProducts(input.products),
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
+    const res = await melhorEnvioHttpsPost(
+      url,
+      body,
+      {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": MELHOR_ENVIO_USER_AGENT,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      CALCULATE_TIMEOUT_MS,
+    );
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error("[melhor-envio] calculate failed:", res.status, text.slice(0, 300));
+    if (res.status < 200 || res.status >= 300) {
+      console.error("[melhor-envio] calculate failed:", res.status, res.body.slice(0, 300));
       return {
         ok: false,
         error: `Melhor Envio HTTP ${res.status}`,
@@ -202,7 +202,7 @@ export async function calculateMelhorEnvioShipment(input: {
       };
     }
 
-    const data = (await res.json()) as MeCalculateResponseItem[];
+    const data = JSON.parse(res.body) as MeCalculateResponseItem[];
     const options = (Array.isArray(data) ? data : [])
       .map(mapResponseItem)
       .filter((o): o is MelhorEnvioShippingOption => o != null)
@@ -219,7 +219,8 @@ export async function calculateMelhorEnvioShipment(input: {
 
     return { ok: true, options };
   } catch (err) {
-    const timedOut = err instanceof Error && err.name === "AbortError";
+    const timedOut =
+      err instanceof Error && err.message.includes("timeout");
     console.error("[melhor-envio] calculate error:", err);
     return {
       ok: false,
@@ -228,7 +229,5 @@ export async function calculateMelhorEnvioShipment(input: {
         ? "O Melhor Envio demorou para responder. Tente novamente."
         : "Serviço de frete temporariamente indisponível.",
     };
-  } finally {
-    clearTimeout(timeoutId);
   }
 }

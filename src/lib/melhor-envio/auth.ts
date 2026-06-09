@@ -12,6 +12,7 @@ import {
   MELHOR_ENVIO_USER_AGENT,
   type MelhorEnvioEnvironment,
 } from "@/lib/melhor-envio/config";
+import { melhorEnvioHttpsPost } from "@/lib/melhor-envio/http";
 
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
@@ -40,7 +41,7 @@ export class MelhorEnvioTokenError extends Error {
       code = "html_response";
       if (status === 403) {
         description =
-          "Acesso bloqueado (HTTP 403) ao trocar o token. Verifique se o servidor permite conexões HTTPS de saída para melhorenvio.com.br e se Client ID/Secret estão corretos.";
+          "Conexão bloqueada (HTTP 403). O servidor pode estar usando proxy de saída — verifique variáveis HTTP_PROXY/HTTPS_PROXY ou libere acesso a melhorenvio.com.br.";
       } else if (status === 400) {
         description =
           "Resposta inválida do Melhor Envio. Confira Client ID, Secret e Redirect URI do ambiente ativo.";
@@ -76,43 +77,6 @@ export class MelhorEnvioTokenError extends Error {
 export const ME_OAUTH_ENV_COOKIE = "me_oauth_env";
 export const ME_OAUTH_REDIRECT_COOKIE = "me_oauth_redirect";
 
-type OAuthStatePayload = {
-  e: MelhorEnvioEnvironment;
-  r: string;
-};
-
-export function buildMelhorEnvioOAuthState(
-  env: MelhorEnvioEnvironment,
-  redirectUri: string,
-): string {
-  const payload: OAuthStatePayload = { e: env, r: redirectUri };
-  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
-}
-
-export function parseMelhorEnvioOAuthState(state: string | null): {
-  env?: MelhorEnvioEnvironment;
-  redirectUri?: string;
-} {
-  if (!state) return {};
-
-  if (state === "production" || state === "sandbox") {
-    return { env: state };
-  }
-
-  try {
-    const parsed = JSON.parse(
-      Buffer.from(state, "base64url").toString("utf8"),
-    ) as Partial<OAuthStatePayload>;
-    const env =
-      parsed.e === "production" || parsed.e === "sandbox" ? parsed.e : undefined;
-    const redirectUri =
-      typeof parsed.r === "string" && parsed.r.trim() ? parsed.r.trim() : undefined;
-    return { env, redirectUri };
-  } catch {
-    return {};
-  }
-}
-
 function melhorEnvioHeaders(): HeadersInit {
   return {
     Accept: "application/json",
@@ -133,37 +97,37 @@ async function requestTokens(
   payload: Record<string, string>,
 ): Promise<TokenResponse> {
   const url = getMelhorEnvioApiUrl(env, "/oauth/token");
+  const body = new URLSearchParams(payload).toString();
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": MELHOR_ENVIO_USER_AGENT,
-    },
-    body: new URLSearchParams(payload).toString(),
-    cache: "no-store",
+  const res = await melhorEnvioHttpsPost(url, body, {
+    Accept: "application/json",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": MELHOR_ENVIO_USER_AGENT,
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new MelhorEnvioTokenError(res.status, text);
+  if (res.status < 200 || res.status >= 300) {
+    throw new MelhorEnvioTokenError(res.status, res.body);
   }
 
-  return (await res.json()) as TokenResponse;
+  try {
+    return JSON.parse(res.body) as TokenResponse;
+  } catch {
+    throw new MelhorEnvioTokenError(res.status, res.body);
+  }
 }
 
 export function buildMelhorEnvioAuthorizationUrl(
   env: MelhorEnvioEnvironment,
   clientId: string,
-  redirectUri: string = getMelhorEnvioRedirectUri(),
+  redirectUri: string,
+  state: string,
 ): string {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: MELHOR_ENVIO_SCOPE,
-    state: buildMelhorEnvioOAuthState(env, redirectUri),
+    state,
   });
   return `${getMelhorEnvioApiUrl(env, "/oauth/authorize")}?${params.toString()}`;
 }
@@ -171,7 +135,7 @@ export function buildMelhorEnvioAuthorizationUrl(
 export async function exchangeMelhorEnvioCode(
   env: MelhorEnvioEnvironment,
   code: string,
-  redirectUri: string = getMelhorEnvioRedirectUri(),
+  redirectUri: string,
 ): Promise<void> {
   const settings = await getMelhorEnvioSettings();
   const creds = getMelhorEnvioCredentialsForEnv(settings, env);
@@ -194,7 +158,7 @@ export async function exchangeMelhorEnvioCode(
     client_id: clientId,
     client_secret: clientSecret,
     redirect_uri: redirectUri,
-    code,
+    code: code.trim(),
   });
   const expiresAt = Date.now() + tokens.expires_in * 1000;
 
@@ -217,9 +181,9 @@ async function refreshMelhorEnvioAccessToken(
 
   const tokens = await requestTokens(env, {
     grant_type: "refresh_token",
-    client_id: creds.clientId,
-    client_secret: creds.clientSecret,
-    refresh_token: creds.refreshToken,
+    client_id: creds.clientId.trim(),
+    client_secret: creds.clientSecret.trim(),
+    refresh_token: creds.refreshToken.trim(),
   });
   const expiresAt = Date.now() + tokens.expires_in * 1000;
 
@@ -251,6 +215,45 @@ export async function getValidMelhorEnvioAccessToken(): Promise<string | null> {
   } catch (err) {
     console.error("[melhor-envio] token refresh failed:", err);
     return null;
+  }
+}
+
+/** Probe whether the server can reach Melhor Envio OAuth (expects JSON 401). */
+export async function probeMelhorEnvioApiAccess(
+  env: MelhorEnvioEnvironment,
+): Promise<{ ok: boolean; status: number; message: string }> {
+  const url = getMelhorEnvioApiUrl(env, "/oauth/token");
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: "0",
+    client_secret: "probe",
+    redirect_uri: "https://example.com/callback",
+    code: "probe",
+  }).toString();
+
+  try {
+    const res = await melhorEnvioHttpsPost(url, body, {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": MELHOR_ENVIO_USER_AGENT,
+    });
+
+    if (res.contentType.includes("application/json")) {
+      return {
+        ok: true,
+        status: res.status,
+        message: `Servidor alcança a API do Melhor Envio (${env}, HTTP ${res.status}).`,
+      };
+    }
+
+    return {
+      ok: false,
+      status: res.status,
+      message: `Resposta não-JSON (HTTP ${res.status}). Possível bloqueio de proxy/firewall.`,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Erro de rede";
+    return { ok: false, status: 0, message: `Falha de conexão: ${msg}` };
   }
 }
 

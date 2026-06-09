@@ -1,19 +1,15 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getAppOrigin } from "@/lib/app-url";
 import {
+  consumeMelhorEnvioOAuthPending,
   getActiveMelhorEnvioEnvironment,
   getMelhorEnvioSettings,
 } from "@/lib/data/melhor-envio-settings";
 import {
   exchangeMelhorEnvioCode,
-  ME_OAUTH_ENV_COOKIE,
-  ME_OAUTH_REDIRECT_COOKIE,
   MelhorEnvioTokenError,
-  parseMelhorEnvioOAuthState,
 } from "@/lib/melhor-envio/auth";
 import { getMelhorEnvioRedirectUri } from "@/lib/melhor-envio/config";
-import type { MelhorEnvioEnvironment } from "@/lib/melhor-envio/config";
 
 function settingsRedirect(params: Record<string, string>) {
   const origin = getAppOrigin();
@@ -23,30 +19,6 @@ function settingsRedirect(params: Record<string, string>) {
   );
 }
 
-function resolveOAuthContext(
-  state: string | null,
-  cookieEnv: string | undefined,
-  cookieRedirect: string | undefined,
-  settingsEnv: MelhorEnvioEnvironment,
-): { env: MelhorEnvioEnvironment; redirectUri: string } {
-  const fromState = parseMelhorEnvioOAuthState(state);
-
-  const env =
-    fromState.env ??
-    (cookieEnv === "production" || cookieEnv === "sandbox" ? cookieEnv : undefined) ??
-    settingsEnv;
-
-  const redirectUri =
-    fromState.redirectUri ?? cookieRedirect ?? getMelhorEnvioRedirectUri();
-
-  return { env, redirectUri };
-}
-
-function clearOAuthCookies(response: NextResponse) {
-  response.cookies.set(ME_OAUTH_ENV_COOKIE, "", { maxAge: 0, path: "/" });
-  response.cookies.set(ME_OAUTH_REDIRECT_COOKIE, "", { maxAge: 0, path: "/" });
-}
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
@@ -54,39 +26,35 @@ export async function GET(request: Request) {
   const error = searchParams.get("error");
 
   if (error) {
-    const response = settingsRedirect({
+    return settingsRedirect({
       melhorEnvio: "error",
       message: error,
     });
-    clearOAuthCookies(response);
-    return response;
   }
 
   if (!code) {
-    const response = settingsRedirect({
+    return settingsRedirect({
       melhorEnvio: "error",
       message: "missing_code",
     });
-    clearOAuthCookies(response);
-    return response;
   }
 
-  const cookieStore = await cookies();
-  const cookieEnv = cookieStore.get(ME_OAUTH_ENV_COOKIE)?.value;
-  const cookieRedirect = cookieStore.get(ME_OAUTH_REDIRECT_COOKIE)?.value;
+  const pending = await consumeMelhorEnvioOAuthPending(state);
   const settings = await getMelhorEnvioSettings();
-  const { env, redirectUri } = resolveOAuthContext(
-    state,
-    cookieEnv,
-    cookieRedirect,
-    getActiveMelhorEnvioEnvironment(settings),
-  );
+  const env = pending?.env ?? getActiveMelhorEnvioEnvironment(settings);
+  const redirectUri = pending?.redirectUri ?? getMelhorEnvioRedirectUri();
+
+  if (!pending) {
+    console.warn("[melhor-envio/callback] OAuth pending session missing or expired", {
+      state,
+      env,
+      redirectUri,
+    });
+  }
 
   try {
     await exchangeMelhorEnvioCode(env, code, redirectUri);
-    const response = settingsRedirect({ melhorEnvio: "connected" });
-    clearOAuthCookies(response);
-    return response;
+    return settingsRedirect({ melhorEnvio: "connected" });
   } catch (err) {
     console.error("[melhor-envio/callback]", err);
 
@@ -98,20 +66,19 @@ export async function GET(request: Request) {
     if (err instanceof MelhorEnvioTokenError) {
       if (err.code) params.detail = err.code;
       if (err.description && !err.description.trimStart().startsWith("<")) {
-        params.description = err.description.slice(0, 180);
+        params.description = err.description.slice(0, 220);
       }
       console.error("[melhor-envio/callback] token error", {
         env,
         status: err.status,
         code: err.code,
         redirectUri,
+        hadPending: Boolean(pending),
       });
     } else if (err instanceof Error && err.message) {
-      params.description = err.message.slice(0, 180);
+      params.description = err.message.slice(0, 220);
     }
 
-    const response = settingsRedirect(params);
-    clearOAuthCookies(response);
-    return response;
+    return settingsRedirect(params);
   }
 }

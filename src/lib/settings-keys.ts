@@ -54,6 +54,7 @@ export const SETTING_KEYS = {
     productionAccessToken: "melhorenvio.production.accessToken",
     productionRefreshToken: "melhorenvio.production.refreshToken",
     productionExpiresAt: "melhorenvio.production.expiresAt",
+    oauthPending: "melhorenvio.oauth.pending",
   },
 } as const;
 

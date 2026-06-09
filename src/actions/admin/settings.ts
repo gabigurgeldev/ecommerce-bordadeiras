@@ -10,6 +10,7 @@ import {
   saveShippingSettings as persistShippingSettings,
 } from "@/lib/data/shipping-settings";
 import {
+  getActiveMelhorEnvioEnvironment,
   getMelhorEnvioSettings,
   isMelhorEnvioConnected,
   saveMelhorEnvioCredentials,
@@ -467,5 +468,20 @@ export async function disconnectMelhorEnvioSettings(
     await auditMutation(actor, { action: "SETTINGS_CHANGE", entity: "MelhorEnvioDisconnect" });
     revalidateAdmin(["/admin/configuracoes"]);
     return { success: true };
+  });
+}
+
+export async function probeMelhorEnvioApiAccessForAdmin(): Promise<
+  ActionResult & { message?: string }
+> {
+  return withAdminRead(async () => {
+    const settings = await getMelhorEnvioSettings();
+    const env = getActiveMelhorEnvioEnvironment(settings);
+    const { probeMelhorEnvioApiAccess } = await import("@/lib/melhor-envio/auth");
+    const result = await probeMelhorEnvioApiAccess(env);
+    if (result.ok) {
+      return { success: true, message: result.message };
+    }
+    return { success: false, error: result.message };
   });
 }

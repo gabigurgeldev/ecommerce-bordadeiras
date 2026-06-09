@@ -36,6 +36,7 @@ import {
 import {
   disconnectMelhorEnvioSettings,
   fetchMercadoPagoInstallmentRatesForAdmin,
+  probeMelhorEnvioApiAccessForAdmin,
   saveMelhorEnvioSettings,
   saveMercadoPagoSettings,
   saveOpenRouterSettings,
@@ -329,6 +330,7 @@ export function SettingsTabs({
   const [copiedMelhorEnvioRedirect, setCopiedMelhorEnvioRedirect] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [connectingMelhorEnvio, setConnectingMelhorEnvio] = useState(false);
+  const [probingMelhorEnvio, setProbingMelhorEnvio] = useState(false);
   const [melhorEnvioSecrets, setMelhorEnvioSecrets] = useState({
     sandbox: melhorEnvio.hasSandboxClientSecret ?? false,
     production: melhorEnvio.hasProductionClientSecret ?? false,
@@ -1559,6 +1561,30 @@ export function SettingsTabs({
                       </>
                     ) : (
                       "Conectar Melhor Envio"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={probingMelhorEnvio}
+                    onClick={async () => {
+                      setProbingMelhorEnvio(true);
+                      try {
+                        const res = await probeMelhorEnvioApiAccessForAdmin();
+                        if (res.success) toast.success(res.message ?? "API acessível");
+                        else toast.error(res.error);
+                      } finally {
+                        setProbingMelhorEnvio(false);
+                      }
+                    }}
+                  >
+                    {probingMelhorEnvio ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Testando…
+                      </>
+                    ) : (
+                      "Testar conexão API"
                     )}
                   </Button>
                   <Button

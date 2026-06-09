@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getAppOrigin } from "@/lib/app-url";
 import { getAdminActor } from "@/lib/admin-auth";
@@ -5,12 +6,9 @@ import {
   getActiveMelhorEnvioEnvironment,
   getMelhorEnvioCredentialsForEnv,
   getMelhorEnvioSettings,
+  saveMelhorEnvioOAuthPending,
 } from "@/lib/data/melhor-envio-settings";
-import {
-  buildMelhorEnvioAuthorizationUrl,
-  ME_OAUTH_ENV_COOKIE,
-  ME_OAUTH_REDIRECT_COOKIE,
-} from "@/lib/melhor-envio/auth";
+import { buildMelhorEnvioAuthorizationUrl } from "@/lib/melhor-envio/auth";
 import { getMelhorEnvioRedirectUri } from "@/lib/melhor-envio/config";
 
 function settingsRedirect(params: Record<string, string>) {
@@ -45,20 +43,20 @@ export async function GET() {
   }
 
   const redirectUri = getMelhorEnvioRedirectUri();
-  const url = buildMelhorEnvioAuthorizationUrl(env, creds.clientId, redirectUri);
-  const response = NextResponse.redirect(url);
+  const oauthState = randomUUID();
 
-  const secure = getAppOrigin().startsWith("https://");
-  const cookieOptions = {
-    httpOnly: true,
-    secure,
-    sameSite: "lax" as const,
-    maxAge: 600,
-    path: "/",
-  };
+  await saveMelhorEnvioOAuthPending({
+    state: oauthState,
+    env,
+    redirectUri,
+  });
 
-  response.cookies.set(ME_OAUTH_ENV_COOKIE, env, cookieOptions);
-  response.cookies.set(ME_OAUTH_REDIRECT_COOKIE, redirectUri, cookieOptions);
+  const url = buildMelhorEnvioAuthorizationUrl(
+    env,
+    creds.clientId,
+    redirectUri,
+    oauthState,
+  );
 
-  return response;
+  return NextResponse.redirect(url);
 }

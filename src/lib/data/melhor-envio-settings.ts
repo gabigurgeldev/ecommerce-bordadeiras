@@ -1,4 +1,4 @@
-import { getSettings, setSettings } from "@/lib/settings";
+import { getSetting, getSettings, setSettings } from "@/lib/settings";
 import { SETTING_KEYS } from "@/lib/settings-keys";
 import type { MelhorEnvioEnvironment } from "@/lib/melhor-envio/config";
 
@@ -159,6 +159,52 @@ export async function saveMelhorEnvioTokens(
       ? String(current.production.expiresAt ?? "")
       : String(tokens.expiresAt),
   });
+}
+
+export type MelhorEnvioOAuthPending = {
+  state: string;
+  env: MelhorEnvioEnvironment;
+  redirectUri: string;
+  expiresAt: number;
+};
+
+const OAUTH_PENDING_TTL_MS = 10 * 60 * 1000;
+
+export async function saveMelhorEnvioOAuthPending(data: {
+  state: string;
+  env: MelhorEnvioEnvironment;
+  redirectUri: string;
+}): Promise<void> {
+  const pending: MelhorEnvioOAuthPending = {
+    state: data.state,
+    env: data.env,
+    redirectUri: data.redirectUri,
+    expiresAt: Date.now() + OAUTH_PENDING_TTL_MS,
+  };
+  await setSettings({
+    [SETTING_KEYS.melhorEnvio.oauthPending]: JSON.stringify(pending),
+  });
+}
+
+export async function consumeMelhorEnvioOAuthPending(
+  state: string | null,
+): Promise<{ env: MelhorEnvioEnvironment; redirectUri: string } | null> {
+  if (!state?.trim()) return null;
+
+  const raw = await getSetting(SETTING_KEYS.melhorEnvio.oauthPending);
+  await setSettings({ [SETTING_KEYS.melhorEnvio.oauthPending]: "" });
+  if (!raw?.trim()) return null;
+
+  try {
+    const pending = JSON.parse(raw) as MelhorEnvioOAuthPending;
+    if (pending.state !== state) return null;
+    if (!pending.expiresAt || pending.expiresAt < Date.now()) return null;
+    if (pending.env !== "sandbox" && pending.env !== "production") return null;
+    if (!pending.redirectUri?.trim()) return null;
+    return { env: pending.env, redirectUri: pending.redirectUri.trim() };
+  } catch {
+    return null;
+  }
 }
 
 export async function clearMelhorEnvioTokens(
