@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/actions/admin/customers";
 import { PageHeader } from "@/components/admin/page-header";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { OrderStatusBadge } from "@/components/admin/status-badge";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -39,28 +41,41 @@ export default async function AdminCustomerDetailPage({
           <CardTitle>Pedidos ({customer.orders.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Data</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {customer.orders.map((order: { id: string; totalCents: number; status: string; createdAt: Date }) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-mono text-xs">{order.id.slice(-8)}</TableCell>
-                  <TableCell>{formatCurrency(order.totalCents)}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{order.status}</Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(order.createdAt)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {customer.orders.length === 0 ? (
+            <AdminEmptyState title="Sem pedidos" description="Este cliente ainda não realizou compras." />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pedido</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Data</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {customer.orders.map((order: { id: string; totalCents: number; status: string; createdAt: Date }) => (
+                    <TableRow key={order.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <Link
+                          href={`/admin/pedidos/${order.id}`}
+                          className="font-mono text-xs text-primary hover:underline"
+                        >
+                          #{order.id.slice(-8)}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{formatCurrency(order.totalCents)}</TableCell>
+                      <TableCell>
+                        <OrderStatusBadge status={order.status} />
+                      </TableCell>
+                      <TableCell>{formatDate(order.createdAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

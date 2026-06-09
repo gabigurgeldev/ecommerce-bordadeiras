@@ -1,17 +1,67 @@
 import { z } from "zod";
-import { CouponType, OrderStatus, ProductStatus } from "@/lib/types/database";
+import { CouponType, OrderStatus, ProductStatus, ShippingMode } from "@/lib/types/database";
 import { TRUST_ICON_KEYS } from "@/lib/trust-icons";
 
-export const productSchema = z.object({
+export const productSchemaFields = z.object({
   name: z.string().min(2),
   slug: z.string().min(2),
   description: z.string().optional(),
-  sku: z.string().optional(),
+  sku: z.string().optional().nullable(),
   priceCents: z.coerce.number().int().min(0),
   compareCents: z.coerce.number().int().min(0).optional().nullable(),
   stock: z.coerce.number().int().min(0).default(0),
   status: z.nativeEnum(ProductStatus).default(ProductStatus.DRAFT),
   categoryId: z.string().optional().nullable(),
+  seoTitle: z.string().max(70).optional().nullable(),
+  seoDescription: z.string().max(160).optional().nullable(),
+  tags: z.array(z.string()).default([]),
+  brand: z.string().optional().nullable(),
+  costCents: z.coerce.number().int().min(0).optional().nullable(),
+  showPrice: z.boolean().default(true),
+  stockUnlimited: z.boolean().default(false),
+  weightGrams: z.coerce.number().int().min(0).optional().nullable(),
+  lengthCm: z.coerce.number().int().min(0).optional().nullable(),
+  widthCm: z.coerce.number().int().min(0).optional().nullable(),
+  heightCm: z.coerce.number().int().min(0).optional().nullable(),
+  videoUrls: z.array(z.string().url("URL inválida").refine(
+    (v) => /youtube\.com|youtu\.be|vimeo\.com/i.test(v),
+    "Use um link do YouTube ou Vimeo",
+  )).default([]),
+  shippingMode: z.nativeEnum(ShippingMode).default(ShippingMode.CORREIOS),
+  fixedShippingCents: z.coerce.number().int().min(0).optional().nullable(),
+});
+
+export const productSchema = productSchemaFields.superRefine((data, ctx) => {
+  if (data.shippingMode === ShippingMode.FIXED && (data.fixedShippingCents == null || data.fixedShippingCents <= 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Informe o valor fixo de frete",
+      path: ["fixedShippingCents"],
+    });
+  }
+});
+
+export const productOptionInputSchema = z.object({
+  name: z.string().min(1),
+  sortOrder: z.coerce.number().int().min(0),
+  values: z.array(
+    z.object({
+      value: z.string().min(1),
+      sortOrder: z.coerce.number().int().min(0),
+    }),
+  ),
+});
+
+export const productVariantInputSchema = z.object({
+  sku: z.string().optional().nullable(),
+  priceCents: z.coerce.number().int().min(0).optional().nullable(),
+  compareCents: z.coerce.number().int().min(0).optional().nullable(),
+  stock: z.coerce.number().int().min(0).default(0),
+  stockUnlimited: z.boolean().default(false),
+  attributes: z.record(z.string(), z.string()),
+  imageUrl: z.string().url().optional().nullable().or(z.literal("")),
+  sortOrder: z.coerce.number().int().min(0),
+  active: z.boolean().default(true),
 });
 
 export const productImageInputSchema = z.object({
@@ -26,6 +76,8 @@ export const categorySchema = z.object({
   slug: z.string().min(2),
   description: z.string().optional(),
   imageUrl: z.string().url().optional().or(z.literal("")),
+  seoTitle: z.string().max(70).optional().or(z.literal("")),
+  seoDescription: z.string().max(160).optional().or(z.literal("")),
   parentId: z.string().optional().nullable(),
   sortOrder: z.coerce.number().int().default(0),
   active: z.boolean().default(true),
@@ -42,10 +94,14 @@ const optionalBannerLink = z
 
 export const bannerSchema = z.object({
   title: z.string().min(2, "Título interno obrigatório"),
-  imageUrl: z.string().url("URL da imagem inválida"),
+  desktopImageUrl: z.string().url("Imagem para desktop é obrigatória"),
+  mobileImageUrl: z.string().url().optional().or(z.literal("")),
+  altText: z.string().max(200, "Texto alternativo deve ter no máximo 200 caracteres").optional().or(z.literal("")),
   link: optionalBannerLink,
   sortOrder: z.coerce.number().int().default(0),
   active: z.boolean().default(true),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
 });
 
 export const trustBarItemSchema = z.object({
@@ -97,11 +153,27 @@ export const blogTagSchema = z.object({
   slug: z.string().min(2),
 });
 
+export const mercadoPagoEnabledMethodsSchema = z.object({
+  pix: z.boolean(),
+  credit_card: z.boolean(),
+  debit_card: z.boolean(),
+  boleto: z.boolean(),
+});
+
 export const mercadoPagoSettingsSchema = z.object({
-  publicKey: z.string().min(1),
+  publicKey: z.string(),
   accessToken: z.string().optional(),
   webhookSecret: z.string().optional(),
+  sandbox: z.coerce.boolean().default(false),
+  enabledMethods: mercadoPagoEnabledMethodsSchema,
+  maxInstallments: z.coerce.number().int().min(1).max(12).default(12),
+  installmentFees: z.enum(["merchant", "buyer"]).default("buyer"),
+  checkoutTitle: z.string().max(120).optional(),
+  checkoutSubtitle: z.string().max(240).optional(),
+  showTrustBadges: z.boolean().default(true),
 });
+
+export type MercadoPagoSettingsSchema = z.infer<typeof mercadoPagoSettingsSchema>;
 
 export const whatsappRecipientSchema = z.object({
   label: z.string().max(120).optional(),
@@ -129,3 +201,32 @@ export const storefrontUtilitySettingsSchema = z.object({
   textColor: hexColor,
   link: z.string().url().optional().or(z.literal("")),
 });
+
+export const openRouterSettingsSchema = z.object({
+  apiKey: z.string().optional(),
+  defaultModel: z.string().min(1).optional(),
+});
+
+export const shippingSettingsFormSchema = z.object({
+  originCep: z.string().min(1, "CEP obrigatório"),
+  originStreet: z.string().min(1, "Rua obrigatória"),
+  originNumber: z.string().min(1, "Número obrigatório"),
+  originComplement: z.string().optional().or(z.literal("")),
+  originNeighborhood: z.string().min(1, "Bairro obrigatório"),
+  originCity: z.string().min(1, "Cidade obrigatória"),
+  originState: z
+    .string()
+    .length(2, "UF inválida")
+    .transform((v) => v.toUpperCase()),
+  freeThresholdReais: z.string().optional().or(z.literal("")),
+});
+
+export const melhorEnvioSettingsFormSchema = z.object({
+  useSandbox: z.coerce.boolean().default(true),
+  sandboxClientId: z.string().optional().or(z.literal("")),
+  sandboxClientSecret: z.string().optional().or(z.literal("")),
+  productionClientId: z.string().optional().or(z.literal("")),
+  productionClientSecret: z.string().optional().or(z.literal("")),
+});
+
+export const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";

@@ -37,6 +37,13 @@ export const ProductStatus = {
 } as const;
 export type ProductStatus = (typeof ProductStatus)[keyof typeof ProductStatus];
 
+export const ShippingMode = {
+  FREE: "FREE",
+  FIXED: "FIXED",
+  CORREIOS: "CORREIOS",
+} as const;
+export type ShippingMode = (typeof ShippingMode)[keyof typeof ShippingMode];
+
 export const CouponType = { PERCENT: "PERCENT", FIXED: "FIXED" } as const;
 export type CouponType = (typeof CouponType)[keyof typeof CouponType];
 
@@ -147,6 +154,8 @@ export type Category = {
   slug: string;
   description: string | null;
   imageUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   parentId: string | null;
   sortOrder: number;
   active: boolean;
@@ -167,6 +176,55 @@ export type Product = {
   active: boolean;
   images: JsonValue | null;
   categoryId: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  tags: string[];
+  brand: string | null;
+  costCents: number | null;
+  showPrice: boolean;
+  stockUnlimited: boolean;
+  weightGrams: number | null;
+  lengthCm: number | null;
+  widthCm: number | null;
+  heightCm: number | null;
+  shippingMode: ShippingMode;
+  fixedShippingCents: number | null;
+  /** @deprecated Use videoUrls instead */
+  videoUrl: string | null;
+  videoUrls: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ProductOption = {
+  id: string;
+  productId: string;
+  name: string;
+  sortOrder: number;
+};
+
+export type ProductOptionValue = {
+  id: string;
+  optionId: string;
+  value: string;
+  sortOrder: number;
+};
+
+export type ProductVariant = {
+  id: string;
+  productId: string;
+  sku: string | null;
+  priceCents: number | null;
+  compareCents: number | null;
+  costCents: number | null;
+  stock: number;
+  stockUnlimited: boolean;
+  lowStockThreshold: number;
+  soldCount: number;
+  attributes: JsonValue;
+  imageUrl: string | null;
+  sortOrder: number;
+  active: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -179,6 +237,62 @@ export type ProductImage = {
   sortOrder: number;
   isPrimary: boolean;
   createdAt: Date;
+  updatedAt: Date;
+};
+
+export type Order = {
+  id: string;
+  userId: string | null;
+  status: OrderStatus;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string | null;
+  shippingCents: number;
+  shippingServiceId: string | null;
+  shippingServiceName: string | null;
+  discountCents: number;
+  couponCode: string | null;
+  subtotalCents: number;
+  totalCents: number;
+  trackingCode: string | null;
+  trackingUrl: string | null;
+  notes: string | null;
+  internalNotes: string | null;
+  paidAt: Date | null;
+  shippedAt: Date | null;
+  deliveredAt: Date | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type OrderItem = {
+  id: string;
+  orderId: string;
+  productId: string;
+  variantId: string | null;
+  name: string;
+  sku: string | null;
+  quantity: number;
+  priceCents: number;
+  deductedStock: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type Payment = {
+  id: string;
+  orderId: string;
+  mercadoPagoId: string | null;
+  mercadoPagoPrefId: string | null;
+  externalReference: string | null;
+  status: PaymentStatus;
+  amountCents: number;
+  method: PaymentMethod | null;
+  metadata: JsonValue;
+  paidAt: Date | string | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type Coupon = {
@@ -187,8 +301,8 @@ export type Coupon = {
   type: CouponType;
   value: number;
   minCents: number | null;
-  validFrom: Date | null;
-  validUntil: Date | null;
+  validFrom: Date | string | null;
+  validUntil: Date | string | null;
   maxUses: number | null;
   usedCount: number;
   active: boolean;
@@ -196,194 +310,130 @@ export type Coupon = {
   updatedAt: Date;
 };
 
-export type Order = {
+export type CartItem = {
   id: string;
-  orderNumber: string;
-  userId: string | null;
-  couponId: string | null;
-  status: OrderStatus;
-  subtotalCents: number;
-  discountCents: number;
-  shippingCents: number;
-  totalCents: number;
-  customerEmail: string;
-  customerName: string;
-  customerPhone: string | null;
-  shippingAddressId: string | null;
-  shippingAddress: JsonValue | null;
-  trackingCode: string | null;
-  carrier: string | null;
-  notes: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type OrderItem = {
-  id: string;
-  orderId: string;
-  productId: string | null;
-  name: string;
-  sku: string | null;
+  userId: string;
+  productId: string;
+  variantId: string | null;
   quantity: number;
-  priceCents: number;
-};
-
-export type Payment = {
-  id: string;
-  orderId: string;
-  status: PaymentStatus;
-  method: PaymentMethod;
-  amountCents: number;
-  mercadoPagoId: string | null;
-  mercadoPagoPrefId: string | null;
-  externalReference: string | null;
-  metadata: JsonValue | null;
-  paidAt: Date | null;
-  createdAt: Date;
+  slug: string | null;
+  name: string | null;
+  priceCents: number | null;
+  imageUrl: string | null;
   updatedAt: Date;
-};
-
-export type Tracking = {
-  id: string;
-  orderId: string;
-  status: TrackingStatus;
-  description: string | null;
-  location: string | null;
-  carrierEventCode: string | null;
-  occurredAt: Date;
-  createdAt: Date;
-};
-
-export type BlogCategory = {
-  id: string;
-  name: string;
-  slug: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type BlogTag = {
-  id: string;
-  name: string;
-  slug: string;
-  createdAt: Date;
-};
-
-export type BlogPost = {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  content: string;
-  coverImage: string | null;
-  published: boolean;
-  publishedAt: Date | null;
-  seoTitle: string | null;
-  seoDescription: string | null;
-  categoryId: string | null;
-  authorId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type BlogPostTag = {
-  postId: string;
-  tagId: string;
 };
 
 export type Notification = {
   id: string;
-  userId: string | null;
+  userId: string;
   type: NotificationType;
   title: string;
   body: string;
+  data: JsonValue;
   read: boolean;
-  link: string | null;
-  metadata: JsonValue | null;
-  createdAt: Date;
-};
-
-export type EmailTemplate = {
-  id: string;
-  key: string;
-  name: string;
-  subject: string;
-  htmlBody: string;
-  textBody: string | null;
-  active: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
 
-export type Setting = {
+export type AuditLog = {
   id: string;
-  key: string;
-  value: string;
-  group: string | null;
+  userId: string | null;
+  action: AuditAction;
+  entity: string;
+  entityId: string;
+  oldData: JsonValue;
+  newData: JsonValue;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: Date;
+};
+
+export type ShippingRate = {
+  id: string;
+  name: string;
+  minWeightGrams: number | null;
+  maxWeightGrams: number | null;
+  priceCents: number;
+  active: boolean;
+  createdAt: Date;
   updatedAt: Date;
 };
 
 export type StorefrontBanner = {
   id: string;
   title: string;
-  imageUrl: string;
+  desktopImageUrl: string;
+  mobileImageUrl: string | null;
+  altText: string | null;
   link: string | null;
   sortOrder: number;
   active: boolean;
+  startDate?: Date | null;
+  endDate?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
-export type StorefrontTrustItem = {
+export type TrustItem = {
   id: string;
   title: string;
-  description: string;
-  icon: string;
-  link: string | null;
+  description: string | null;
+  iconKey: string;
   sortOrder: number;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
 
-export type WhatsappRecipient = {
+export type SiteSettings = {
   id: string;
-  label: string | null;
-  phone: string;
-  active: boolean;
+  storeName: string;
+  storeEmail: string;
+  storePhone: string | null;
+  storeAddress: string | null;
+  maintenanceMode: boolean;
+  maintenanceMessage: string | null;
+  currency: string;
+  currencySymbol: string;
+  taxRate: number;
+  freeShippingThresholdCents: number | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  faviconUrl: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  twitterUrl: string | null;
+  youtubeUrl: string | null;
+  whatsappNumber: string | null;
+  googleAnalyticsId: string | null;
+  facebookPixelId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
-export type WhatsappSession = {
-  id: string;
-  sessionId: string;
-  creds: JsonValue | null;
-  keys: JsonValue | null;
-  status: string;
-  qrCode: string | null;
-  updatedAt: Date;
-  createdAt: Date;
-};
-
-export type AuditLog = {
-  id: string;
-  action: AuditAction;
-  entity: string;
-  entityId: string | null;
-  userId: string | null;
-  userEmail: string | null;
-  metadata: JsonValue | null;
-  ipAddress: string | null;
-  createdAt: Date;
-};
-
-/** Product with relations for admin/storefront mappers */
+// Extended types with relations
 export type ProductWithRelations = Product & {
-  category: Category | null;
-  productImages: ProductImage[];
+  category?: Category | null;
+  productImages?: ProductImage[];
+  /** @deprecated Prefer productOptions — kept for admin form compatibility */
+  productOptions?: (ProductOption & { values?: ProductOptionValue[] })[];
+  /** @deprecated Prefer productVariants — kept for admin form compatibility */
+  productVariants?: ProductVariant[];
+  options?: (ProductOption & { values?: ProductOptionValue[] })[];
+  variants?: ProductVariant[];
 };
 
-export type CategoryWithCount = Category & {
-  _count?: { products: number };
+export type OrderWithRelations = Order & {
+  items?: (OrderItem & { product?: Product | null; variant?: ProductVariant | null })[];
+  payments?: Payment[];
+  user?: User | null;
+};
+
+export type CategoryWithRelations = Category & {
+  parent?: Category | null;
+  children?: Category[];
+  products?: Product[];
 };

@@ -1,34 +1,75 @@
 "use server";
 
 import { z } from "zod";
-import { ProductStatus } from "@/lib/types/database";
+import { ProductStatus, ShippingMode } from "@/lib/types/database";
+import { parseProductRow } from "@/lib/data/mappers";
+import {
+  isProductDetailSelectError,
+  PRODUCT_DETAIL_SELECT,
+  PRODUCT_LIST_SELECT,
+} from "@/lib/data/product-select";
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
-import { productImageInputSchema, productSchema } from "@/lib/validations/admin";
+import {
+  productImageInputSchema,
+  productOptionInputSchema,
+  productSchema,
+  productVariantInputSchema,
+} from "@/lib/validations/admin";
 import { slugify } from "@/lib/utils";
 import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
-const PRODUCT_SELECT = "*, Category(*), ProductImage(*)";
+function normalizeProductPayload(data: z.infer<typeof productSchema>) {
+  return {
+    ...data,
+    slug: data.slug || slugify(data.name),
+    description: data.description || null,
+    sku: data.sku || null,
+    compareCents: data.compareCents ?? null,
+    categoryId: data.categoryId || null,
+    seoTitle: data.seoTitle?.trim() || null,
+    seoDescription: data.seoDescription?.trim() || null,
+    tags: data.tags ?? [],
+    brand: data.brand?.trim() || null,
+    costCents: data.costCents ?? null,
+    weightGrams: data.weightGrams ?? null,
+    lengthCm: data.lengthCm ?? null,
+    widthCm: data.widthCm ?? null,
+    heightCm: data.heightCm ?? null,
+    videoUrl: data.videoUrls?.[0]?.trim() || null,
+    shippingMode: data.shippingMode ?? ShippingMode.CORREIOS,
+    fixedShippingCents:
+      data.shippingMode === ShippingMode.FIXED ? (data.fixedShippingCents ?? null) : null,
+    active: data.status === ProductStatus.ACTIVE,
+  };
+}
 
 export async function listProducts() {
   return withAdminRead(async () => {
     const { data, error } = await getDb()
       .from(TABLES.Product)
-      .select(PRODUCT_SELECT)
+      .select(PRODUCT_LIST_SELECT)
       .order("updatedAt", { ascending: false });
     if (error) throw error;
-    return data ?? [];
+    return (data ?? []).map((row) => parseProductRow(row as Record<string, unknown>));
   });
 }
 
 export async function getProduct(id: string) {
   return withAdminRead(async () => {
-    const { data, error } = await getDb()
+    let { data, error } = await getDb()
       .from(TABLES.Product)
-      .select(PRODUCT_SELECT)
+      .select(PRODUCT_DETAIL_SELECT)
       .eq("id", id)
       .maybeSingle();
+    if (error && isProductDetailSelectError(error)) {
+      ({ data, error } = await getDb()
+        .from(TABLES.Product)
+        .select(PRODUCT_LIST_SELECT)
+        .eq("id", id)
+        .maybeSingle());
+    }
     if (error) throw error;
-    return data;
+    return data ? parseProductRow(data as Record<string, unknown>) : null;
   });
 }
 
@@ -42,14 +83,7 @@ export async function upsertProduct(
 
     const db = getDb();
     const now = new Date().toISOString();
-    const payload = {
-      ...parsed.data,
-      slug: parsed.data.slug || slugify(parsed.data.name),
-      compareCents: parsed.data.compareCents ?? null,
-      categoryId: parsed.data.categoryId || null,
-      active: parsed.data.status === ProductStatus.ACTIVE,
-      updatedAt: now,
-    };
+    const payload = { ...normalizeProductPayload(parsed.data), updatedAt: now };
 
     let productId = id;
     if (id) {
@@ -70,7 +104,7 @@ export async function upsertProduct(
       entity: "Product",
       entityId: productId!,
     });
-    revalidateAdmin(["/admin/produtos"]);
+    revalidateAdmin(["/admin/produtos", `/admin/produtos/${productId}`]);
     return { success: true, data: { id: productId! } };
   });
 }
@@ -88,30 +122,42 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
 export async function duplicateProduct(id: string): Promise<ActionResult<{ id: string }>> {
   return withAdmin(async (actor) => {
     const db = getDb();
-    const { data: source, error } = await db
+    let { data: source, error } = await db
       .from(TABLES.Product)
-      .select(PRODUCT_SELECT)
+      .select(PRODUCT_DETAIL_SELECT)
       .eq("id", id)
       .maybeSingle();
+    if (error && isProductDetailSelectError(error)) {
+      ({ data: source, error } = await db
+        .from(TABLES.Product)
+        .select(PRODUCT_LIST_SELECT)
+        .eq("id", id)
+        .maybeSingle());
+    }
     if (error || !source) return { success: false, error: "Produto não encontrado" };
 
     const images = (source.ProductImage as Record<string, unknown>[]) ?? [];
     const copyId = newId();
     const now = new Date().toISOString();
+    const {
+      id: _id,
+      createdAt: _c,
+      updatedAt: _u,
+      Category: _cat,
+      ProductImage: _imgs,
+      ProductOption: _opts,
+      ProductVariant: _vars,
+      ...productFields
+    } = source as Record<string, unknown>;
 
     const { error: createErr } = await db.from(TABLES.Product).insert({
+      ...productFields,
       id: copyId,
       name: `${source.name} (cópia)`,
       slug: `${source.slug}-copia-${Date.now()}`,
-      description: source.description,
       sku: source.sku ? `${source.sku}-COPY` : null,
-      priceCents: source.priceCents,
-      compareCents: source.compareCents,
-      stock: source.stock,
       active: false,
       status: ProductStatus.DRAFT,
-      images: source.images,
-      categoryId: source.categoryId,
       createdAt: now,
       updatedAt: now,
     });
@@ -176,7 +222,105 @@ export async function syncProductImages(
       entityId: productId,
       metadata: { images: parsed.data.length },
     });
-    revalidateAdmin(["/admin/produtos"]);
+    revalidateAdmin(["/admin/produtos", `/admin/produtos/${productId}`]);
+    return { success: true };
+  });
+}
+
+export async function syncProductOptions(
+  productId: string,
+  options: unknown,
+): Promise<ActionResult> {
+  return withAdmin(async (actor) => {
+    const parsed = z.array(productOptionInputSchema).safeParse(options);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.flatten().formErrors.join(", ") };
+    }
+
+    const db = getDb();
+    const { data: existingOpts } = await db
+      .from(TABLES.ProductOption)
+      .select("id")
+      .eq("productId", productId);
+    const optIds = (existingOpts ?? []).map((o) => o.id as string);
+    if (optIds.length) {
+      await db.from(TABLES.ProductOptionValue).delete().in("optionId", optIds);
+    }
+    await db.from(TABLES.ProductOption).delete().eq("productId", productId);
+
+    for (const opt of parsed.data) {
+      const optionId = newId();
+      const { error: optErr } = await db.from(TABLES.ProductOption).insert({
+        id: optionId,
+        productId,
+        name: opt.name,
+        sortOrder: opt.sortOrder,
+      });
+      if (optErr) return { success: false, error: optErr.message };
+
+      if (opt.values.length) {
+        const { error: valErr } = await db.from(TABLES.ProductOptionValue).insert(
+          opt.values.map((v) => ({
+            id: newId(),
+            optionId,
+            value: v.value,
+            sortOrder: v.sortOrder,
+          })),
+        );
+        if (valErr) return { success: false, error: valErr.message };
+      }
+    }
+
+    await auditMutation(actor, {
+      action: "UPDATE",
+      entity: "Product",
+      entityId: productId,
+      metadata: { options: parsed.data.length },
+    });
+    revalidateAdmin(["/admin/produtos", `/admin/produtos/${productId}`]);
+    return { success: true };
+  });
+}
+
+export async function syncProductVariants(
+  productId: string,
+  variants: unknown,
+): Promise<ActionResult> {
+  return withAdmin(async (actor) => {
+    const parsed = z.array(productVariantInputSchema).safeParse(variants);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.flatten().formErrors.join(", ") };
+    }
+
+    const db = getDb();
+    await db.from(TABLES.ProductVariant).delete().eq("productId", productId);
+
+    if (parsed.data.length) {
+      const { error } = await db.from(TABLES.ProductVariant).insert(
+        parsed.data.map((v) => ({
+          id: newId(),
+          productId,
+          sku: v.sku || null,
+          priceCents: v.priceCents ?? null,
+          compareCents: v.compareCents ?? null,
+          stock: v.stock,
+          stockUnlimited: v.stockUnlimited,
+          attributes: v.attributes,
+          imageUrl: v.imageUrl?.trim() || null,
+          sortOrder: v.sortOrder,
+          active: v.active,
+        })),
+      );
+      if (error) return { success: false, error: error.message };
+    }
+
+    await auditMutation(actor, {
+      action: "UPDATE",
+      entity: "Product",
+      entityId: productId,
+      metadata: { variants: parsed.data.length },
+    });
+    revalidateAdmin(["/admin/produtos", `/admin/produtos/${productId}`]);
     return { success: true };
   });
 }

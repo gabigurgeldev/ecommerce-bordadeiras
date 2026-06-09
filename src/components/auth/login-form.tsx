@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { loginAdminAction } from "@/actions/auth/login";
+import { useAppSession } from "@/components/providers/session-provider";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { EmailSpamNotice } from "@/components/auth/email-spam-notice";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 
 export function LoginForm() {
+  const router = useRouter();
+  const { refresh } = useAppSession();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const [error, setError] = useState<string | null>(null);
@@ -28,14 +30,42 @@ export function LoginForm() {
     const email = form.get("email") as string;
     const password = form.get("password") as string;
 
-    const result = await loginAdminAction(email, password, callbackUrl);
-    setLoading(false);
+    try {
+      const csrfRes = await fetch("/api/auth/csrf");
+      const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
 
-    if (!result.ok) {
-      setError(result.message);
-      if (result.code === "unverified" && result.email) {
-        setUnverifiedEmail(result.email);
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({ email, password, callbackUrl }),
+      });
+
+      const payload = (await res.json().catch(() => null)) as {
+        error?: string;
+        code?: string;
+        email?: string;
+        redirect?: string;
+      } | null;
+
+      if (res.ok && payload?.redirect) {
+        await refresh(); // Garante a atualização da sessão global imediatamente
+        router.push(payload.redirect);
+        router.refresh(); // Força o RSC a reconstruir para exibir cabeçalho autenticado
+        return;
       }
+
+      setError(payload?.error ?? "E-mail ou senha incorretos.");
+      if (res.status === 403 && payload?.email) {
+        setUnverifiedEmail(payload.email);
+      }
+    } catch {
+      setError("Erro de conexão. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
   }
 

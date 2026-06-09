@@ -33,10 +33,15 @@ export async function upsertBanner(
     const now = new Date().toISOString();
     const payload = {
       title: parsed.data.title,
-      imageUrl: parsed.data.imageUrl,
+      imageUrl: parsed.data.desktopImageUrl, // Mantém compatibilidade
+      desktopImageUrl: parsed.data.desktopImageUrl,
+      mobileImageUrl: parsed.data.mobileImageUrl || null,
+      altText: parsed.data.altText || null,
       link: parsed.data.link || null,
       sortOrder: parsed.data.sortOrder,
       active: parsed.data.active,
+      startDate: parsed.data.startDate ? new Date(parsed.data.startDate).toISOString() : null,
+      endDate: parsed.data.endDate ? new Date(parsed.data.endDate).toISOString() : null,
       updatedAt: now,
     };
 
@@ -105,16 +110,20 @@ export async function reorderBanners(
   return withAdmin(async (actor) => {
     const db = getDb();
     const now = new Date().toISOString();
+
     for (const { id, sortOrder } of orders) {
-      await db
+      const { error } = await db
         .from(TABLES.StorefrontBanner)
         .update({ sortOrder, updatedAt: now })
         .eq("id", id);
+      if (error) return { success: false, error: error.message };
     }
+
     await auditMutation(actor, {
       action: "UPDATE",
       entity: "StorefrontBanner",
-      metadata: { reorder: orders.length },
+      entityId: orders.map((o) => o.id).join(","),
+      metadata: { reorder: orders },
     });
     revalidateAdmin(["/admin/banners", "/"]);
     return { success: true };

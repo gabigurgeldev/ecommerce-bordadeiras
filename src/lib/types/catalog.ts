@@ -6,7 +6,29 @@ export type Category = {
   slug: string;
   description?: string;
   imageUrl: string;
+  seoTitle?: string;
+  seoDescription?: string;
   productCount?: number;
+};
+
+export type ProductVariant = {
+  id: string;
+  sku?: string;
+  priceCents?: number;
+  compareAtCents?: number;
+  costCents?: number;
+  stock: number;
+  stockUnlimited: boolean;
+  lowStockThreshold?: number;
+  soldCount?: number;
+  attributes: Record<string, string>;
+  imageUrl?: string;
+  active: boolean;
+};
+
+export type ProductOption = {
+  name: string;
+  values: string[];
 };
 
 export type Product = {
@@ -19,12 +41,23 @@ export type Product = {
   compareAtCents?: number;
   sku?: string;
   stock: number;
+  stockUnlimited: boolean;
+  showPrice: boolean;
   featured: boolean;
   categoryId: string;
   categorySlug: string;
   images: string[];
   tags?: string[];
+  brand?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  /** @deprecated Use videoUrls instead */
+  videoUrl?: string;
+  /** Array de URLs de vídeos (YouTube/Vimeo) */
+  videoUrls: string[];
   specs?: Record<string, string>;
+  variants?: ProductVariant[];
+  options?: ProductOption[];
 };
 
 export type BlogPost = {
@@ -44,6 +77,7 @@ export type ProductFilters = {
   q?: string;
   minPriceCents?: number;
   maxPriceCents?: number;
+  inStock?: boolean;
   sort?: "newest" | "price-asc" | "price-desc" | "name";
 };
 
@@ -59,6 +93,7 @@ export type ShippingAddress = {
 
 export type CartLineInput = {
   productId: string;
+  variantId?: string;
   slug: string;
   name: string;
   priceCents: number;

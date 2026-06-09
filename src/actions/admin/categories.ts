@@ -26,7 +26,15 @@ export async function upsertCategory(
 
     const db = getDb();
     const now = new Date().toISOString();
-    const payload = { ...parsed.data, updatedAt: now };
+    const { seoTitle, seoDescription, imageUrl, parentId, ...rest } = parsed.data;
+    const payload = {
+      ...rest,
+      imageUrl: imageUrl || null,
+      seoTitle: seoTitle?.trim() || null,
+      seoDescription: seoDescription?.trim() || null,
+      parentId: parentId || null,
+      updatedAt: now,
+    };
     let rowId = id;
 
     if (id) {

@@ -24,6 +24,8 @@ export async function listOrders() {
 }
 
 export type OrderWithRelations = Order & {
+  orderNumber?: string;
+  carrier?: string | null;
   items: OrderItem[];
   payments: Payment[];
   user?: Record<string, unknown> | null;
@@ -52,11 +54,15 @@ function normalizeOrder(row: Record<string, unknown>): OrderWithRelations {
     items: items.map((i) => ({
       id: String(i.id),
       orderId: String(i.orderId),
-      productId: i.productId != null ? String(i.productId) : null,
+      productId: i.productId != null ? String(i.productId) : "",
+      variantId: i.variantId != null ? String(i.variantId) : null,
       name: String(i.name),
       sku: i.sku != null ? String(i.sku) : null,
       quantity: Number(i.quantity),
       priceCents: Number(i.priceCents),
+      deductedStock: Boolean(i.deductedStock),
+      createdAt: new Date(String(i.createdAt)),
+      updatedAt: new Date(String(i.updatedAt)),
     })),
     payments: payments.map((p) => ({
       id: String(p.id),

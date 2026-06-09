@@ -1,0 +1,2 @@
+ALTER TABLE "StorefrontBanner" ADD COLUMN IF NOT EXISTS "startDate" TIMESTAMP(3);
+ALTER TABLE "StorefrontBanner" ADD COLUMN IF NOT EXISTS "endDate" TIMESTAMP(3);

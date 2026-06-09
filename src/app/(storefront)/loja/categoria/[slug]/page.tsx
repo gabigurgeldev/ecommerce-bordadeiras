@@ -13,8 +13,8 @@ export async function generateMetadata({ params }: Props) {
   const category = await getCategoryBySlug(slug);
   if (!category) return {};
   return buildMetadata({
-    title: category.name,
-    description: category.description,
+    title: category.seoTitle ?? category.name,
+    description: category.seoDescription ?? category.description,
     path: `/loja/categoria/${slug}`,
     image: category.imageUrl,
   });

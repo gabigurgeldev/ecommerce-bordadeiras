@@ -1,13 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, Check, Loader2, Mail, ShieldCheck } from "lucide-react";
+import { AlertCircle, Loader2, Mail, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { useAppSession } from "@/components/providers/session-provider";
 import { EmailSpamNotice } from "@/components/auth/email-spam-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +27,9 @@ type FormValues = z.infer<typeof schema>;
 export function VerifyEmailForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { refresh } = useAppSession();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const [serverError, setServerError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
 
@@ -53,6 +54,7 @@ export function VerifyEmailForm() {
 
       const res = await fetch("/api/auth/verify-email", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "x-csrf-token": csrfToken,
@@ -61,7 +63,9 @@ export function VerifyEmailForm() {
       });
 
       if (res.ok) {
-        setSuccess(true);
+        await refresh();
+        router.push(callbackUrl.startsWith("/") ? callbackUrl : "/");
+        router.refresh();
         return;
       }
 
@@ -111,29 +115,6 @@ export function VerifyEmailForm() {
     } finally {
       setResending(false);
     }
-  }
-
-  if (success) {
-    return (
-      <AuthShell title="E-mail verificado!" subtitle="Sua conta está pronta">
-        <div className="flex flex-col items-center text-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-green)]/15 text-[var(--color-green)]">
-            <Check className="h-8 w-8" />
-          </span>
-          <p className="mt-5 text-sm text-[var(--foreground)]/80">
-            Agora você pode entrar na sua conta.
-          </p>
-          <Button
-            className="mt-7 w-full"
-            onClick={() =>
-              router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`)
-            }
-          >
-            Ir para o login
-          </Button>
-        </div>
-      </AuthShell>
-    );
   }
 
   return (

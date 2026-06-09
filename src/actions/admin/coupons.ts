@@ -15,6 +15,18 @@ export async function listCoupons() {
   });
 }
 
+export async function getCoupon(id: string) {
+  return withAdminRead(async () => {
+    const { data, error } = await getDb()
+      .from(TABLES.Coupon)
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  });
+}
+
 export async function upsertCoupon(data: unknown, id?: string): Promise<ActionResult<{ id: string }>> {
   return withAdmin(async (actor) => {
     const parsed = couponSchema.safeParse(data);

@@ -32,15 +32,19 @@ export async function POST(request: Request) {
     parsed.data.filename,
   );
 
+  console.log(`[uploads/signed/banner] Generating signed URL for bucket: ${STORAGE_BUCKETS.banners}, path: ${path}`);
+
   try {
     const signed = await getSignedUploadUrl({
       bucket: STORAGE_BUCKETS.banners,
       path,
       contentType: parsed.data.contentType,
     });
+    console.log(`[uploads/signed/banner] Signed URL generated successfully`);
     return NextResponse.json(signed);
-  } catch (e) {
-    console.error("[uploads/signed/banner]", e);
-    return jsonError("Failed to create signed upload URL", 500);
+  } catch (e: any) {
+    console.error("[uploads/signed/banner] Failed to create signed upload URL:", e);
+    const errorMessage = e?.message || "Failed to create signed upload URL";
+    return jsonError(errorMessage, 500);
   }
 }

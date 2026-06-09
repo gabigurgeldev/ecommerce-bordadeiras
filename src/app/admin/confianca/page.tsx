@@ -7,7 +7,7 @@ export default async function AdminTrustBarPage() {
   const items = await listTrustBarItems();
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Barra de confiança"
         description="Ícones e textos abaixo do banner na página inicial"

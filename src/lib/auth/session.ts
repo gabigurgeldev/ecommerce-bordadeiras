@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { findUserByEmailAddress, upsertUserFromAuthUser } from "@/lib/auth/sync-user";
-import type { Role } from "@/lib/types/database";
+import { Role, type Role as RoleType } from "@/lib/types/database";
 
 export type AppSessionUser = {
   id: string;
@@ -28,14 +28,27 @@ export async function auth(): Promise<AppSession | null> {
     if (!appUser) {
       appUser = await upsertUserFromAuthUser(user);
     }
-    if (!appUser) return null;
 
-    const sessionUser: AppSessionUser = {
-      id: appUser.id,
-      email: appUser.email,
-      name: appUser.name,
-      role: appUser.role,
-    };
+    const meta = user.app_metadata as { prisma_id?: string; role?: RoleType } | undefined;
+    const metaRole =
+      meta?.role === Role.ADMIN || meta?.role === Role.USER ? meta.role : undefined;
+
+    const sessionUser: AppSessionUser = appUser
+      ? {
+          id: appUser.id,
+          email: appUser.email,
+          name: appUser.name,
+          role: appUser.role,
+        }
+      : {
+          id: meta?.prisma_id ?? user.id,
+          email: user.email,
+          name:
+            typeof user.user_metadata?.name === "string"
+              ? user.user_metadata.name
+              : null,
+          role: metaRole ?? Role.USER,
+        };
 
     return { user: sessionUser };
   } catch {

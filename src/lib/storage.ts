@@ -6,12 +6,13 @@ export const STORAGE_BUCKETS = {
   banners: process.env.SUPABASE_BUCKET_BANNERS ?? "banners",
 } as const;
 
-export type StorageKind = "product" | "banner";
+export type StorageKind = "product" | "banner" | "category";
 
 export function bucketForKind(kind: StorageKind): string {
-  return kind === "product"
-    ? STORAGE_BUCKETS.productImages
-    : STORAGE_BUCKETS.banners;
+  if (kind === "product" || kind === "category") {
+    return STORAGE_BUCKETS.productImages;
+  }
+  return STORAGE_BUCKETS.banners;
 }
 
 export function getPublicUrl(bucket: string, path: string): string {
@@ -90,6 +91,14 @@ export function buildBannerImageKey(
 ): string {
   const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   return `banners/${bannerId}/${Date.now()}-${safe}`;
+}
+
+export function buildCategoryImageKey(
+  categoryId: string,
+  filename: string,
+): string {
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `categories/${categoryId}/${Date.now()}-${safe}`;
 }
 
 /** @deprecated Use uploadFile with bucket + path */

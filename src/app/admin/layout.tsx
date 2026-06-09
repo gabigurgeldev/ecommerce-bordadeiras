@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
+  const actor = await requireAdmin();
 
   let dbAvailable = true;
   try {
@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!dbAvailable) {
     return (
-      <AdminShell>
+      <AdminShell adminEmail={actor.email}>
         <div className="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
           <AlertCircle className="h-12 w-12 text-muted-foreground" />
           <div className="space-y-2">
@@ -38,5 +38,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     );
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminShell adminEmail={actor.email}>{children}</AdminShell>;
 }

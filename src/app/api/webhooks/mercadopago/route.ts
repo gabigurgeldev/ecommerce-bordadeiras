@@ -4,7 +4,7 @@ import { getMercadoPagoSettingsFromDb } from "@/lib/mercadopago-config";
 import { getPaymentById, verifyWebhookSignature } from "@/lib/mercadopago";
 import { rateLimitWebhook } from "@/lib/rate-limit";
 import { getClientIp, jsonError } from "@/lib/api-utils";
-import { onOrderPaid } from "@/lib/hooks/order-paid";
+import { finalizeApprovedOrder } from "@/lib/payments/persist-mp-payment";
 import { cacheGet, cacheSet } from "@/lib/redis";
 
 export async function POST(request: Request) {
@@ -117,7 +117,24 @@ export async function POST(request: Request) {
   }
 
   if (status === "APPROVED" && payment) {
-    await onOrderPaid(orderId, String(payment.id));
+    const { data: order } = await db
+      .from(TABLES.Order)
+      .select("totalCents")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    const orderTotal = Number(order?.totalCents ?? 0);
+    if (!order || orderTotal !== amountCents) {
+      console.error("[webhook] amount mismatch", {
+        orderId,
+        orderTotal,
+        amountCents,
+        mpPaymentId,
+      });
+      return NextResponse.json({ received: true, amountMismatch: true });
+    }
+
+    await finalizeApprovedOrder(orderId, String(payment.id));
   }
 
   return NextResponse.json({ received: true });

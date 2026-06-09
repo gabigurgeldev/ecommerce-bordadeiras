@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAppSession } from "@/components/providers/session-provider";
 import Link from "next/link";
 import { checkoutLoginAction } from "@/actions/auth/checkout-login";
 
 export function CheckoutIdentifyForm() {
+  const router = useRouter();
+  const { refresh } = useAppSession();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +26,12 @@ export function CheckoutIdentifyForm() {
     if (!result.ok) {
       setError(result.message);
       setLoading(false);
+      return;
     }
+
+    await refresh();
+    router.push(result.redirect);
+    router.refresh();
   }
 
   return (

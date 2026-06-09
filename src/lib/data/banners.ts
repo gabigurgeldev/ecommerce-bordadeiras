@@ -4,13 +4,19 @@ import { getDb, TABLES } from "@/lib/supabase/db";
 
 export type StorefrontBannerSlide = {
   id: string;
-  imageUrl: string;
+  desktopImageUrl: string;
+  mobileImageUrl: string | null;
+  imageUrl: string; // Legacy field for compatibility
+  altText: string | null;
   link: string | null;
 };
 
 const defaultSlide: StorefrontBannerSlide = {
   id: "default-hero",
+  desktopImageUrl: siteImages.hero,
+  mobileImageUrl: null,
   imageUrl: siteImages.hero,
+  altText: null,
   link: null,
 };
 
@@ -18,15 +24,21 @@ export async function getActiveBanners(): Promise<StorefrontBannerSlide[]> {
   if (!(await isDatabaseAvailable())) return [defaultSlide];
 
   try {
+    const now = new Date().toISOString();
     const { data, error } = await getDb()
       .from(TABLES.StorefrontBanner)
-      .select("id, imageUrl, link")
+      .select("id, desktopImageUrl, mobileImageUrl, imageUrl, altText, link")
       .eq("active", true)
+      .or(`startDate.is.null,startDate.lte.${now}`)
+      .or(`endDate.is.null,endDate.gte.${now}`)
       .order("sortOrder", { ascending: true });
     if (!error && data?.length) {
       return data.map((b) => ({
         id: String(b.id),
-        imageUrl: String(b.imageUrl),
+        desktopImageUrl: String(b.desktopImageUrl || b.imageUrl),
+        mobileImageUrl: b.mobileImageUrl ? String(b.mobileImageUrl) : null,
+        imageUrl: String(b.desktopImageUrl || b.imageUrl),
+        altText: b.altText ? String(b.altText) : null,
         link: b.link != null ? String(b.link) : null,
       }));
     }

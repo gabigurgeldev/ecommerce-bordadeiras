@@ -119,6 +119,7 @@ export async function authenticateUser(
   }
 
   if (!isEmailConfirmed(appUser, authUser.email_confirmed_at) && !isAdminUser(appUser)) {
+    await supabase.auth.signOut();
     return {
       ok: false,
       reason: "unverified",

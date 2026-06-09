@@ -1,22 +1,31 @@
 import { notFound } from "next/navigation";
-import { CouponForm } from "@/components/admin/coupon-form";
-import { getDb, TABLES } from "@/lib/supabase/db";
+import { getCoupon } from "@/actions/admin/coupons";
+import { CouponEditLauncher } from "@/components/admin/coupon-edit-launcher";
+import type { CouponType } from "@/lib/types/database";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function EditCouponPage({ params }: Props) {
   const { id } = await params;
-  const { data: coupon } = await getDb()
-    .from(TABLES.Coupon)
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const coupon = await getCoupon(id);
   if (!coupon) notFound();
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Editar cupom</h1>
-      <CouponForm coupon={coupon} />
-    </div>
+    <CouponEditLauncher
+      coupon={{
+        id: coupon.id as string,
+        code: coupon.code as string,
+        type: coupon.type as CouponType,
+        value: Number(coupon.value),
+        minCents: coupon.minCents != null ? Number(coupon.minCents) : null,
+        validFrom: coupon.validFrom ? new Date(coupon.validFrom as string) : null,
+        validUntil: coupon.validUntil ? new Date(coupon.validUntil as string) : null,
+        maxUses: coupon.maxUses != null ? Number(coupon.maxUses) : null,
+        usedCount: Number(coupon.usedCount),
+        active: Boolean(coupon.active),
+        createdAt: new Date(coupon.createdAt as string),
+        updatedAt: new Date(coupon.updatedAt as string),
+      }}
+    />
   );
 }

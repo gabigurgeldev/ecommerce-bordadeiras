@@ -1,5 +1,4 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordForm } from "@/components/account/password-form";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata = buildMetadata({
@@ -11,22 +10,13 @@ export const metadata = buildMetadata({
 export default function ContaSenhaPage() {
   return (
     <div>
-      <h2 className="text-xl font-semibold">Senha</h2>
-      <form className="mt-6 max-w-md space-y-4">
-        <div>
-          <label className="text-xs text-zinc-500">Senha atual</label>
-          <Input type="password" name="current" />
-        </div>
-        <div>
-          <label className="text-xs text-zinc-500">Nova senha</label>
-          <Input type="password" name="new" />
-        </div>
-        <div>
-          <label className="text-xs text-zinc-500">Confirmar nova senha</label>
-          <Input type="password" name="confirm" />
-        </div>
-        <Button type="button">Atualizar senha</Button>
-      </form>
+      <h2 className="font-display text-xl font-semibold text-[var(--color-brown)]">
+        Senha
+      </h2>
+      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+        Defina uma nova senha para sua conta.
+      </p>
+      <PasswordForm />
     </div>
   );
 }

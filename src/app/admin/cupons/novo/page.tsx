@@ -1,11 +1,5 @@
-import { PageHeader } from "@/components/admin/page-header";
-import { CouponForm } from "@/components/admin/coupon-form";
+import { redirect } from "next/navigation";
 
 export default function NewCouponPage() {
-  return (
-    <div>
-      <PageHeader title="Novo cupom" />
-      <CouponForm />
-    </div>
-  );
+  redirect("/admin/cupons");
 }

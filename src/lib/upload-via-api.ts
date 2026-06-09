@@ -1,7 +1,7 @@
 /** Upload de imagem via servidor (Supabase Storage, service role). */
 export async function uploadImageViaApi(
   file: File,
-  kind: "product" | "banner",
+  kind: "product" | "banner" | "category",
   entityId: string,
 ): Promise<string | null> {
   const form = new FormData();
@@ -14,7 +14,14 @@ export async function uploadImageViaApi(
     body: form,
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    let errorMsg = "Erro no servidor";
+    try {
+      const errorData = await res.json();
+      errorMsg = errorData.error || errorData.message || errorMsg;
+    } catch {}
+    throw new Error(errorMsg);
+  }
 
   const data = (await res.json()) as { publicUrl?: string };
   return data.publicUrl ?? null;

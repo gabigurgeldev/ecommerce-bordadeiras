@@ -9,17 +9,20 @@ export type CartLine = CartLineInput & { lineId: string };
 type CartState = {
   lines: CartLine[];
   couponCode: string | null;
+  syncedUserId: string | null;
   addItem: (item: Omit<CartLineInput, "quantity"> & { quantity?: number }) => void;
   removeItem: (lineId: string) => void;
   setQuantity: (lineId: string, quantity: number) => void;
+  setLines: (lines: CartLine[]) => void;
   clearCart: () => void;
   applyCoupon: (code: string | null) => void;
+  setSyncedUserId: (userId: string | null) => void;
   itemCount: () => number;
   subtotalCents: () => number;
 };
 
-function lineId(productId: string) {
-  return `line-${productId}`;
+function lineId(productId: string, variantId?: string) {
+  return variantId ? `line-${productId}-${variantId}` : `line-${productId}`;
 }
 
 export const useCartStore = create<CartState>()(
@@ -27,8 +30,9 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       lines: [],
       couponCode: null,
+      syncedUserId: null,
       addItem: (item) => {
-        const id = lineId(item.productId);
+        const id = lineId(item.productId, item.variantId);
         const qty = item.quantity ?? 1;
         set((state) => {
           const existing = state.lines.find((l) => l.lineId === id);
@@ -47,6 +51,7 @@ export const useCartStore = create<CartState>()(
               {
                 lineId: id,
                 productId: item.productId,
+                variantId: item.variantId,
                 slug: item.slug,
                 name: item.name,
                 priceCents: item.priceCents,
@@ -72,8 +77,10 @@ export const useCartStore = create<CartState>()(
           ),
         }));
       },
+      setLines: (lines) => set({ lines }),
       clearCart: () => set({ lines: [], couponCode: null }),
       applyCoupon: (code) => set({ couponCode: code }),
+      setSyncedUserId: (userId) => set({ syncedUserId: userId }),
       itemCount: () =>
         get().lines.reduce((sum, l) => sum + l.quantity, 0),
       subtotalCents: () =>

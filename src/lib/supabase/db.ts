@@ -13,6 +13,9 @@ export const TABLES = {
   Category: "Category",
   Product: "Product",
   ProductImage: "ProductImage",
+  ProductOption: "ProductOption",
+  ProductOptionValue: "ProductOptionValue",
+  ProductVariant: "ProductVariant",
   Coupon: "Coupon",
   Order: "Order",
   OrderItem: "OrderItem",
@@ -30,6 +33,8 @@ export const TABLES = {
   WhatsappRecipient: "WhatsappRecipient",
   WhatsappSession: "WhatsappSession",
   AuditLog: "AuditLog",
+  CartItem: "CartItem",
+  SavedCard: "SavedCard",
 } as const;
 
 /** CUID-like id compatible with existing rows. */

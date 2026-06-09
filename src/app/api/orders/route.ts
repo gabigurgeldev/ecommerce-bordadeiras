@@ -24,6 +24,7 @@ const schema = z.object({
 /** Create order (integration endpoint for checkout flow). */
 export async function POST(request: Request) {
   const sessionUser = await getSessionUser();
+  if (!sessionUser?.id) return jsonError("Unauthorized", 401);
 
   let body: unknown;
   try {
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
   try {
     const order = await createOrderWithItems({
       orderNumber: generateOrderNumber(),
-      userId: sessionUser?.id,
+      userId: sessionUser.id,
       customerName: sanitizeText(parsed.data.customerName),
       customerEmail: sanitizeEmail(parsed.data.customerEmail),
       customerPhone: parsed.data.customerPhone

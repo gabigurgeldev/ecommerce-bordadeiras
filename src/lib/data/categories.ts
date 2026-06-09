@@ -1,12 +1,8 @@
-import { isDatabaseAvailable } from "@/lib/data/db-available";
 import { mapCategory, parseCategoryRow } from "@/lib/data/mappers";
-import { mockCategories } from "@/lib/mock/catalog";
 import { getDb, TABLES } from "@/lib/supabase/db";
 import type { Category } from "@/lib/types/catalog";
 
 export async function getCategories(): Promise<Category[]> {
-  if (!(await isDatabaseAvailable())) return mockCategories;
-
   try {
     const db = getDb();
     const { data, error } = await db
@@ -56,10 +52,7 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
       );
     }
   } catch {
-    /* mock fallback */
-  }
-  if (!(await isDatabaseAvailable())) {
-    return mockCategories.find((c) => c.slug === slug) ?? null;
+    /* empty */
   }
   return null;
 }

@@ -5,8 +5,19 @@ const defaultOptions: sanitizeHtml.IOptions = {
   allowedAttributes: {},
 };
 
+const productHtmlOptions: sanitizeHtml.IOptions = {
+  allowedTags: ["p", "br", "strong", "b", "em", "i", "ul", "ol", "li", "a"],
+  allowedAttributes: {
+    a: ["href", "target", "rel"],
+  },
+};
+
 export function sanitizeText(input: string): string {
   return sanitizeHtml(input, defaultOptions).trim();
+}
+
+export function sanitizeProductHtml(input: string): string {
+  return sanitizeHtml(input, productHtmlOptions).trim();
 }
 
 export function sanitizeEmail(input: string): string {

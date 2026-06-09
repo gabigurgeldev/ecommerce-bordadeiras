@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -16,14 +16,46 @@ import type { z } from "zod";
 export function BlogMetaPanel({
   categories,
   tags,
+  mode,
 }: {
-  categories: BlogCategory[];
-  tags: BlogTag[];
+  categories: BlogCategory[] | { id: string; name: string; slug: string }[];
+  tags: BlogTag[] | { id: string; name: string; slug: string }[];
+  mode?: "categories" | "tags";
 }) {
-  const [tab, setTab] = useState("categories");
+  if (mode === "categories") {
+    return (
+      <div className="space-y-4 rounded-lg border p-4">
+        <QuickCategoryForm />
+        <ul className="text-sm space-y-2">
+          {categories.map((c) => (
+            <li key={c.id} className="flex justify-between gap-2 border-b pb-2 last:border-0">
+              <span className="font-medium">{c.name}</span>
+              <span className="text-muted-foreground">/{c.slug}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  if (mode === "tags") {
+    return (
+      <div className="space-y-4 rounded-lg border p-4">
+        <QuickTagForm />
+        <ul className="text-sm space-y-2">
+          {tags.map((t) => (
+            <li key={t.id} className="flex justify-between gap-2 border-b pb-2 last:border-0">
+              <span className="font-medium">{t.name}</span>
+              <span className="text-muted-foreground">/{t.slug}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   return (
-    <Tabs value={tab} onValueChange={setTab}>
+    <Tabs defaultValue="categories">
       <TabsList>
         <TabsTrigger value="categories">Categorias</TabsTrigger>
         <TabsTrigger value="tags">Tags</TabsTrigger>
@@ -53,6 +85,7 @@ export function BlogMetaPanel({
 }
 
 function QuickCategoryForm() {
+  const router = useRouter();
   const form = useForm<z.infer<typeof blogCategorySchema>>({
     resolver: zodResolver(blogCategorySchema),
     defaultValues: { name: "", slug: "" },
@@ -65,7 +98,8 @@ function QuickCategoryForm() {
         const res = await upsertBlogCategory(data);
         if (res.success) {
           toast.success("Categoria criada");
-          window.location.reload();
+          form.reset();
+          router.refresh();
         } else toast.error(res.error);
       })}
     >
@@ -85,6 +119,7 @@ function QuickCategoryForm() {
 }
 
 function QuickTagForm() {
+  const router = useRouter();
   const form = useForm<z.infer<typeof blogTagSchema>>({
     resolver: zodResolver(blogTagSchema),
     defaultValues: { name: "", slug: "" },
@@ -97,7 +132,8 @@ function QuickTagForm() {
         const res = await upsertBlogTag(data);
         if (res.success) {
           toast.success("Tag criada");
-          window.location.reload();
+          form.reset();
+          router.refresh();
         } else toast.error(res.error);
       })}
     >

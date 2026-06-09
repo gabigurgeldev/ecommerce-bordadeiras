@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="Boleto banc�rio">
+  <rect x="6" y="4" width="36" height="40" rx="3" fill="#FFFBEB" stroke="#D97706" stroke-width="1.5"/>
+  <rect x="10" y="10" width="28" height="4" rx="1" fill="#F59E0B" opacity="0.35"/>
+  <rect x="10" y="18" width="4" height="18" fill="#92400E"/>
+  <rect x="16" y="18" width="2" height="18" fill="#92400E"/>
+  <rect x="20" y="18" width="4" height="18" fill="#92400E"/>
+  <rect x="26" y="18" width="2" height="18" fill="#92400E"/>
+  <rect x="30" y="18" width="3" height="18" fill="#92400E"/>
+  <rect x="35" y="18" width="2" height="18" fill="#92400E"/>
+  <rect x="10" y="38" width="20" height="2" rx="1" fill="#B45309" opacity="0.5"/>
+</svg>

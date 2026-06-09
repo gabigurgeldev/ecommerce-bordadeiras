@@ -8,8 +8,13 @@ export type CreateOrderInput = {
   customerName: string;
   customerPhone?: string | null;
   shippingAddress?: JsonValue;
+  shippingAddressId?: string | null;
+  couponId?: string | null;
   subtotalCents: number;
+  discountCents?: number;
   shippingCents: number;
+  shippingServiceId?: string | null;
+  shippingServiceName?: string | null;
   totalCents: number;
   status?: string;
   items: {
@@ -34,9 +39,13 @@ export async function createOrderWithItems(input: CreateOrderInput) {
     customerName: input.customerName,
     customerPhone: input.customerPhone ?? null,
     shippingAddress: input.shippingAddress ?? null,
+    shippingAddressId: input.shippingAddressId ?? null,
+    couponId: input.couponId ?? null,
     subtotalCents: input.subtotalCents,
-    discountCents: 0,
+    discountCents: input.discountCents ?? 0,
     shippingCents: input.shippingCents,
+    shippingServiceId: input.shippingServiceId ?? null,
+    shippingServiceName: input.shippingServiceName ?? null,
     totalCents: input.totalCents,
     status: input.status ?? "PENDING",
     createdAt: now,

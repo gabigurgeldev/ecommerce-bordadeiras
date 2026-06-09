@@ -1,38 +1,52 @@
-import Link from "next/link";
-import { CheckoutSteps } from "@/components/checkout/checkout-steps";
-import { CheckoutIdentifyForm } from "@/components/checkout/checkout-identify-form";
+import { fetchUserAddresses } from "@/actions/account/addresses";
+import { getPublicCheckoutTheme } from "@/actions/admin/checkout-theme";
+import { CheckoutPage } from "@/components/checkout/checkout-page";
 import { getSessionUser } from "@/lib/auth/session";
+import { getCheckoutPaymentConfig } from "@/lib/mercadopago-config";
 import { buildMetadata } from "@/lib/seo/metadata";
-import { redirect } from "next/navigation";
+import { getDb, TABLES } from "@/lib/supabase/db";
 
 export const metadata = buildMetadata({
-  title: "Checkout — Identificação",
+  title: "Checkout",
   path: "/checkout",
   noIndex: true,
 });
 
-export default async function CheckoutLoginPage() {
+export default async function CheckoutRoutePage() {
   const sessionUser = await getSessionUser();
-  if (sessionUser) {
-    redirect("/checkout/endereco");
-  }
+  if (!sessionUser) return null;
+
+  const [addresses, paymentConfig, checkoutTheme] = await Promise.all([
+    fetchUserAddresses(),
+    getCheckoutPaymentConfig(),
+    getPublicCheckoutTheme(),
+  ]);
+
+  const db = getDb();
+  const { data: userRow } = await db
+    .from(TABLES.User)
+    .select("name, phone")
+    .eq("id", sessionUser.id)
+    .maybeSingle();
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <CheckoutSteps current={0} />
-      <div className="rounded-3xl bg-white p-8 dark:bg-zinc-900">
-        <h1 className="text-2xl font-semibold">Identificação</h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          Entre na sua conta ou continue como visitante.
-        </p>
-        <CheckoutIdentifyForm />
-        <p className="mt-6 text-center text-sm text-zinc-500">
-          Ainda não tem conta?{" "}
-          <Link href="/cadastro?callbackUrl=%2Fcheckout%2Fendereco" className="underline">
-            Criar conta
-          </Link>
-        </p>
-      </div>
-    </div>
+    <CheckoutPage
+      userName={
+        (userRow?.name as string | null) ??
+        sessionUser.name ??
+        sessionUser.email.split("@")[0]
+      }
+      userEmail={sessionUser.email}
+      userPhone={(userRow?.phone as string | null) ?? ""}
+      addresses={addresses}
+      publicKey={paymentConfig.publicKey}
+      enabledMethods={paymentConfig.enabledMethods}
+      maxInstallments={paymentConfig.maxInstallments}
+      installmentFees={paymentConfig.installmentFees}
+      sandbox={paymentConfig.sandbox}
+      credentialError={paymentConfig.credentialError}
+      display={paymentConfig.display}
+      checkoutTheme={checkoutTheme}
+    />
   );
 }

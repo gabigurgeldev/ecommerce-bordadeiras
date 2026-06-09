@@ -1,5 +1,7 @@
 "use client";
 
+import { validateCheckoutCoupon } from "@/actions/checkout";
+import { CheckoutButton } from "@/components/cart/checkout-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/format";
@@ -7,16 +9,45 @@ import { useCartStore } from "@/store/cart";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export function CartView() {
   const { lines, removeItem, setQuantity, applyCoupon, subtotalCents, couponCode } =
     useCartStore();
   const [couponInput, setCouponInput] = useState(couponCode ?? "");
+  const [discount, setDiscount] = useState(0);
   const subtotal = subtotalCents();
-  const shippingEstimate = lines.length > 0 ? 4900 : 0;
-  const discount = couponCode === "BORDA10" ? Math.round(subtotal * 0.1) : 0;
-  const total = subtotal - discount + shippingEstimate;
+  const total = subtotal - discount;
+
+  useEffect(() => {
+    async function calc() {
+      if (!couponCode) {
+        setDiscount(0);
+        return;
+      }
+      const result = await validateCheckoutCoupon(couponCode, subtotal);
+      setDiscount(result.ok ? result.coupon.discountCents : 0);
+    }
+    void calc();
+  }, [couponCode, subtotal]);
+
+  async function handleApplyCoupon() {
+    const code = couponInput.trim();
+    if (!code) {
+      applyCoupon(null);
+      setDiscount(0);
+      return;
+    }
+    const result = await validateCheckoutCoupon(code, subtotal);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    applyCoupon(code.toUpperCase());
+    setDiscount(result.coupon.discountCents);
+    toast.success("Cupom aplicado");
+  }
 
   if (lines.length === 0) {
     return (
@@ -72,8 +103,8 @@ export function CartView() {
             <dd>{formatCurrency(subtotal)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-zinc-500">Frete (estimativa)</dt>
-            <dd>{formatCurrency(shippingEstimate)}</dd>
+            <dt className="text-zinc-500">Frete</dt>
+            <dd className="text-right text-zinc-500">Calculado no checkout</dd>
           </div>
           {discount > 0 && (
             <div className="flex justify-between text-emerald-600">
@@ -93,19 +124,14 @@ export function CartView() {
             value={couponInput}
             onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
           />
-          <Button
-            variant="outline"
-            type="button"
-            onClick={() => applyCoupon(couponInput || null)}
-          >
+          <Button variant="outline" type="button" onClick={() => void handleApplyCoupon()}>
             Aplicar
           </Button>
         </div>
-        <p className="mt-2 text-xs text-zinc-500">Teste: BORDA10 (10% off)</p>
 
-        <Button className="mt-6 w-full" size="lg" asChild>
-          <Link href="/checkout">Finalizar compra</Link>
-        </Button>
+        <CheckoutButton className="mt-6 w-full" size="lg">
+          Finalizar compra
+        </CheckoutButton>
       </aside>
     </div>
   );

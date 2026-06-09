@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-auth";
 import {
   buildBannerImageKey,
+  buildCategoryImageKey,
   buildProductImageKey,
   bucketForKind,
   uploadFile,
@@ -30,8 +31,8 @@ export async function POST(request: Request) {
   const entityId = formData.get("entityId");
   const file = formData.get("file");
 
-  if (kind !== "product" && kind !== "banner") {
-    return jsonError("kind must be product or banner", 400);
+  if (kind !== "product" && kind !== "banner" && kind !== "category") {
+    return jsonError("kind must be product, banner, or category", 400);
   }
   if (typeof entityId !== "string" || entityId.length < 1 || entityId.length > 64) {
     return jsonError("Invalid entityId", 400);
@@ -50,7 +51,11 @@ export async function POST(request: Request) {
   const path =
     kind === "product"
       ? buildProductImageKey(entityId, file.name)
-      : buildBannerImageKey(entityId, file.name);
+      : kind === "banner"
+        ? buildBannerImageKey(entityId, file.name)
+        : buildCategoryImageKey(entityId, file.name);
+
+  console.log(`[uploads/direct] Starting upload to bucket: ${bucket}, path: ${path}, size: ${file.size} bytes`);
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -61,9 +66,11 @@ export async function POST(request: Request) {
       body: buffer,
       contentType: file.type,
     });
+    console.log(`[uploads/direct] Upload successful: ${publicUrl}`);
     return NextResponse.json({ publicUrl, key: path, bucket });
-  } catch (e) {
-    console.error("[uploads/direct]", e);
-    return jsonError("Upload failed", 500);
+  } catch (e: any) {
+    console.error("[uploads/direct] Storage upload failed:", e);
+    const errorMessage = e?.message || "Upload failed due to unknown storage error";
+    return jsonError(errorMessage, 500);
   }
 }

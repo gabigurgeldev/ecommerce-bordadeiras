@@ -1,13 +1,14 @@
 import Link from "next/link";
+import { listCategories } from "@/actions/admin/categories";
 import { listProducts, exportProductsCsv } from "@/actions/admin/products";
 import { PageHeader } from "@/components/admin/page-header";
-import { ProductsTable } from "@/components/admin/products-table";
+import { ProductsList } from "@/components/admin/products-list";
 import { CsvExportButton } from "@/components/admin/csv-stub-buttons";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
 export default async function AdminProductsPage() {
-  const products = await listProducts();
+  const [products, categories] = await Promise.all([listProducts(), listCategories()]);
 
   return (
     <div>
@@ -26,7 +27,7 @@ export default async function AdminProductsPage() {
           </>
         }
       />
-      <ProductsTable products={products} />
+      <ProductsList products={products} categories={categories} />
     </div>
   );
 }

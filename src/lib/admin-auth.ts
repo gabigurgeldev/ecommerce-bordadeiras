@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Role } from "@/lib/types/database";
 import { auth } from "@/lib/auth/session";
@@ -21,9 +22,19 @@ export async function getAdminActor(): Promise<AdminActor | null> {
   };
 }
 
+async function loginRedirectPath(): Promise<string> {
+  const h = await headers();
+  const pathname = h.get("x-pathname");
+  const callback =
+    pathname && pathname.startsWith("/admin")
+      ? pathname
+      : "/admin";
+  return `/login?callbackUrl=${encodeURIComponent(callback)}`;
+}
+
 export async function requireAdmin(): Promise<AdminActor> {
   const actor = await getAdminActor();
-  if (!actor) redirect("/login?callbackUrl=/admin");
+  if (!actor) redirect(await loginRedirectPath());
   return actor;
 }
 

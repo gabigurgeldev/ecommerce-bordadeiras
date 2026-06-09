@@ -1,27 +1,52 @@
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 import {
-  Award,
-  BadgeCheck,
-  CheckCircle2,
-  Clock,
-  CreditCard,
-  Gift,
-  Headphones,
-  HeartHandshake,
-  Lock,
-  MapPin,
-  MessageCircle,
-  Package,
-  Phone,
-  RefreshCw,
-  RotateCcw,
+  SealCheck,
   Shield,
   ShieldCheck,
-  Star,
+  LockKey,
+  CreditCard,
+  Package,
   Truck,
-} from "lucide-react";
+  ArrowsClockwise,
+  ArrowCounterClockwise,
+  ChatCircle,
+  Headphones,
+  Phone,
+  Handshake,
+  Medal,
+  Star,
+  CheckCircle,
+  Clock,
+  MapPin,
+  Gift,
+  Leaf,
+  Sparkle,
+  Tag,
+  Lightning,
+  Calendar,
+  Storefront,
+  Globe,
+  CurrencyDollar,
+  ThumbsUp,
+  Smiley,
+  Percent,
+  Heart,
+  Trophy,
+  ShieldStar,
+  Diamond,
+  Crown,
+  HandHeart,
+  AirplaneTilt,
+  Barcode,
+  Certificate,
+  HandCoins,
+  Recycle,
+  Wrench,
+  ThumbsUp as ThumbsUpIcon, // alias if needed
+} from "@phosphor-icons/react/dist/ssr";
 
 export const TRUST_ICON_KEYS = [
+  // Legacy keys (mantidos por compatibilidade com banco de dados)
   "badge-check",
   "shield",
   "shield-check",
@@ -41,6 +66,31 @@ export const TRUST_ICON_KEYS = [
   "clock",
   "map-pin",
   "gift",
+  
+  // Novas opções (ampliadas)
+  "leaf",
+  "sparkle",
+  "tag",
+  "lightning",
+  "calendar",
+  "storefront",
+  "globe",
+  "currency-dollar",
+  "thumbs-up",
+  "smiley",
+  "percent",
+  "heart",
+  "trophy",
+  "shield-star",
+  "diamond",
+  "crown",
+  "hand-heart",
+  "airplane",
+  "barcode",
+  "certificate",
+  "hand-coins",
+  "recycle",
+  "wrench"
 ] as const;
 
 export type TrustIconKey = (typeof TRUST_ICON_KEYS)[number];
@@ -65,37 +115,88 @@ export const TRUST_ICON_LABELS: Record<TrustIconKey, string> = {
   clock: "Relógio",
   "map-pin": "Localização",
   gift: "Presente",
+  
+  // Novos
+  leaf: "Sustentável / Ecológico",
+  sparkle: "Novidade / Destaque",
+  tag: "Desconto / Oferta",
+  lightning: "Envio Expresso",
+  calendar: "Prazo / Data",
+  storefront: "Loja Física",
+  globe: "Envio Internacional",
+  "currency-dollar": "Melhor Preço",
+  "thumbs-up": "Garantia",
+  smiley: "Satisfação",
+  percent: "Promoção",
+  heart: "Favorito / Amor",
+  trophy: "Campeão de Vendas",
+  "shield-star": "Garantia Estendida",
+  diamond: "Qualidade Premium",
+  crown: "Exclusivo / VIP",
+  "hand-heart": "Feito à mão / Cuidado",
+  airplane: "Envio Aéreo",
+  barcode: "Produto Original",
+  certificate: "Certificado",
+  "hand-coins": "Cashback / Reembolso",
+  recycle: "Reciclável",
+  wrench: "Assistência Técnica",
 };
 
-const ICON_MAP: Record<TrustIconKey, LucideIcon> = {
-  "badge-check": BadgeCheck,
+const ICON_MAP: Record<TrustIconKey, ComponentType<any>> = {
+  // Legacy
+  "badge-check": SealCheck,
   shield: Shield,
   "shield-check": ShieldCheck,
-  lock: Lock,
+  lock: LockKey,
   "credit-card": CreditCard,
   package: Package,
   truck: Truck,
-  "refresh-cw": RefreshCw,
-  "rotate-ccw": RotateCcw,
-  "message-circle": MessageCircle,
+  "refresh-cw": ArrowsClockwise,
+  "rotate-ccw": ArrowCounterClockwise,
+  "message-circle": ChatCircle,
   headphones: Headphones,
   phone: Phone,
-  "heart-handshake": HeartHandshake,
-  award: Award,
+  "heart-handshake": Handshake,
+  award: Medal,
   star: Star,
-  "check-circle": CheckCircle2,
+  "check-circle": CheckCircle,
   clock: Clock,
   "map-pin": MapPin,
   gift: Gift,
+  
+  // Novos
+  leaf: Leaf,
+  sparkle: Sparkle,
+  tag: Tag,
+  lightning: Lightning,
+  calendar: Calendar,
+  storefront: Storefront,
+  globe: Globe,
+  "currency-dollar": CurrencyDollar,
+  "thumbs-up": ThumbsUp,
+  smiley: Smiley,
+  percent: Percent,
+  heart: Heart,
+  trophy: Trophy,
+  "shield-star": ShieldStar,
+  diamond: Diamond,
+  crown: Crown,
+  "hand-heart": HandHeart,
+  airplane: AirplaneTilt,
+  barcode: Barcode,
+  certificate: Certificate,
+  "hand-coins": HandCoins,
+  recycle: Recycle,
+  wrench: Wrench,
 };
 
 const DEFAULT_ICON: TrustIconKey = "badge-check";
 
 export function isTrustIconKey(value: string): value is TrustIconKey {
-  return (TRUST_ICON_KEYS as readonly string[]).includes(value);
+  return (TRUST_ICON_KEYS as readonly string[]).includes(value as TrustIconKey);
 }
 
-export function getTrustIcon(key: string): LucideIcon {
+export function getTrustIcon(key: string): ComponentType<any> {
   if (isTrustIconKey(key)) return ICON_MAP[key];
   return ICON_MAP[DEFAULT_ICON];
 }

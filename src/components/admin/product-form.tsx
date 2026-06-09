@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AiImproveButton } from "@/components/admin/ai-improve-button";
 import type { Category, Product, ProductImage } from "@/lib/types/database";
 import { ImagePlus, X } from "lucide-react";
 import { uploadImageViaApi } from "@/lib/upload-via-api";
@@ -205,7 +206,23 @@ export function ProductForm({
         </select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="description">Descrição</Label>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Label htmlFor="description">Descrição</Label>
+          <AiImproveButton
+            context="product"
+            scope="description"
+            input={{
+              name: form.watch("name"),
+              description: form.watch("description") ?? "",
+            }}
+            disabled={!form.watch("name")?.trim()}
+            onImprove={(fields) => {
+              if (fields.description) {
+                form.setValue("description", fields.description, { shouldValidate: true });
+              }
+            }}
+          />
+        </div>
         <Textarea id="description" rows={5} {...form.register("description")} />
       </div>
 

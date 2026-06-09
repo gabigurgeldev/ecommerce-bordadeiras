@@ -7,7 +7,7 @@ export default async function AdminBannersPage() {
   const banners = await listBanners();
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Banners da home"
         description="Carrossel de imagens na página inicial — sem texto sobre o banner"

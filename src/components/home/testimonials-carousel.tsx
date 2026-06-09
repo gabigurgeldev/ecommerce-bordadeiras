@@ -101,6 +101,10 @@ export function TestimonialsCarousel({
 }: {
   testimonials: Testimonial[];
 }) {
+  if (testimonials.length === 0) {
+    return null;
+  }
+
   const reduceMotion = useReducedMotion();
 
   const [emblaRef, emblaApi] = useEmblaCarousel(

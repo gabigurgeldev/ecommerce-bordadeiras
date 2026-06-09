@@ -8,17 +8,39 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { StorefrontBannerSlide } from "@/lib/data/banners";
 
-function BannerSlide({ imageUrl, priority }: { imageUrl: string; priority?: boolean }) {
+interface BannerSlideProps {
+  desktopImageUrl: string;
+  mobileImageUrl?: string | null;
+  altText?: string | null;
+  priority?: boolean;
+}
+
+function BannerSlide({ desktopImageUrl, mobileImageUrl, altText, priority }: BannerSlideProps) {
   return (
     <div className="relative h-full w-full">
-      <Image
-        src={imageUrl}
-        alt=""
-        fill
-        className="object-cover object-center"
-        priority={priority}
-        sizes="100vw"
-      />
+      {/* Desktop Image (hidden on mobile) */}
+      <div className="hidden sm:block absolute inset-0">
+        <Image
+          src={desktopImageUrl}
+          alt={altText || "Banner"}
+          fill
+          className="object-cover object-center"
+          priority={priority}
+          sizes="(min-width: 640px) 100vw, 0vw"
+        />
+      </div>
+
+      {/* Mobile Image - show mobile version if available, otherwise show desktop */}
+      <div className="block sm:hidden absolute inset-0">
+        <Image
+          src={mobileImageUrl || desktopImageUrl}
+          alt={altText || "Banner"}
+          fill
+          className="object-cover object-center"
+          priority={priority}
+          sizes="(max-width: 639px) 100vw, 0vw"
+        />
+      </div>
     </div>
   );
 }
@@ -71,12 +93,22 @@ export function Hero({ banners }: { banners: StorefrontBannerSlide[] }) {
                     <Link
                       href={banner.link}
                       className="relative block h-full w-full"
-                      aria-label="Ver promoção"
+                      aria-label={banner.altText || "Ver promoção"}
                     >
-                      <BannerSlide imageUrl={banner.imageUrl} priority={index === 0} />
+                      <BannerSlide 
+                        desktopImageUrl={banner.desktopImageUrl || banner.imageUrl}
+                        mobileImageUrl={banner.mobileImageUrl}
+                        altText={banner.altText}
+                        priority={index === 0} 
+                      />
                     </Link>
                   ) : (
-                    <BannerSlide imageUrl={banner.imageUrl} priority={index === 0} />
+                    <BannerSlide 
+                      desktopImageUrl={banner.desktopImageUrl || banner.imageUrl}
+                      mobileImageUrl={banner.mobileImageUrl}
+                      altText={banner.altText}
+                      priority={index === 0} 
+                    />
                   )}
                 </div>
               ))}

@@ -19,7 +19,7 @@ export function TrustBar({ items }: { items: TrustBarItem[] }) {
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5e9d8]/12 ring-1 ring-[#f5e9d8]/20 transition-colors group-hover:bg-[#f5e9d8]/18">
                   <Icon
                     className="h-5 w-5 text-[#f5e9d8]"
-                    strokeWidth={2.25}
+                    weight="regular"
                     aria-hidden
                   />
                 </span>

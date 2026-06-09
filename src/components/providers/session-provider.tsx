@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import type { Role } from "@/lib/types/database";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
@@ -44,11 +45,24 @@ export function useSession() {
 }
 
 export function AuthSessionProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<ClientSessionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (res.ok) {
+        const data = (await res.json()) as ClientSessionUser;
+        setUser(data);
+        return;
+      }
+
+      if (res.status === 401) {
+        setUser(null);
+        return;
+      }
+
       const supabase = await getBrowserSupabase();
       if (!supabase) {
         setUser(null);
@@ -61,20 +75,15 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
         setUser(null);
         return;
       }
-      const res = await fetch("/api/auth/me", { credentials: "include" });
-      if (res.ok) {
-        const data = (await res.json()) as ClientSessionUser;
-        setUser(data);
-      } else {
-        setUser({
-          id: authUser.id,
-          email: authUser.email,
-          name:
-            typeof authUser.user_metadata?.name === "string"
-              ? authUser.user_metadata.name
-              : null,
-        });
-      }
+      setUser({
+        id: authUser.id,
+        email: authUser.email,
+        name:
+          typeof authUser.user_metadata?.name === "string"
+            ? authUser.user_metadata.name
+            : null,
+        role: authUser.app_metadata?.role,
+      });
     } catch {
       setUser(null);
     }
@@ -91,8 +100,16 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
       if (!supabase || !mounted) return;
       const {
         data: { subscription: sub },
-      } = supabase.auth.onAuthStateChange(() => {
+      } = supabase.auth.onAuthStateChange((event) => {
         void refresh();
+        if (
+          event === "SIGNED_IN" ||
+          event === "SIGNED_OUT" ||
+          event === "TOKEN_REFRESHED" ||
+          event === "USER_UPDATED"
+        ) {
+          router.refresh();
+        }
       });
       subscription = sub;
     })();
@@ -101,7 +118,7 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
       mounted = false;
       subscription?.unsubscribe();
     };
-  }, [refresh]);
+  }, [refresh, router]);
 
   const value = useMemo(
     () => ({ user, loading, refresh }),

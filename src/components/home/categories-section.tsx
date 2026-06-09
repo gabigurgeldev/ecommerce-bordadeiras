@@ -97,8 +97,6 @@ function CategoryCard({
 }
 
 export function CategoriesSection({ categories }: { categories: Category[] }) {
-  if (categories.length === 0) return null;
-
   return (
     <section
       className="section-home section-divider bg-white"
@@ -114,32 +112,39 @@ export function CategoriesSection({ categories }: { categories: Category[] }) {
           />
         </ScrollReveal>
 
-        <Stagger
-          as="ul"
-          className={cn(
-            "m-0 list-none p-0",
-            "max-md:category-rail max-md:safe-bleed-x",
-            "md:grid md:grid-cols-2 md:gap-4 lg:grid-cols-3 lg:gap-5 xl:grid-cols-4",
-          )}
-        >
-          {categories.map((category, index) => (
-            <StaggerItem
-              as="li"
-              key={category.id}
-              className={cn(
-                "max-md:w-[78%] max-md:min-w-[78%] max-md:shrink-0",
-                "sm:max-md:w-[48%] sm:max-md:min-w-[48%]",
-                "md:w-auto md:min-w-0",
-              )}
-            >
-              <CategoryCard
-                category={category}
-                priority={index === 0}
-                className="h-full"
-              />
-            </StaggerItem>
-          ))}
-        </Stagger>
+        {categories.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-[var(--color-card-border)] bg-[var(--secondary)]/40 px-6 py-12 text-center text-sm text-[var(--muted-foreground)]">
+            Nenhuma categoria cadastrada ainda. Em breve você verá máquinas, linhas e
+            acessórios aqui.
+          </p>
+        ) : (
+          <Stagger
+            as="ul"
+            className={cn(
+              "m-0 list-none p-0",
+              "max-md:category-rail max-md:safe-bleed-x",
+              "md:grid md:grid-cols-2 md:gap-4 lg:grid-cols-3 lg:gap-5 xl:grid-cols-4",
+            )}
+          >
+            {categories.map((category, index) => (
+              <StaggerItem
+                as="li"
+                key={category.id}
+                className={cn(
+                  "max-md:w-[78%] max-md:min-w-[78%] max-md:shrink-0",
+                  "sm:max-md:w-[48%] sm:max-md:min-w-[48%]",
+                  "md:w-auto md:min-w-0",
+                )}
+              >
+                <CategoryCard
+                  category={category}
+                  priority={index === 0}
+                  className="h-full"
+                />
+              </StaggerItem>
+            ))}
+          </Stagger>
+        )}
       </div>
     </section>
   );

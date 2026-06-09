@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { Role } from "@/lib/types/database";
 import { hasAdminAccess } from "@/lib/admin-access";
+import { resolveAppRoleForEmail } from "@/lib/middleware-admin-role";
 import { updateSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@supabase/ssr";
 
 /** Customer routes that require authentication (extend as storefront ships). */
-const PROTECTED_CUSTOMER_PREFIXES = ["/conta", "/pedidos"] as const;
+const PROTECTED_CUSTOMER_PREFIXES = ["/conta", "/pedidos", "/checkout"] as const;
 
 async function getMiddlewareSessionUser(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -27,10 +28,11 @@ async function getMiddlewareSessionUser(request: NextRequest) {
   if (!user?.email) return null;
 
   const meta = user.app_metadata as { prisma_id?: string; role?: string } | undefined;
-  const role =
+  const jwtRole =
     meta?.role === Role.ADMIN || meta?.role === Role.USER
       ? (meta.role as Role)
       : Role.USER;
+  const role = await resolveAppRoleForEmail(user.email, jwtRole);
 
   return {
     id: meta?.prisma_id ?? user.id,
@@ -70,6 +72,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(login);
   }
 
+  response.headers.set("x-pathname", pathname);
   return response;
 }
 
@@ -81,6 +84,8 @@ export const config = {
     "/conta/:path*",
     "/pedidos",
     "/pedidos/:path*",
+    "/checkout",
+    "/checkout/:path*",
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

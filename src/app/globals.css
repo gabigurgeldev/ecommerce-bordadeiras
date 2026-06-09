@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *, .admin-theme.dark *));
+
 /* ─── Brand palette ─────────────────────────────────────────────────────────── */
 
 :root {
@@ -62,7 +64,8 @@
   );
 }
 
-.dark {
+.dark,
+.admin-theme.dark {
   --color-header-bg: #251d15;
   --color-card-border: #3a2e22;
   --color-brown: #c9b59a;
@@ -445,4 +448,9 @@ h3 {
   .cta-pulse {
     animation: none;
   }
+}
+
+/* Checkout transparente: só campos do Brick; botão de pagar é da loja */
+.checkout-card-brick [type="submit"] {
+  display: none !important;
 }

@@ -1,10 +1,9 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { authenticateUser } from "@/lib/authenticate-user";
 
 export type CheckoutLoginResult =
-  | { ok: true }
+  | { ok: true; redirect: string }
   | { ok: false; message: string };
 
 export async function checkoutLoginAction(
@@ -16,5 +15,5 @@ export async function checkoutLoginAction(
     return { ok: false, message: authResult.message };
   }
 
-  redirect("/checkout/endereco");
+  return { ok: true, redirect: "/checkout/endereco" };
 }

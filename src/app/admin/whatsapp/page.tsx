@@ -11,12 +11,12 @@ export default async function AdminWhatsappPage() {
   ]);
 
   return (
-    <div className="space-y-8">
+    <div>
       <PageHeader
         title="WhatsApp"
         description="Conecte o número emissor via QR e cadastre quem recebe os alertas de pedido."
       />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <WhatsappConnectPanel initialStatus={session.status} />
         <WhatsappRecipientsPanel recipients={recipients} />
       </div>

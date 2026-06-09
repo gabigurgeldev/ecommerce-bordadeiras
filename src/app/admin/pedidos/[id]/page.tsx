@@ -82,7 +82,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               <TableBody>
                 {order.payments.map((payment) => (
                   <TableRow key={payment.id}>
-                    <TableCell>{paymentMethodLabels[payment.method]}</TableCell>
+                    <TableCell>
+                      {payment.method ? paymentMethodLabels[payment.method] : "—"}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={payment.status === PaymentStatus.APPROVED ? "default" : "secondary"}>
                         {paymentStatusLabels[payment.status]}

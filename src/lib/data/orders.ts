@@ -12,8 +12,10 @@ export type OrderSummary = {
 
 export type OrderDetail = OrderSummary & {
   shippingCents: number;
+  subtotalCents: number;
   customerName: string;
   customerEmail: string;
+  shippingAddress: Record<string, unknown> | null;
   items: {
     id: string;
     name: string;
@@ -62,7 +64,7 @@ export async function getOrderForUser(
     const db = getDb();
     const { data: order, error } = await db
       .from(TABLES.Order)
-      .select("id, status, totalCents, shippingCents, createdAt, trackingCode, customerName, customerEmail")
+      .select("id, status, totalCents, subtotalCents, shippingCents, createdAt, trackingCode, customerName, customerEmail, shippingAddress")
       .eq("id", orderId)
       .eq("userId", userId)
       .maybeSingle();
@@ -77,12 +79,18 @@ export async function getOrderForUser(
       id: String(order.id),
       status: order.status as OrderStatus,
       totalCents: Number(order.totalCents),
+      subtotalCents: Number(order.subtotalCents ?? order.totalCents),
       shippingCents: Number(order.shippingCents),
       createdAt: new Date(String(order.createdAt)),
       itemCount: items?.length ?? 0,
       trackingCode: order.trackingCode != null ? String(order.trackingCode) : null,
       customerName: String(order.customerName),
       customerEmail: String(order.customerEmail),
+      shippingAddress:
+        order.shippingAddress != null &&
+        typeof order.shippingAddress === "object"
+          ? (order.shippingAddress as Record<string, unknown>)
+          : null,
       items: (items ?? []).map((i) => ({
         id: String(i.id),
         name: String(i.name),
