@@ -87,7 +87,15 @@ export async function GET(request: Request) {
 
     if (err instanceof MelhorEnvioTokenError) {
       if (err.code) params.detail = err.code;
-      if (err.description) params.description = err.description.slice(0, 180);
+      if (err.description && !err.description.trimStart().startsWith("<")) {
+        params.description = err.description.slice(0, 180);
+      }
+      console.error("[melhor-envio/callback] token error", {
+        env,
+        status: err.status,
+        code: err.code,
+        redirectUri,
+      });
     } else if (err instanceof Error && err.message) {
       params.description = err.message.slice(0, 180);
     }

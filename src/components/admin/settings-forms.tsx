@@ -396,11 +396,24 @@ export function SettingsTabs({
       } else if (message === "token_exchange_failed") {
         const detail = params.get("detail");
         const description = params.get("description");
-        if (detail === "invalid_client") {
+        if (
+          detail === "invalid_client" ||
+          description?.toLowerCase().includes("client authentication failed")
+        ) {
           toast.error(
-            "Client Secret incorreto ou Client ID do ambiente errado. Cole novamente o Secret do app ME (sandbox ≠ produção) e tente Conectar.",
+            "Client Secret incorreto ou credenciais do ambiente errado. No painel ME (sandbox ≠ produção), copie o Secret novamente, salve e clique em Conectar.",
           );
-        } else if (description) {
+        } else if (detail === "missing_credentials" || detail === "invalid_request") {
+          toast.error(
+            description ??
+              "Credenciais incompletas. Preencha Client ID e Secret do ambiente ativo (sandbox ou produção) e salve antes de conectar.",
+          );
+        } else if (detail === "html_response") {
+          toast.error(
+            description ??
+              "Resposta inválida do Melhor Envio. Verifique credenciais e Redirect URI completa no painel.",
+          );
+        } else if (description && !description.trimStart().startsWith("<")) {
           toast.error(`Melhor Envio: ${description}`);
         } else {
           toast.error(
