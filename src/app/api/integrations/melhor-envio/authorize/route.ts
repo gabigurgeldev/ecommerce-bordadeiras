@@ -6,7 +6,12 @@ import {
   getMelhorEnvioCredentialsForEnv,
   getMelhorEnvioSettings,
 } from "@/lib/data/melhor-envio-settings";
-import { buildMelhorEnvioAuthorizationUrl } from "@/lib/melhor-envio/auth";
+import {
+  buildMelhorEnvioAuthorizationUrl,
+  ME_OAUTH_ENV_COOKIE,
+  ME_OAUTH_REDIRECT_COOKIE,
+} from "@/lib/melhor-envio/auth";
+import { getMelhorEnvioRedirectUri } from "@/lib/melhor-envio/config";
 
 function settingsRedirect(params: Record<string, string>) {
   const query = new URLSearchParams(params);
@@ -39,6 +44,21 @@ export async function GET() {
     });
   }
 
-  const url = buildMelhorEnvioAuthorizationUrl(env, creds.clientId);
-  return NextResponse.redirect(url);
+  const redirectUri = getMelhorEnvioRedirectUri();
+  const url = buildMelhorEnvioAuthorizationUrl(env, creds.clientId, redirectUri);
+  const response = NextResponse.redirect(url);
+
+  const secure = getAppOrigin().startsWith("https://");
+  const cookieOptions = {
+    httpOnly: true,
+    secure,
+    sameSite: "lax" as const,
+    maxAge: 600,
+    path: "/",
+  };
+
+  response.cookies.set(ME_OAUTH_ENV_COOKIE, env, cookieOptions);
+  response.cookies.set(ME_OAUTH_REDIRECT_COOKIE, redirectUri, cookieOptions);
+
+  return response;
 }

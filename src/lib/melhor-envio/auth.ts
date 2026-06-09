@@ -22,6 +22,36 @@ type TokenResponse = {
   refresh_token: string;
 };
 
+export class MelhorEnvioTokenError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly description?: string;
+
+  constructor(status: number, raw: string) {
+    let code: string | undefined;
+    let description: string | undefined;
+    try {
+      const parsed = JSON.parse(raw) as {
+        error?: string;
+        error_description?: string;
+        message?: string;
+      };
+      code = parsed.error;
+      description = parsed.error_description ?? parsed.message;
+    } catch {
+      description = raw.slice(0, 200) || undefined;
+    }
+    super(description ?? `Melhor Envio token error ${status}`);
+    this.name = "MelhorEnvioTokenError";
+    this.status = status;
+    this.code = code;
+    this.description = description;
+  }
+}
+
+export const ME_OAUTH_ENV_COOKIE = "me_oauth_env";
+export const ME_OAUTH_REDIRECT_COOKIE = "me_oauth_redirect";
+
 function melhorEnvioHeaders(): HeadersInit {
   return {
     Accept: "application/json",
@@ -39,37 +69,58 @@ function melhorEnvioAuthHeaders(accessToken: string): HeadersInit {
 
 async function requestTokens(
   env: MelhorEnvioEnvironment,
-  body: URLSearchParams,
+  payload: Record<string, string>,
 ): Promise<TokenResponse> {
-  const creds = getMelhorEnvioCredentialsForEnv(await getMelhorEnvioSettings(), env);
   const url = getMelhorEnvioApiUrl(env, "/oauth/token");
+  const headers = {
+    Accept: "application/json",
+    "User-Agent": MELHOR_ENVIO_USER_AGENT,
+  };
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": MELHOR_ENVIO_USER_AGENT,
+  const attempts: Array<{ contentType: string; body: string }> = [
+    {
+      contentType: "application/x-www-form-urlencoded",
+      body: new URLSearchParams(payload).toString(),
     },
-    body: body.toString(),
-    cache: "no-store",
-  });
+    {
+      contentType: "application/json",
+      body: JSON.stringify(payload),
+    },
+  ];
 
-  if (!res.ok) {
+  let lastError: MelhorEnvioTokenError | null = null;
+
+  for (const attempt of attempts) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": attempt.contentType,
+      },
+      body: attempt.body,
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      return (await res.json()) as TokenResponse;
+    }
+
     const text = await res.text().catch(() => "");
-    throw new Error(`Melhor Envio token error ${res.status}: ${text.slice(0, 200)}`);
+    lastError = new MelhorEnvioTokenError(res.status, text);
+    if (res.status !== 415 && res.status !== 400) break;
   }
 
-  return (await res.json()) as TokenResponse;
+  throw lastError ?? new MelhorEnvioTokenError(500, "unknown token error");
 }
 
 export function buildMelhorEnvioAuthorizationUrl(
   env: MelhorEnvioEnvironment,
   clientId: string,
+  redirectUri: string = getMelhorEnvioRedirectUri(),
 ): string {
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: getMelhorEnvioRedirectUri(),
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: MELHOR_ENVIO_SCOPE,
     state: env,
@@ -80,6 +131,7 @@ export function buildMelhorEnvioAuthorizationUrl(
 export async function exchangeMelhorEnvioCode(
   env: MelhorEnvioEnvironment,
   code: string,
+  redirectUri: string = getMelhorEnvioRedirectUri(),
 ): Promise<void> {
   const settings = await getMelhorEnvioSettings();
   const creds = getMelhorEnvioCredentialsForEnv(settings, env);
@@ -88,15 +140,13 @@ export async function exchangeMelhorEnvioCode(
     throw new Error("Client ID e Client Secret não configurados para este ambiente");
   }
 
-  const body = new URLSearchParams({
+  const tokens = await requestTokens(env, {
     grant_type: "authorization_code",
     client_id: creds.clientId,
     client_secret: creds.clientSecret,
-    redirect_uri: getMelhorEnvioRedirectUri(),
+    redirect_uri: redirectUri,
     code,
   });
-
-  const tokens = await requestTokens(env, body);
   const expiresAt = Date.now() + tokens.expires_in * 1000;
 
   await saveMelhorEnvioTokens(env, {
@@ -116,14 +166,12 @@ async function refreshMelhorEnvioAccessToken(
     throw new Error("Melhor Envio não conectado ou credenciais incompletas");
   }
 
-  const body = new URLSearchParams({
+  const tokens = await requestTokens(env, {
     grant_type: "refresh_token",
     client_id: creds.clientId,
     client_secret: creds.clientSecret,
     refresh_token: creds.refreshToken,
   });
-
-  const tokens = await requestTokens(env, body);
   const expiresAt = Date.now() + tokens.expires_in * 1000;
 
   await saveMelhorEnvioTokens(env, {

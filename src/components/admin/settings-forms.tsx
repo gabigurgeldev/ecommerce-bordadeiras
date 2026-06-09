@@ -394,9 +394,19 @@ export function SettingsTabs({
           "Salve o Client Secret do ambiente ativo antes de conectar.",
         );
       } else if (message === "token_exchange_failed") {
-        toast.error(
-          "Falha ao trocar o código de autorização. Verifique Client ID, Secret e Redirect URI.",
-        );
+        const detail = params.get("detail");
+        const description = params.get("description");
+        if (detail === "invalid_client") {
+          toast.error(
+            "Client Secret incorreto ou Client ID do ambiente errado. Cole novamente o Secret do app ME (sandbox ≠ produção) e tente Conectar.",
+          );
+        } else if (description) {
+          toast.error(`Melhor Envio: ${description}`);
+        } else {
+          toast.error(
+            "Falha ao trocar o código de autorização. Confira Client Secret, Redirect URI completa no painel ME e se o ambiente (sandbox/produção) está correto.",
+          );
+        }
       } else if (message === "invalid_client") {
         toast.error(
           "Melhor Envio rejeitou o app: verifique Client ID do ambiente ativo e cadastre a Redirect URI completa (incluindo /api/integrations/melhor-envio/callback) no painel ME.",
@@ -1494,9 +1504,6 @@ export function SettingsTabs({
                       const clientSecret = useSandbox
                         ? data.sandboxClientSecret?.trim()
                         : data.productionClientSecret?.trim();
-                      const hasStoredSecret = useSandbox
-                        ? melhorEnvioSecrets.sandbox
-                        : melhorEnvioSecrets.production;
 
                       if (!clientId) {
                         toast.error(
@@ -1505,9 +1512,9 @@ export function SettingsTabs({
                         return;
                       }
 
-                      if (!clientSecret && !hasStoredSecret) {
+                      if (!clientSecret) {
                         toast.error(
-                          `Informe o Client Secret de ${useSandbox ? "Sandbox" : "Produção"} antes de conectar.`,
+                          `Cole o Client Secret de ${useSandbox ? "Sandbox" : "Produção"} antes de conectar (copie do painel Área Dev do Melhor Envio).`,
                         );
                         return;
                       }
