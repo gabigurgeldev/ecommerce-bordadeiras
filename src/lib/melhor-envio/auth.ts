@@ -38,10 +38,15 @@ export class MelhorEnvioTokenError extends Error {
 
     if (isHtmlResponse(raw)) {
       code = "html_response";
-      description =
-        status === 400
-          ? "Resposta inválida do Melhor Envio. Confira Client ID, Secret e Redirect URI do ambiente ativo."
-          : `O Melhor Envio retornou erro HTTP ${status}. Tente novamente em instantes.`;
+      if (status === 403) {
+        description =
+          "Acesso bloqueado (HTTP 403) ao trocar o token. Verifique se o servidor permite conexões HTTPS de saída para melhorenvio.com.br e se Client ID/Secret estão corretos.";
+      } else if (status === 400) {
+        description =
+          "Resposta inválida do Melhor Envio. Confira Client ID, Secret e Redirect URI do ambiente ativo.";
+      } else {
+        description = `O Melhor Envio retornou erro HTTP ${status}. Tente novamente em instantes.`;
+      }
     } else {
       try {
         const parsed = JSON.parse(raw) as {
@@ -70,6 +75,43 @@ export class MelhorEnvioTokenError extends Error {
 
 export const ME_OAUTH_ENV_COOKIE = "me_oauth_env";
 export const ME_OAUTH_REDIRECT_COOKIE = "me_oauth_redirect";
+
+type OAuthStatePayload = {
+  e: MelhorEnvioEnvironment;
+  r: string;
+};
+
+export function buildMelhorEnvioOAuthState(
+  env: MelhorEnvioEnvironment,
+  redirectUri: string,
+): string {
+  const payload: OAuthStatePayload = { e: env, r: redirectUri };
+  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+}
+
+export function parseMelhorEnvioOAuthState(state: string | null): {
+  env?: MelhorEnvioEnvironment;
+  redirectUri?: string;
+} {
+  if (!state) return {};
+
+  if (state === "production" || state === "sandbox") {
+    return { env: state };
+  }
+
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(state, "base64url").toString("utf8"),
+    ) as Partial<OAuthStatePayload>;
+    const env =
+      parsed.e === "production" || parsed.e === "sandbox" ? parsed.e : undefined;
+    const redirectUri =
+      typeof parsed.r === "string" && parsed.r.trim() ? parsed.r.trim() : undefined;
+    return { env, redirectUri };
+  } catch {
+    return {};
+  }
+}
 
 function melhorEnvioHeaders(): HeadersInit {
   return {
@@ -101,15 +143,7 @@ async function requestTokens(
     },
     body: new URLSearchParams(payload).toString(),
     cache: "no-store",
-    redirect: "manual",
   });
-
-  if (res.status >= 300 && res.status < 400) {
-    throw new MelhorEnvioTokenError(
-      res.status,
-      "redirect",
-    );
-  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -129,7 +163,7 @@ export function buildMelhorEnvioAuthorizationUrl(
     redirect_uri: redirectUri,
     response_type: "code",
     scope: MELHOR_ENVIO_SCOPE,
-    state: env,
+    state: buildMelhorEnvioOAuthState(env, redirectUri),
   });
   return `${getMelhorEnvioApiUrl(env, "/oauth/authorize")}?${params.toString()}`;
 }

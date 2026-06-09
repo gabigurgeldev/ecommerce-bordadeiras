@@ -411,7 +411,7 @@ export function SettingsTabs({
         } else if (detail === "html_response") {
           toast.error(
             description ??
-              "Resposta inválida do Melhor Envio. Verifique credenciais e Redirect URI completa no painel.",
+              "Resposta inválida do Melhor Envio. Verifique credenciais, Redirect URI e se o servidor permite acesso de saída a melhorenvio.com.br.",
           );
         } else if (description && !description.trimStart().startsWith("<")) {
           toast.error(`Melhor Envio: ${description}`);

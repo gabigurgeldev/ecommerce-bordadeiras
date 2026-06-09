@@ -10,6 +10,7 @@ import {
   ME_OAUTH_ENV_COOKIE,
   ME_OAUTH_REDIRECT_COOKIE,
   MelhorEnvioTokenError,
+  parseMelhorEnvioOAuthState,
 } from "@/lib/melhor-envio/auth";
 import { getMelhorEnvioRedirectUri } from "@/lib/melhor-envio/config";
 import type { MelhorEnvioEnvironment } from "@/lib/melhor-envio/config";
@@ -22,14 +23,23 @@ function settingsRedirect(params: Record<string, string>) {
   );
 }
 
-function resolveOAuthEnvironment(
-  cookieEnv: string | undefined,
+function resolveOAuthContext(
   state: string | null,
+  cookieEnv: string | undefined,
+  cookieRedirect: string | undefined,
   settingsEnv: MelhorEnvioEnvironment,
-): MelhorEnvioEnvironment {
-  if (cookieEnv === "production" || cookieEnv === "sandbox") return cookieEnv;
-  if (state === "production" || state === "sandbox") return state;
-  return settingsEnv;
+): { env: MelhorEnvioEnvironment; redirectUri: string } {
+  const fromState = parseMelhorEnvioOAuthState(state);
+
+  const env =
+    fromState.env ??
+    (cookieEnv === "production" || cookieEnv === "sandbox" ? cookieEnv : undefined) ??
+    settingsEnv;
+
+  const redirectUri =
+    fromState.redirectUri ?? cookieRedirect ?? getMelhorEnvioRedirectUri();
+
+  return { env, redirectUri };
 }
 
 function clearOAuthCookies(response: NextResponse) {
@@ -65,12 +75,12 @@ export async function GET(request: Request) {
   const cookieEnv = cookieStore.get(ME_OAUTH_ENV_COOKIE)?.value;
   const cookieRedirect = cookieStore.get(ME_OAUTH_REDIRECT_COOKIE)?.value;
   const settings = await getMelhorEnvioSettings();
-  const env = resolveOAuthEnvironment(
-    cookieEnv,
+  const { env, redirectUri } = resolveOAuthContext(
     state,
+    cookieEnv,
+    cookieRedirect,
     getActiveMelhorEnvioEnvironment(settings),
   );
-  const redirectUri = cookieRedirect || getMelhorEnvioRedirectUri();
 
   try {
     await exchangeMelhorEnvioCode(env, code, redirectUri);
