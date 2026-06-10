@@ -23,7 +23,7 @@ const ALL_KEYS = Object.values(SETTING_KEYS.melhorEnvio);
 
 function parseExpiresAt(raw: string | undefined): number | null {
   if (!raw?.trim()) return null;
-  const n = Number.parseInt(raw, 10);
+  const n = Math.floor(Number.parseFloat(raw));
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 

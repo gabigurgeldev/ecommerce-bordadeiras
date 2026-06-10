@@ -229,6 +229,22 @@ export type ProductVariant = {
   updatedAt: Date;
 };
 
+export const ReviewSource = { USER: "USER", AI: "AI" } as const;
+export type ReviewSource = (typeof ReviewSource)[keyof typeof ReviewSource];
+
+export type ProductReview = {
+  id: string;
+  productId: string;
+  userId: string | null;
+  authorName: string;
+  text: string;
+  rating: number;
+  imageUrl: string | null;
+  source: ReviewSource;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type ProductImage = {
   id: string;
   productId: string;
@@ -256,10 +272,9 @@ export type Order = {
   totalCents: number;
   trackingCode: string | null;
   carrier: string | null;
-  trackingUrl: string | null;
   notes: string | null;
-  internalNotes: string | null;
   paidAt: Date | null;
+  processingAt: Date | null;
   shippedAt: Date | null;
   deliveredAt: Date | null;
   cancelledAt: Date | null;
@@ -423,6 +438,37 @@ export type WhatsappRecipient = {
   label: string | null;
   phone: string;
   active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export const WhatsappTemplateRecipientType = {
+  CUSTOMER: "CUSTOMER",
+  ADMIN: "ADMIN",
+} as const;
+export type WhatsappTemplateRecipientType =
+  (typeof WhatsappTemplateRecipientType)[keyof typeof WhatsappTemplateRecipientType];
+
+export const WhatsappTemplateEvent = {
+  NEW_ORDER: "NEW_ORDER",
+  PAYMENT_APPROVED: "PAYMENT_APPROVED",
+  ORDER_PROCESSING: "ORDER_PROCESSING",
+  ORDER_SHIPPED: "ORDER_SHIPPED",
+  ORDER_DELIVERED: "ORDER_DELIVERED",
+  ORDER_CANCELLED: "ORDER_CANCELLED",
+} as const;
+export type WhatsappTemplateEvent =
+  (typeof WhatsappTemplateEvent)[keyof typeof WhatsappTemplateEvent];
+
+export type WhatsappTemplate = {
+  id: string;
+  key: string;
+  name: string;
+  template: string;
+  recipientType: WhatsappTemplateRecipientType;
+  event: WhatsappTemplateEvent;
+  active: boolean;
+  isDefault: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

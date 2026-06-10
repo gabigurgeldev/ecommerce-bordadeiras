@@ -8,7 +8,14 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { auth } from "@/lib/auth/session";
 import { getCategoryBySlug } from "@/lib/data/categories";
+import {
+  getReviewStats,
+  getReviewsByProductId,
+  getUserReviewForProduct,
+  hasUserPurchasedProduct,
+} from "@/lib/data/product-reviews";
 import { getProductBySlug, getRelatedProducts } from "@/lib/data/products";
 import { productJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { buildMetadata } from "@/lib/seo/metadata";
@@ -44,9 +51,21 @@ export default async function ProductPage({ params }: Props) {
 
   const categoryName = category?.name ?? product.categorySlug;
 
+  const session = await auth();
+  const userId = session?.user.id;
+  const [reviews, reviewStats, existingUserReview, purchased] = await Promise.all([
+    getReviewsByProductId(product.id),
+    getReviewStats(product.id),
+    userId ? getUserReviewForProduct(userId, product.id) : Promise.resolve(null),
+    userId ? hasUserPurchasedProduct(userId, product.id) : Promise.resolve(false),
+  ]);
+
+  const isLoggedIn = Boolean(userId);
+  const canReview = isLoggedIn && purchased && !existingUserReview;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      <JsonLdScript data={productJsonLd(product)} />
+      <JsonLdScript data={productJsonLd(product, reviewStats)} />
       <JsonLdScript
         data={breadcrumbJsonLd([
           { name: "Página inicial", path: "/" },
@@ -83,7 +102,15 @@ export default async function ProductPage({ params }: Props) {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <ProductDetailContent product={product} categoryName={categoryName} />
+      <ProductDetailContent
+        product={product}
+        categoryName={categoryName}
+        reviews={reviews}
+        reviewStats={reviewStats}
+        isLoggedIn={isLoggedIn}
+        canReview={canReview}
+        existingUserReview={existingUserReview}
+      />
 
       {related.length > 0 ? (
         <section className="mt-12 sm:mt-16">

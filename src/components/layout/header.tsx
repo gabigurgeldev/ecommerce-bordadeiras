@@ -73,7 +73,7 @@ export function Header({
   }, [pathname]);
 
   return (
-    <header className="relative z-50">
+    <header className="relative z-50 overflow-visible">
       {/* Utility bar — scrolls away */}
       <div
         className="border-b border-black/10"
@@ -118,11 +118,11 @@ export function Header({
       {/* Sticky: main + category nav */}
       <div
         className={cn(
-          "sticky top-0 z-50 bg-[var(--color-header-bg)] transition-shadow",
+          "sticky top-0 z-50 overflow-visible bg-[var(--color-header-bg)] transition-shadow",
           scrolled && "shadow-md",
         )}
       >
-        <div className="border-b border-[var(--color-card-border)] bg-[var(--color-header-bg)]">
+        <div className="overflow-visible border-b border-[var(--color-card-border)] bg-[var(--color-header-bg)]">
           <div className="mx-auto max-w-7xl px-4 py-3.5 sm:px-6 lg:px-8">
             <div className="flex items-center gap-3 lg:gap-6">
               <Logo variant="compact" className="shrink-0 sm:hidden" />

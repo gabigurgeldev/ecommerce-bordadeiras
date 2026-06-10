@@ -50,6 +50,11 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             <p className="text-muted-foreground">{order.customerEmail}</p>
             {order.customerPhone && <p>{order.customerPhone}</p>}
             <p className="font-medium pt-2">Total: {formatCurrency(order.totalCents)}</p>
+            {order.shippingServiceName && (
+              <p className="pt-2 text-muted-foreground">
+                Frete: {order.shippingServiceName}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -61,6 +66,29 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           </CardContent>
         </Card>
       </div>
+      {order.shippingAddress && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Endereço de entrega</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            {String(order.shippingAddress.street ?? "")},{" "}
+            {String(order.shippingAddress.number ?? "")}
+            {order.shippingAddress.complement
+              ? ` — ${String(order.shippingAddress.complement)}`
+              : ""}
+            <br />
+            {String(order.shippingAddress.neighborhood ?? "")},{" "}
+            {String(order.shippingAddress.city ?? "")} —{" "}
+            {String(order.shippingAddress.state ?? "")}
+            <br />
+            CEP{" "}
+            {String(
+              order.shippingAddress.cep ?? order.shippingAddress.zipCode ?? "",
+            )}
+          </CardContent>
+        </Card>
+      )}
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Pagamentos</CardTitle>

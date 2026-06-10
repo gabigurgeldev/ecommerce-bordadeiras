@@ -6,17 +6,24 @@ import { getDb, TABLES } from "@/lib/supabase/db";
 import {
   onOrderCancelled,
   onOrderDelivered,
+  onOrderProcessing,
   onOrderShipped,
   onTrackingUpdate,
 } from "@/lib/hooks/order-notifications";
+import {
+  statusTimestampField,
+  validateOrderStatusUpdate,
+} from "@/lib/order-status-transitions";
+import { buildTrackingUrl } from "@/lib/tracking-url";
 import { orderUpdateSchema } from "@/lib/validations/admin";
+import { revalidatePath } from "next/cache";
 import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listOrders() {
   return withAdminRead(async () => {
     const { data, error } = await getDb()
       .from(TABLES.Order)
-      .select("*, OrderItem(*)")
+      .select("*, OrderItem(id), Payment(method, status)")
       .order("createdAt", { ascending: false });
     if (error) throw error;
     return data ?? [];
@@ -26,10 +33,17 @@ export async function listOrders() {
 export type OrderWithRelations = Order & {
   orderNumber?: string;
   carrier?: string | null;
+  shippingAddress?: Record<string, unknown> | null;
+  shippingServiceName?: string | null;
   items: OrderItem[];
   payments: Payment[];
   user?: Record<string, unknown> | null;
 };
+
+function parseDate(value: unknown): Date | null {
+  if (value == null) return null;
+  return new Date(String(value));
+}
 
 function normalizeOrder(row: Record<string, unknown>): OrderWithRelations {
   const items = (row.OrderItem as Record<string, unknown>[]) ?? [];
@@ -49,6 +63,17 @@ function normalizeOrder(row: Record<string, unknown>): OrderWithRelations {
     status: row.status as Order["status"],
     trackingCode: row.trackingCode != null ? String(row.trackingCode) : null,
     carrier: row.carrier != null ? String(row.carrier) : null,
+    paidAt: parseDate(row.paidAt),
+    processingAt: parseDate(row.processingAt),
+    shippedAt: parseDate(row.shippedAt),
+    deliveredAt: parseDate(row.deliveredAt),
+    cancelledAt: parseDate(row.cancelledAt),
+    shippingServiceName:
+      row.shippingServiceName != null ? String(row.shippingServiceName) : null,
+    shippingAddress:
+      row.shippingAddress != null && typeof row.shippingAddress === "object"
+        ? (row.shippingAddress as Record<string, unknown>)
+        : null,
     createdAt: new Date(String(row.createdAt)),
     updatedAt: new Date(String(row.updatedAt)),
     items: items.map((i) => ({
@@ -111,22 +136,43 @@ export async function updateOrder(
       .maybeSingle();
     if (findErr || !current) return { success: false, error: "Pedido não encontrado" };
 
-    const { error } = await db
-      .from(TABLES.Order)
-      .update({
-        status: parsed.data.status,
-        trackingCode: parsed.data.trackingCode ?? null,
-        carrier: parsed.data.carrier ?? null,
-        updatedAt: new Date().toISOString(),
-      })
-      .eq("id", id);
+    const currentStatus = current.status as OrderStatus;
+    const newStatus = parsed.data.status;
+    const trackingCode = parsed.data.trackingCode?.trim() || null;
+    const carrier =
+      parsed.data.carrier?.trim() ||
+      (newStatus === OrderStatus.SHIPPED ? "Correios" : null);
+
+    const validationError = validateOrderStatusUpdate({
+      currentStatus,
+      nextStatus: newStatus,
+      trackingCode,
+      carrier,
+    });
+    if (validationError) {
+      return { success: false, error: validationError };
+    }
+
+    const now = new Date().toISOString();
+    const patch: Record<string, unknown> = {
+      status: newStatus,
+      trackingCode,
+      carrier,
+      updatedAt: now,
+    };
+
+    if (currentStatus !== newStatus) {
+      const tsField = statusTimestampField(newStatus);
+      if (tsField) patch[tsField] = now;
+    }
+
+    const { error } = await db.from(TABLES.Order).update(patch).eq("id", id);
     if (error) return { success: false, error: error.message };
 
-    const newStatus = parsed.data.status;
-    const trackingCode = parsed.data.trackingCode ?? null;
-
-    if (current.status !== newStatus) {
-      if (newStatus === OrderStatus.SHIPPED) {
+    if (currentStatus !== newStatus) {
+      if (newStatus === OrderStatus.PROCESSING) {
+        await onOrderProcessing(id);
+      } else if (newStatus === OrderStatus.SHIPPED) {
         await onOrderShipped(id);
       } else if (newStatus === OrderStatus.DELIVERED) {
         await onOrderDelivered(id);
@@ -134,7 +180,12 @@ export async function updateOrder(
         await onOrderCancelled(id);
       }
     } else if (trackingCode && trackingCode !== current.trackingCode) {
-      await onTrackingUpdate(id, trackingCode);
+      const trackingUrl =
+        buildTrackingUrl(
+          carrier ?? (current.carrier != null ? String(current.carrier) : null),
+          trackingCode,
+        ) ?? undefined;
+      await onTrackingUpdate(id, trackingCode, trackingUrl);
     }
 
     await auditMutation(actor, {
@@ -143,7 +194,11 @@ export async function updateOrder(
       entityId: id,
       metadata: parsed.data,
     });
+
     revalidateAdmin(["/admin/pedidos", `/admin/pedidos/${id}`]);
+    revalidatePath("/conta/pedidos");
+    revalidatePath(`/conta/pedidos/${id}`);
+
     return { success: true };
   });
 }

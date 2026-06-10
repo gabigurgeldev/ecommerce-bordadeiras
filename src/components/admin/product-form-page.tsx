@@ -41,6 +41,7 @@ import {
   type VariantDraft,
   type VariantOptionDraft,
 } from "@/components/admin/product-form/product-variants-editor";
+import { ProductReviewsPanel } from "@/components/admin/product-reviews-panel";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -988,6 +989,25 @@ export function ProductFormPage({
             </div>
           </div>
         </ProductSectionCard>
+
+        {product ? (
+          <ProductReviewsPanel
+            productId={product.id}
+            productName={values.name || product.name}
+            categoryName={
+              categories.find((c) => c.id === values.categoryId)?.name ?? ""
+            }
+            descriptionPlain={
+              values.description?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() ?? ""
+            }
+          />
+        ) : (
+          <ProductSectionCard title="Avaliações">
+            <p className="text-sm text-muted-foreground">
+              Salve o produto primeiro para gerenciar ou gerar avaliações com IA.
+            </p>
+          </ProductSectionCard>
+        )}
 
         <ProductSectionCard title="Organização e publicação">
           <div className="grid gap-4 sm:grid-cols-2">

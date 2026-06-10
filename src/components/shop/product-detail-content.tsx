@@ -2,9 +2,13 @@
 
 import { BuyBox } from "@/components/shop/buy-box";
 import { ProductGallery } from "@/components/shop/product-gallery";
+import { ProductReviewsSection } from "@/components/shop/product-reviews-section";
 import { ProductShippingCalculator } from "@/components/shop/product-shipping-calculator";
-import { VideoGallery } from "@/components/shop/video-gallery";
 import { sanitizeProductHtml } from "@/lib/sanitize";
+import type {
+  ProductReviewPublic,
+  ProductReviewStats,
+} from "@/lib/data/product-reviews";
 import type { Product } from "@/lib/types/catalog";
 import { useMemo, useState } from "react";
 
@@ -26,9 +30,19 @@ function ProductSectionCard({
 export function ProductDetailContent({
   product,
   categoryName,
+  reviews,
+  reviewStats,
+  isLoggedIn,
+  canReview,
+  existingUserReview,
 }: {
   product: Product;
   categoryName: string;
+  reviews: ProductReviewPublic[];
+  reviewStats: ProductReviewStats;
+  isLoggedIn: boolean;
+  canReview: boolean;
+  existingUserReview: ProductReviewPublic | null;
 }) {
   const [qty, setQty] = useState(1);
 
@@ -42,10 +56,11 @@ export function ProductDetailContent({
       <div className="rounded-2xl border border-[var(--color-card-border)] bg-white p-4 shadow-sm sm:p-6 lg:p-8">
         <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
           <div className="space-y-6">
-            <ProductGallery images={product.images} name={product.name} />
-            {product.videoUrls?.length > 0 ? (
-              <VideoGallery videoUrls={product.videoUrls} />
-            ) : null}
+            <ProductGallery
+              images={product.images}
+              videoUrls={product.videoUrls}
+              name={product.name}
+            />
           </div>
 
           <BuyBox
@@ -66,23 +81,15 @@ export function ProductDetailContent({
         </ProductSectionCard>
       ) : null}
 
-      {product.specs && Object.keys(product.specs).length > 0 ? (
-        <ProductSectionCard title="Especificações">
-          <dl className="grid gap-3 sm:grid-cols-2">
-            {Object.entries(product.specs).map(([key, value]) => (
-              <div
-                key={key}
-                className="rounded-xl border border-[var(--color-card-border)] bg-[var(--secondary)]/50 px-4 py-3"
-              >
-                <dt className="text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
-                  {key}
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-[var(--color-brown)]">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </ProductSectionCard>
-      ) : null}
+      <ProductReviewsSection
+        productId={product.id}
+        productSlug={product.slug}
+        reviews={reviews}
+        stats={reviewStats}
+        isLoggedIn={isLoggedIn}
+        canReview={canReview}
+        existingUserReview={existingUserReview}
+      />
 
       <ProductSectionCard title="Entrega">
         <ProductShippingCalculator productId={product.id} quantity={qty} />

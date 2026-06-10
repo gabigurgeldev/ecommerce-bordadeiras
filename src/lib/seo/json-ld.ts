@@ -1,5 +1,6 @@
 import { siteConfig } from "@/lib/site";
 import type { BlogPost, Product } from "@/lib/types/catalog";
+import type { ProductReviewStats } from "@/lib/data/product-reviews";
 
 export function organizationJsonLd() {
   return {
@@ -18,8 +19,8 @@ export function organizationJsonLd() {
   };
 }
 
-export function productJsonLd(product: Product) {
-  return {
+export function productJsonLd(product: Product, reviewStats?: ProductReviewStats) {
+  const base = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
@@ -37,6 +38,21 @@ export function productJsonLd(product: Product) {
           : "https://schema.org/OutOfStock",
     },
   };
+
+  if (reviewStats && reviewStats.count > 0) {
+    return {
+      ...base,
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: reviewStats.averageRating.toFixed(1),
+        reviewCount: reviewStats.count,
+        bestRating: 5,
+        worstRating: 1,
+      },
+    };
+  }
+
+  return base;
 }
 
 export function blogPostJsonLd(post: BlogPost) {

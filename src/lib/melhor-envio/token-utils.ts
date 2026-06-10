@@ -7,7 +7,7 @@ export function decodeMelhorEnvioTokenExpiry(token: string): number | null {
       Buffer.from(parts[1], "base64url").toString("utf8"),
     ) as { exp?: number };
     return typeof payload.exp === "number" && payload.exp > 0
-      ? payload.exp * 1000
+      ? Math.floor(payload.exp * 1000)
       : null;
   } catch {
     return null;

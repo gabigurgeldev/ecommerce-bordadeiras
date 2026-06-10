@@ -12,6 +12,7 @@ import { useCartStore } from "@/store/cart";
 export function CartSyncProvider({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAppSession();
   const lines = useCartStore((s) => s.lines);
+  const syncEpoch = useCartStore((s) => s.syncEpoch);
   const syncedUserId = useCartStore((s) => s.syncedUserId);
   const setLines = useCartStore((s) => s.setLines);
   const setSyncedUserId = useCartStore((s) => s.setSyncedUserId);
@@ -32,11 +33,14 @@ export function CartSyncProvider({ children }: { children: React.ReactNode }) {
 
     merging.current = true;
     const guestLines = [...useCartStore.getState().lines];
+    const epochAtMerge = useCartStore.getState().syncEpoch;
 
     void mergeGuestCart(guestLines)
       .then((merged) => {
-        const current = useCartStore.getState().lines;
-        if (!cartLinesEqual(current, merged)) {
+        const state = useCartStore.getState();
+        if (state.syncEpoch !== epochAtMerge) return;
+
+        if (!cartLinesEqual(state.lines, merged)) {
           setLines(merged);
         }
         setSyncedUserId(user.id);
@@ -54,16 +58,30 @@ export function CartSyncProvider({ children }: { children: React.ReactNode }) {
     if (signature === lastSyncedSignature.current) return;
 
     if (syncTimer.current) clearTimeout(syncTimer.current);
+    const epochAtSchedule = syncEpoch;
+
     syncTimer.current = setTimeout(() => {
-      const currentLines = useCartStore.getState().lines;
+      const state = useCartStore.getState();
+      if (state.syncEpoch !== epochAtSchedule) return;
+
+      const currentLines = state.lines;
       const pushSignature = cartLinesSignature(currentLines);
 
       void syncCart(currentLines).then((updated) => {
+        const latest = useCartStore.getState();
+        if (latest.syncEpoch !== epochAtSchedule) return;
+
         const updatedSignature = cartLinesSignature(updated);
         lastSyncedSignature.current = updatedSignature;
 
-        const latestLines = useCartStore.getState().lines;
-        if (!cartLinesEqual(latestLines, updated)) {
+        if (
+          latest.lines.length === 0 &&
+          updated.length > 0
+        ) {
+          return;
+        }
+
+        if (!cartLinesEqual(latest.lines, updated)) {
           setLines(updated);
         }
       });
@@ -72,7 +90,13 @@ export function CartSyncProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (syncTimer.current) clearTimeout(syncTimer.current);
     };
-  }, [lines, user?.id, loading, syncedUserId, setLines]);
+  }, [lines, syncEpoch, user?.id, loading, syncedUserId, setLines]);
+
+  useEffect(() => {
+    if (lines.length === 0) {
+      lastSyncedSignature.current = cartLinesSignature([]);
+    }
+  }, [lines.length, syncEpoch]);
 
   return <>{children}</>;
 }

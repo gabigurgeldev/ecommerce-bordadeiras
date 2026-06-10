@@ -1,7 +1,7 @@
 import { formatCurrency, formatDate, formatOrderStatus } from "@/lib/format";
 import type { OrderSummary } from "@/lib/data/orders";
 import Link from "next/link";
-import { Package } from "lucide-react";
+import { Package, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const statusColors: Record<string, string> = {
@@ -49,7 +49,8 @@ export function OrdersList({ orders }: { orders: OrderSummary[] }) {
                     {order.itemCount === 1 ? "item" : "itens"}
                   </p>
                   {order.trackingCode && (
-                    <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                    <p className="mt-1 flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+                      <Truck className="h-3.5 w-3.5 shrink-0" />
                       Rastreio: {order.trackingCode}
                     </p>
                   )}

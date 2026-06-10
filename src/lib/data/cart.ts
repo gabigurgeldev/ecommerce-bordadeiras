@@ -190,3 +190,8 @@ export async function revalidateCartLines(lines: CartLine[]): Promise<CartLine[]
 
   return result;
 }
+
+export async function clearServerCartForUser(userId: string): Promise<void> {
+  const db = getDb();
+  await db.from(TABLES.CartItem).delete().eq("userId", userId);
+}

@@ -100,7 +100,7 @@ async function quoteMelhorEnvioForItems(
       ok: false,
       error: "Melhor Envio não conectado",
       fallbackMessage:
-        "Conecte o Melhor Envio em Admin → Configurações → Frete e Envio.",
+        "Cole o Access Token em Admin → Configurações → Frete e Envio.",
     };
   }
 

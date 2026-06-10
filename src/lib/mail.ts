@@ -11,6 +11,7 @@ import { cadastroTemplate } from "@/lib/mail/templates/cadastro";
 import { verificacaoEmailTemplate } from "@/lib/mail/templates/verificacao-email";
 import { recuperacaoSenhaTemplate } from "@/lib/mail/templates/recuperacao-senha";
 import { pedidoConfirmadoTemplate } from "@/lib/mail/templates/pedido-confirmado";
+import { pedidoEmPreparacaoTemplate } from "@/lib/mail/templates/pedido-em-preparacao";
 import { pedidoEnviadoTemplate } from "@/lib/mail/templates/pedido-enviado";
 import { pedidoEntregueTemplate } from "@/lib/mail/templates/pedido-entregue";
 import { rastreamentoTemplate } from "@/lib/mail/templates/rastreamento";
@@ -177,11 +178,24 @@ export async function sendOrderConfirmedEmail(params: {
   });
 }
 
+export async function sendOrderProcessingEmail(params: {
+  to: string;
+  orderId: string;
+  customerName: string;
+}) {
+  await sendMail({
+    to: params.to,
+    subject: `Pedido em preparação #${params.orderId.slice(-8)}`,
+    html: pedidoEmPreparacaoTemplate(params),
+  });
+}
+
 export async function sendOrderShippedEmail(params: {
   to: string;
   orderId: string;
   customerName: string;
   trackingCode?: string | null;
+  trackingUrl?: string | null;
 }) {
   await sendMail({
     to: params.to,

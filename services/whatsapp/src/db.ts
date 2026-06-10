@@ -13,6 +13,7 @@ function getClient() {
 
 const TABLE = "WhatsappSession";
 const RECIPIENT_TABLE = "WhatsappRecipient";
+const TEMPLATE_TABLE = "WhatsappTemplate";
 
 export async function loadSession(sessionId = "default") {
   const { data, error } = await getClient()
@@ -86,4 +87,47 @@ export async function getActiveRecipients() {
     .order("createdAt", { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+// Template functions
+export async function getTemplateByKey(key: string) {
+  const { data, error } = await getClient()
+    .from(TEMPLATE_TABLE)
+    .select("*")
+    .eq("key", key)
+    .eq("active", true)
+    .maybeSingle();
+  if (error) {
+    console.error("[db] getTemplateByKey error:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function getTemplatesByEvent(event: string) {
+  const { data, error } = await getClient()
+    .from(TEMPLATE_TABLE)
+    .select("*")
+    .eq("event", event)
+    .eq("active", true);
+  if (error) {
+    console.error("[db] getTemplatesByEvent error:", error);
+    return [];
+  }
+  return data ?? [];
+}
+
+export async function getTemplateForRecipient(event: string, recipientType: "CUSTOMER" | "ADMIN") {
+  const { data, error } = await getClient()
+    .from(TEMPLATE_TABLE)
+    .select("*")
+    .eq("event", event)
+    .eq("recipientType", recipientType)
+    .eq("active", true)
+    .maybeSingle();
+  if (error) {
+    console.error("[db] getTemplateForRecipient error:", error);
+    return null;
+  }
+  return data;
 }

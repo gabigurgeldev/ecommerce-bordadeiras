@@ -176,6 +176,19 @@ export async function sendAdminMessage(text: string): Promise<void> {
   }
 }
 
+export async function sendMessageToPhone(phone: string, text: string): Promise<void> {
+  if (!sock || connectionStatus !== "connected") {
+    throw new Error("WhatsApp not connected");
+  }
+
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) {
+    throw new Error("Invalid phone number");
+  }
+  const jid = `${digits}@s.whatsapp.net`;
+  await sock.sendMessage(jid, { text });
+}
+
 export async function getQrPayload() {
   if (!sock && connectionStatus === "disconnected") {
     void startBaileys().catch((err) => console.error("[whatsapp] lazy start failed:", err));

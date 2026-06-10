@@ -183,6 +183,26 @@ export const whatsappRecipientSchema = z.object({
   active: z.boolean().optional(),
 });
 
+export const whatsappTemplateSchema = z.object({
+  key: z
+    .string()
+    .min(3)
+    .max(50)
+    .regex(/^[a-z0-9_]+$/, "Chave: use apenas letras minúsculas, números e underscore"),
+  name: z.string().min(2).max(120),
+  template: z.string().min(10).max(2000),
+  recipientType: z.enum(["CUSTOMER", "ADMIN"]),
+  event: z.enum([
+    "NEW_ORDER",
+    "PAYMENT_APPROVED",
+    "ORDER_PROCESSING",
+    "ORDER_SHIPPED",
+    "ORDER_DELIVERED",
+    "ORDER_CANCELLED",
+  ]),
+  active: z.boolean().optional(),
+});
+
 export const smtpSettingsSchema = z.object({
   host: z.string().min(1),
   port: z.coerce.number().int().min(1).max(65535),

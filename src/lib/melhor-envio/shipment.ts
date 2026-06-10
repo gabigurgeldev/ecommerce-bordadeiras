@@ -13,6 +13,8 @@ const MIN_WEIGHT_KG = 0.3;
 const DEFAULT_LENGTH_CM = 16;
 const DEFAULT_WIDTH_CM = 11;
 const DEFAULT_HEIGHT_CM = 2;
+/** Limite típico de valor segurado (R$) aceito pelas transportadoras na cotação ME. */
+const MAX_INSURANCE_VALUE_REAIS = 4477;
 
 export type MelhorEnvioProductInput = {
   id: string;
@@ -63,7 +65,10 @@ type MeCalculateResponseItem = {
 
 function parsePriceToCents(value: string | undefined): number {
   if (!value) return 0;
-  const normalized = value.replace(/\./g, "").replace(",", ".");
+  const trimmed = value.trim();
+  const normalized = trimmed.includes(",")
+    ? trimmed.replace(/\./g, "").replace(",", ".")
+    : trimmed;
   const n = Number.parseFloat(normalized);
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
@@ -115,7 +120,10 @@ export function buildMelhorEnvioProductsFromCart(
     height: item.heightCm ?? DEFAULT_HEIGHT_CM,
     length: item.lengthCm ?? DEFAULT_LENGTH_CM,
     weight: Math.max((item.weightGrams ?? 300) / 1000, MIN_WEIGHT_KG),
-    insuranceValue: (item.priceCents ?? 0) / 100,
+    insuranceValue: Math.min(
+      (item.priceCents ?? 0) / 100,
+      MAX_INSURANCE_VALUE_REAIS,
+    ),
     quantity: item.quantity,
   }));
 }
@@ -195,6 +203,15 @@ export async function calculateMelhorEnvioShipment(input: {
 
     if (res.status < 200 || res.status >= 300) {
       console.error("[melhor-envio] calculate failed:", res.status, res.body.slice(0, 300));
+      if (res.status === 401) {
+        const envLabel = env === "sandbox" ? "Sandbox" : "Produção";
+        return {
+          ok: false,
+          error: "Melhor Envio HTTP 401",
+          fallbackMessage:
+            `Token inválido para o ambiente ${envLabel}. Gere o token no painel correto (sandbox.melhorenvio.com.br ≠ melhorenvio.com.br) ou ajuste o toggle Modo sandbox em Admin → Configurações → Frete e Envio.`,
+        };
+      }
       return {
         ok: false,
         error: `Melhor Envio HTTP ${res.status}`,
@@ -209,10 +226,13 @@ export async function calculateMelhorEnvioShipment(input: {
       .sort((a, b) => a.priceCents - b.priceCents);
 
     if (options.length === 0) {
+      const items = Array.isArray(data) ? data : [];
+      const firstError = items.find((i) => i.error)?.error;
       return {
         ok: false,
         error: "Nenhuma opção de frete",
         fallbackMessage:
+          firstError ??
           "Nenhuma transportadora disponível para este CEP. Verifique peso e dimensões.",
       };
     }

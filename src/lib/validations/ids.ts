@@ -1,9 +1,12 @@
 import { z } from "zod";
 
-/** IDs gerados por newId() — prefixo c + base64url, não são CUID padrão do Zod. */
+/** IDs do banco: newId() (c…), seed (prod_…, cat_…) ou texto alfanumérico. */
 export const entityIdSchema = z
   .string()
-  .regex(/^c[A-Za-z0-9_-]{8,}$/, "ID inválido");
+  .trim()
+  .min(1, "ID obrigatório")
+  .max(64, "ID inválido")
+  .regex(/^[A-Za-z0-9_-]+$/, "ID inválido");
 
 export const orderIdSchema = entityIdSchema;
 

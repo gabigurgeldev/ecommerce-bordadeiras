@@ -1,3 +1,4 @@
+import { ClearCartWhenPaid } from "@/components/checkout/clear-cart-when-paid";
 import { Button } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/auth/session";
 import { buildMetadata } from "@/lib/seo/metadata";
@@ -34,7 +35,9 @@ export default async function CheckoutPendingPage({
   if (!order) notFound();
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-16 text-center sm:px-6">
+    <>
+      <ClearCartWhenPaid orderId={order.id as string} />
+      <div className="mx-auto max-w-lg px-4 py-16 text-center sm:px-6">
       <Clock className="mx-auto h-16 w-16 text-amber-500" />
       <h1 className="mt-6 text-2xl font-semibold">Pagamento pendente</h1>
       <p className="mt-2 text-zinc-500">
@@ -50,5 +53,6 @@ export default async function CheckoutPendingPage({
         </Button>
       </div>
     </div>
+    </>
   );
 }

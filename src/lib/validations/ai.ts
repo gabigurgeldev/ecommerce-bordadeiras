@@ -19,6 +19,7 @@ export const aiImproveScopeSchema = z.enum([
   "title",
   "message",
   "dimensions",
+  "reviews",
 ]);
 
 export const aiImproveRequestSchema = z.object({
@@ -57,6 +58,16 @@ export const productDimensionsOutputSchema = z.object({
   heightCm: z.coerce.number().int().min(1).max(500),
 });
 
+const aiReviewItemSchema = z.object({
+  authorName: z.string().min(2).max(80),
+  rating: z.coerce.number().int().min(1).max(5),
+  text: z.string().min(20).max(500),
+});
+
+export const productReviewsOutputSchema = z.object({
+  reviews: z.array(aiReviewItemSchema).min(1).max(20),
+});
+
 export const blogContentOutputSchema = z.object({
   excerpt: z.string().min(1).max(500),
   content: z.string().min(10).max(20000),
@@ -86,6 +97,7 @@ export type AiImproveOutput =
   | z.infer<typeof productDescriptionOutputSchema>
   | z.infer<typeof productSeoOutputSchema>
   | z.infer<typeof productDimensionsOutputSchema>
+  | z.infer<typeof productReviewsOutputSchema>
   | z.infer<typeof blogContentOutputSchema>
   | z.infer<typeof blogSeoOutputSchema>
   | z.infer<typeof trustBarTextOutputSchema>
@@ -98,6 +110,7 @@ export function outputSchemaFor(context: AiImproveContext, scope: AiImproveScope
   if (context === "product" && scope === "description") return productDescriptionOutputSchema;
   if (context === "product" && scope === "seo") return productSeoOutputSchema;
   if (context === "product" && scope === "dimensions") return productDimensionsOutputSchema;
+  if (context === "product" && scope === "reviews") return productReviewsOutputSchema;
   if (context === "blog" && scope === "content") return blogContentOutputSchema;
   if (context === "blog" && scope === "seo") return blogSeoOutputSchema;
   if (context === "trust-bar" && scope === "text") return trustBarTextOutputSchema;
@@ -132,6 +145,12 @@ export const aiImproveInputSchemas = {
       name: z.string().min(1),
       description: optionalText,
       category: optionalText,
+    }),
+    reviews: z.object({
+      name: z.string().min(1),
+      description: optionalText,
+      category: optionalText,
+      count: z.string().min(1).max(2),
     }),
   },
   blog: {

@@ -151,6 +151,7 @@ export async function createOrderDraft(input: CheckoutInput) {
       shippingServiceName: shippingServiceName ?? null,
       items: resolved.items.map((item) => ({
         productId: item.productId,
+        variantId: item.variantId ?? null,
         name: item.name,
         sku: item.sku,
         quantity: item.quantity,

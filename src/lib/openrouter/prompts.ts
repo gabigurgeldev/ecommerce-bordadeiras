@@ -17,6 +17,8 @@ const SCOPE_INSTRUCTIONS: Record<string, string> = {
     "Melhore SEO do produto para e-commerce. Retorne JSON: { \"tags\": \"palavra1, palavra2\" (até 8 tags separadas por vírgula), \"brand\": \"...\", \"seoTitle\": \"...\" (máx 70 chars), \"seoDescription\": \"...\" (máx 160 chars) }.",
   "product:dimensions":
     "Estime peso e dimensões de embalagem para frete. Retorne JSON: { \"weightGrams\": número inteiro, \"lengthCm\": número, \"widthCm\": número, \"heightCm\": número } com valores realistas para o produto descrito.",
+  "product:reviews":
+    "Gere avaliações autênticas de clientes brasileiros de uma loja de bordado e artesanato. Retorne JSON: { \"reviews\": [ { \"authorName\": \"Nome brasileiro plausível\", \"rating\": número 1-5 (majoritariamente 4 ou 5), \"text\": \"comentário em português do Brasil, 2-4 frases, tom natural e específico ao produto\" } ] }. Gere exatamente a quantidade pedida em count. Varie nomes e textos. Não mencione IA ou que é fictício.",
   "blog:content":
     "Melhore o resumo e o conteúdo do post do blog. Retorne JSON: { \"excerpt\": \"...\" (máx 300 chars), \"content\": \"...\" }.",
   "blog:seo":
@@ -49,5 +51,6 @@ export function buildImprovePrompt(
 
 export function maxTokensFor(context: AiImproveContext, scope: AiImproveScope): number {
   if (context === "blog" && scope === "content") return 4096;
+  if (context === "product" && scope === "reviews") return 4096;
   return 2048;
 }

@@ -101,6 +101,14 @@ export function buildCategoryImageKey(
   return `categories/${categoryId}/${Date.now()}-${safe}`;
 }
 
+export function buildReviewImageKey(
+  userId: string,
+  filename: string,
+): string {
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `reviews/${userId}/${Date.now()}-${safe}`;
+}
+
 /** @deprecated Use uploadFile with bucket + path */
 export async function uploadBuffer(params: {
   bucket: string;

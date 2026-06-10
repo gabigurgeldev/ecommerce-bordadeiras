@@ -19,6 +19,7 @@ export type CreateOrderInput = {
   status?: string;
   items: {
     productId?: string | null;
+    variantId?: string | null;
     name: string;
     sku?: string | null;
     quantity: number;
@@ -57,6 +58,7 @@ export async function createOrderWithItems(input: CreateOrderInput) {
     id: newId(),
     orderId,
     productId: item.productId ?? null,
+    variantId: item.variantId ?? null,
     name: item.name,
     sku: item.sku ?? null,
     quantity: item.quantity,

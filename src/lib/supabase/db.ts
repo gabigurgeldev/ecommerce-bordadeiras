@@ -32,9 +32,12 @@ export const TABLES = {
   StorefrontTrustItem: "StorefrontTrustItem",
   WhatsappRecipient: "WhatsappRecipient",
   WhatsappSession: "WhatsappSession",
+  WhatsappTemplate: "WhatsappTemplate",
   AuditLog: "AuditLog",
   CartItem: "CartItem",
   SavedCard: "SavedCard",
+  ProductReview: "ProductReview",
+  StockMovement: "StockMovement",
 } as const;
 
 /** CUID-like id compatible with existing rows. */

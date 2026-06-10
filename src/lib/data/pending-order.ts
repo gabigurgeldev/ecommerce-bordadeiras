@@ -64,6 +64,7 @@ export async function upsertPendingCheckoutOrder(
     id: newId(),
     orderId,
     productId: item.productId ?? null,
+    variantId: item.variantId ?? null,
     name: item.name,
     sku: item.sku ?? null,
     quantity: item.quantity,

@@ -1,3 +1,6 @@
+import { revalidatePath } from "next/cache";
+import { clearServerCartForUser } from "@/lib/data/cart";
+import { deductOrderStock } from "@/lib/data/deduct-order-stock";
 import { incrementCouponUsageOnPaymentApproved } from "@/lib/payments/coupon-on-payment";
 import { onOrderPaid } from "@/lib/hooks/order-paid";
 import type { PaymentMethod } from "@/lib/types/database";
@@ -15,13 +18,29 @@ export async function finalizeApprovedOrder(
 ): Promise<void> {
   const db = getDb();
   const now = new Date().toISOString();
-  await db
-    .from(TABLES.Order)
-    .update({ status: "PAID", updatedAt: now })
-    .eq("id", orderId);
 
+  const { data: order } = await db
+    .from(TABLES.Order)
+    .select("userId, status")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (order && String(order.status) !== "PAID") {
+    await db
+      .from(TABLES.Order)
+      .update({ status: "PAID", paidAt: now, updatedAt: now })
+      .eq("id", orderId);
+  }
+
+  if (order?.userId) {
+    await clearServerCartForUser(String(order.userId));
+  }
+
+  await deductOrderStock(orderId);
   await incrementCouponUsageOnPaymentApproved(orderId);
   void onOrderPaid(orderId, localPaymentId);
+
+  revalidatePath("/admin");
 }
 
 async function markOrderPaidIfApproved(

@@ -48,6 +48,7 @@ export async function onOrderPaid(orderId: string, paymentId: string): Promise<v
       customerName: String(order.customerName),
       amountCents: totalCents,
       paymentId,
+      customerPhone: order.customerPhone,
     });
   } catch (err) {
     console.error("[onOrderPaid] whatsapp failed", err);

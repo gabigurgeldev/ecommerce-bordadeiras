@@ -11,8 +11,13 @@ export function ClearCartOnSuccess() {
   useEffect(() => {
     if (done.current) return;
     done.current = true;
-    clearCart();
-    void clearServerCart();
+
+    async function run() {
+      clearCart();
+      await clearServerCart();
+    }
+
+    void run();
   }, [clearCart]);
 
   return null;

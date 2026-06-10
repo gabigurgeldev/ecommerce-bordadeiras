@@ -14,6 +14,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { AdminOrderNotifications } from "@/components/admin/admin-order-notifications";
 import { getAdminBreadcrumbs } from "@/lib/admin-route-meta";
 import { useAdminShell } from "@/components/admin/admin-context";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,8 @@ export function AdminHeader() {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
+
+      <AdminOrderNotifications />
 
       <div
         className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-muted/40 py-1 pl-1 pr-2.5"

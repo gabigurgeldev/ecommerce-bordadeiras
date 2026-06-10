@@ -1,9 +1,12 @@
 "use server";
 
 import { getSessionUser } from "@/lib/auth/session";
-import { getServerCart, syncServerCart } from "@/lib/data/cart";
+import {
+  clearServerCartForUser,
+  getServerCart,
+  syncServerCart,
+} from "@/lib/data/cart";
 import { mergeCartLines } from "@/lib/data/cart-merge";
-import { getDb, TABLES } from "@/lib/supabase/db";
 import type { CartLine } from "@/store/cart";
 
 export async function fetchServerCart(): Promise<CartLine[]> {
@@ -32,5 +35,5 @@ export async function mergeGuestCart(
 export async function clearServerCart(): Promise<void> {
   const user = await getSessionUser();
   if (!user?.id) return;
-  await getDb().from(TABLES.CartItem).delete().eq("userId", user.id);
+  await clearServerCartForUser(user.id);
 }

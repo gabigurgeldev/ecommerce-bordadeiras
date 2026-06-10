@@ -42,7 +42,8 @@ const securityHeaders = [
       "img-src 'self' data: https: blob:",
       "font-src 'self' data: https://http2.mlstatic.com https://*.mlstatic.com https://fonts.gstatic.com",
       "connect-src 'self' https://api.mercadopago.com https://*.mercadopago.com https://http2.mlstatic.com https://*.mlstatic.com https://www.mercadolibre.com https://*.mercadolibre.com https://events.mercadopago.com https://supabase.bordadeiras.cloud",
-      "frame-src 'self' https://*.mercadopago.com https://www.mercadolibre.com https://*.mercadolibre.com https://*.mlstatic.com",
+      "frame-src 'self' https://youtube.com https://www.youtube.com https://*.youtube.com https://youtube-nocookie.com https://www.youtube-nocookie.com https://*.youtube-nocookie.com https://player.vimeo.com https://*.vimeo.com https://*.google.com https://*.gstatic.com https://*.mercadopago.com https://www.mercadolibre.com https://*.mercadolibre.com https://*.mlstatic.com",
+      "child-src 'self' https://youtube.com https://www.youtube.com https://*.youtube.com https://youtube-nocookie.com https://www.youtube-nocookie.com https://*.youtube-nocookie.com https://player.vimeo.com https://*.vimeo.com https://*.google.com https://*.mercadopago.com https://www.mercadolibre.com https://*.mercadolibre.com https://*.mlstatic.com",
       "frame-ancestors 'self'",
     ].join("; "),
   },
@@ -63,7 +64,24 @@ const nextConfig: NextConfig = {
     remotePatterns: imageRemotePatterns(),
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      {
+        source: "/embed/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Content-Security-Policy",
+            value:
+              "default-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://*.google.com https://player.vimeo.com https://*.vimeo.com; style-src 'unsafe-inline';",
+          },
+        ],
+      },
+      {
+        source: "/((?!embed/).*)",
+        headers: securityHeaders,
+      },
+    ];
   },
 };
 

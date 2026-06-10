@@ -8,6 +8,7 @@ export type OrderSummary = {
   createdAt: Date;
   itemCount: number;
   trackingCode: string | null;
+  carrier: string | null;
 };
 
 export type OrderDetail = OrderSummary & {
@@ -16,6 +17,11 @@ export type OrderDetail = OrderSummary & {
   customerName: string;
   customerEmail: string;
   shippingAddress: Record<string, unknown> | null;
+  paidAt: Date | null;
+  processingAt: Date | null;
+  shippedAt: Date | null;
+  deliveredAt: Date | null;
+  cancelledAt: Date | null;
   items: {
     id: string;
     name: string;
@@ -24,12 +30,17 @@ export type OrderDetail = OrderSummary & {
   }[];
 };
 
+function parseDate(value: unknown): Date | null {
+  if (value == null) return null;
+  return new Date(String(value));
+}
+
 export async function getOrdersForUser(userId: string): Promise<OrderSummary[]> {
   try {
     const db = getDb();
     const { data: orders, error } = await db
       .from(TABLES.Order)
-      .select("id, status, totalCents, createdAt, trackingCode")
+      .select("id, status, totalCents, createdAt, trackingCode, carrier")
       .eq("userId", userId)
       .order("createdAt", { ascending: false });
     if (error || !orders) return [];
@@ -47,6 +58,7 @@ export async function getOrdersForUser(userId: string): Promise<OrderSummary[]> 
           createdAt: new Date(String(o.createdAt)),
           itemCount: count ?? 0,
           trackingCode: o.trackingCode != null ? String(o.trackingCode) : null,
+          carrier: o.carrier != null ? String(o.carrier) : null,
         };
       }),
     );
@@ -64,7 +76,9 @@ export async function getOrderForUser(
     const db = getDb();
     const { data: order, error } = await db
       .from(TABLES.Order)
-      .select("id, status, totalCents, subtotalCents, shippingCents, createdAt, trackingCode, customerName, customerEmail, shippingAddress")
+      .select(
+        "id, status, totalCents, subtotalCents, shippingCents, createdAt, trackingCode, carrier, customerName, customerEmail, shippingAddress, paidAt, processingAt, shippedAt, deliveredAt, cancelledAt",
+      )
       .eq("id", orderId)
       .eq("userId", userId)
       .maybeSingle();
@@ -84,6 +98,12 @@ export async function getOrderForUser(
       createdAt: new Date(String(order.createdAt)),
       itemCount: items?.length ?? 0,
       trackingCode: order.trackingCode != null ? String(order.trackingCode) : null,
+      carrier: order.carrier != null ? String(order.carrier) : null,
+      paidAt: parseDate(order.paidAt),
+      processingAt: parseDate(order.processingAt),
+      shippedAt: parseDate(order.shippedAt),
+      deliveredAt: parseDate(order.deliveredAt),
+      cancelledAt: parseDate(order.cancelledAt),
       customerName: String(order.customerName),
       customerEmail: String(order.customerEmail),
       shippingAddress:

@@ -63,6 +63,7 @@ export async function POST(request: Request) {
         quantity: i.quantity,
         priceCents: i.priceCents,
         productId: i.productId,
+        variantId: i.variantId ?? null,
       })),
     });
 

@@ -8,10 +8,30 @@ import {
   startOfMonth,
   startOfToday,
 } from "@/lib/admin-dashboard-period";
+import { isPaidOrderStatus, PAID_ORDER_STATUSES } from "@/lib/order-status";
 import { getDb, TABLES } from "@/lib/supabase/db";
 import { withAdminRead } from "./_utils";
 
 const LOW_STOCK_THRESHOLD = 5;
+
+function sumAmount(rows: { amountCents: number }[] | null): number {
+  return (rows ?? []).reduce((s, p) => s + Number(p.amountCents), 0);
+}
+
+/** Add revenue from paid orders that lack an approved Payment row (webhook lag). */
+function addOrderRevenueFallback(
+  paymentRevenue: number,
+  orders: { id: string; totalCents: number; status: string }[] | null,
+  approvedPaymentOrderIds: Set<string>,
+): number {
+  let extra = 0;
+  for (const o of orders ?? []) {
+    if (!isPaidOrderStatus(String(o.status))) continue;
+    if (approvedPaymentOrderIds.has(String(o.id))) continue;
+    extra += Number(o.totalCents);
+  }
+  return paymentRevenue + extra;
+}
 
 export async function getDashboardStats(period: DashboardPeriod = "30d"): Promise<DashboardStats> {
   return withAdminRead(async () => {
@@ -29,8 +49,8 @@ export async function getDashboardStats(period: DashboardPeriod = "30d"): Promis
       })();
 
     const [
-      { data: allPayments },
-      { data: periodPayments },
+      { data: allPayments, error: allPaymentsError },
+      { data: periodPayments, error: periodPaymentsError },
       { data: todayPayments },
       { data: mtdPayments },
       { count: orderCount },
@@ -46,15 +66,20 @@ export async function getDashboardStats(period: DashboardPeriod = "30d"): Promis
       { data: recentOrdersRaw },
       { data: ordersForStatus },
       { data: recentAudit },
+      { data: allPaidOrdersForFallback },
+      { data: periodPaidOrdersForFallback },
     ] = await Promise.all([
-      db.from(TABLES.Payment).select("amountCents, createdAt").eq("status", PaymentStatus.APPROVED),
+      db.from(TABLES.Payment).select("amountCents, createdAt, orderId").eq("status", PaymentStatus.APPROVED),
       since
         ? db
             .from(TABLES.Payment)
-            .select("amountCents, createdAt")
+            .select("amountCents, createdAt, orderId")
             .eq("status", PaymentStatus.APPROVED)
             .gte("createdAt", since)
-        : db.from(TABLES.Payment).select("amountCents, createdAt").eq("status", PaymentStatus.APPROVED),
+        : db
+            .from(TABLES.Payment)
+            .select("amountCents, createdAt, orderId")
+            .eq("status", PaymentStatus.APPROVED),
       db
         .from(TABLES.Payment)
         .select("amountCents")
@@ -67,8 +92,8 @@ export async function getDashboardStats(period: DashboardPeriod = "30d"): Promis
         .gte("createdAt", mtdSince),
       db.from(TABLES.Order).select("*", { count: "exact", head: true }),
       since
-        ? db.from(TABLES.Order).select("id, status").gte("createdAt", since)
-        : db.from(TABLES.Order).select("id, status"),
+        ? db.from(TABLES.Order).select("id, status, totalCents, createdAt").gte("createdAt", since)
+        : db.from(TABLES.Order).select("id, status, totalCents, createdAt"),
       db
         .from(TABLES.Order)
         .select("*", { count: "exact", head: true })
@@ -76,7 +101,7 @@ export async function getDashboardStats(period: DashboardPeriod = "30d"): Promis
       db
         .from(TABLES.Order)
         .select("*", { count: "exact", head: true })
-        .in("status", [OrderStatus.PENDING, OrderStatus.PAID, OrderStatus.PROCESSING]),
+        .eq("status", OrderStatus.PENDING),
       db.from(TABLES.Product).select("*", { count: "exact", head: true }).eq("active", true),
       db.from(TABLES.Product).select("*", { count: "exact", head: true }).eq("active", false),
       db
@@ -91,7 +116,10 @@ export async function getDashboardStats(period: DashboardPeriod = "30d"): Promis
             .select("*", { count: "exact", head: true })
             .eq("role", Role.USER)
             .gte("createdAt", since)
-        : Promise.resolve({ count: 0 }),
+        : db
+            .from(TABLES.User)
+            .select("*", { count: "exact", head: true })
+            .eq("role", Role.USER),
       db.from(TABLES.Coupon).select("*", { count: "exact", head: true }).eq("active", true),
       db
         .from(TABLES.Order)
@@ -104,20 +132,49 @@ export async function getDashboardStats(period: DashboardPeriod = "30d"): Promis
         .select("id, action, entity, entityId, userEmail, createdAt")
         .order("createdAt", { ascending: false })
         .limit(6),
+      db
+        .from(TABLES.Order)
+        .select("id, totalCents, status")
+        .in("status", [...PAID_ORDER_STATUSES]),
+      since
+        ? db
+            .from(TABLES.Order)
+            .select("id, totalCents, status")
+            .in("status", [...PAID_ORDER_STATUSES])
+            .gte("createdAt", since)
+        : db
+            .from(TABLES.Order)
+            .select("id, totalCents, status")
+            .in("status", [...PAID_ORDER_STATUSES]),
     ]);
 
-    const sum = (rows: { amountCents: number }[] | null) =>
-      (rows ?? []).reduce((s, p) => s + Number(p.amountCents), 0);
+    if (allPaymentsError) console.error("[dashboard] allPayments", allPaymentsError);
+    if (periodPaymentsError) console.error("[dashboard] periodPayments", periodPaymentsError);
 
-    const revenueCents = sum(allPayments);
-    const revenuePeriodCents = sum(periodPayments);
-    const revenueTodayCents = sum(todayPayments);
-    const revenueMtdCents = sum(mtdPayments);
+    const approvedOrderIds = new Set(
+      (allPayments ?? []).map((p) => String(p.orderId)).filter(Boolean),
+    );
+    const approvedPeriodOrderIds = new Set(
+      (periodPayments ?? []).map((p) => String(p.orderId)).filter(Boolean),
+    );
+
+    const revenueCents = addOrderRevenueFallback(
+      sumAmount(allPayments),
+      allPaidOrdersForFallback,
+      approvedOrderIds,
+    );
+    const revenuePeriodCents = addOrderRevenueFallback(
+      sumAmount(periodPayments),
+      periodPaidOrdersForFallback,
+      approvedPeriodOrderIds,
+    );
+    const revenueTodayCents = sumAmount(todayPayments);
+    const revenueMtdCents = sumAmount(mtdPayments);
 
     const periodOrders = periodOrdersMeta ?? [];
     const orderCountPeriod = periodOrders.length;
-    const paidInPeriod = periodOrders.filter(
-      (o) => o.status === OrderStatus.PAID || o.status === OrderStatus.DELIVERED,
+    const paidInPeriod = periodOrders.filter((o) =>
+      isPaidOrderStatus(String(o.status)),
     ).length;
     const nonCancelled = periodOrders.filter((o) => o.status !== OrderStatus.CANCELLED).length;
     const conversionRate = nonCancelled > 0 ? (paidInPeriod / nonCancelled) * 100 : 0;
@@ -145,13 +202,16 @@ export async function getDashboardStats(period: DashboardPeriod = "30d"): Promis
       count,
     }));
 
-    const periodOrderIds = periodOrders.map((o) => o.id as string);
+    const paidPeriodOrderIds = periodOrders
+      .filter((o) => isPaidOrderStatus(String(o.status)))
+      .map((o) => o.id as string);
+
     let topProducts: DashboardStats["topProducts"] = [];
-    if (periodOrderIds.length > 0) {
+    if (paidPeriodOrderIds.length > 0) {
       const { data: orderItems } = await db
         .from(TABLES.OrderItem)
-        .select("productId, quantity, unitPriceCents")
-        .in("orderId", periodOrderIds.slice(0, 200));
+        .select("productId, quantity, priceCents")
+        .in("orderId", paidPeriodOrderIds.slice(0, 200));
 
       const productIds = [
         ...new Set((orderItems ?? []).map((row) => row.productId as string).filter(Boolean)),
@@ -172,7 +232,7 @@ export async function getDashboardStats(period: DashboardPeriod = "30d"): Promis
         const pid = row.productId as string;
         const name = productNames.get(pid) ?? "Produto";
         const qty = Number(row.quantity);
-        const rev = qty * Number(row.unitPriceCents);
+        const rev = qty * Number(row.priceCents);
         const cur = productAgg.get(pid) ?? { name, quantity: 0, revenueCents: 0 };
         cur.quantity += qty;
         cur.revenueCents += rev;

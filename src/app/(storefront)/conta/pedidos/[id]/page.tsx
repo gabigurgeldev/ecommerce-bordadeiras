@@ -36,6 +36,12 @@ export default async function ContaPedidoDetailPage({ params }: Props) {
       <OrderTracking
         status={order.status}
         trackingCode={order.trackingCode}
+        carrier={order.carrier}
+        paidAt={order.paidAt}
+        processingAt={order.processingAt}
+        shippedAt={order.shippedAt}
+        deliveredAt={order.deliveredAt}
+        cancelledAt={order.cancelledAt}
       />
 
       {addr && (

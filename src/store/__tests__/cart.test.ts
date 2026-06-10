@@ -7,6 +7,7 @@ describe("useCartStore", () => {
       lines: [],
       couponCode: null,
       syncedUserId: null,
+      syncEpoch: 0,
     });
   });
 
@@ -44,6 +45,20 @@ describe("useCartStore", () => {
 
     expect(useCartStore.getState().lines).toHaveLength(1);
     expect(useCartStore.getState().lines[0].quantity).toBe(2);
+  });
+
+  it("clearCart increments syncEpoch", () => {
+    const store = useCartStore.getState();
+    store.addItem({
+      productId: "p1",
+      slug: "produto-1",
+      name: "Produto 1",
+      priceCents: 1000,
+      imageUrl: "/a.jpg",
+    });
+    store.clearCart();
+    expect(useCartStore.getState().lines).toHaveLength(0);
+    expect(useCartStore.getState().syncEpoch).toBe(1);
   });
 
   it("removes item when quantity goes below 1", () => {
