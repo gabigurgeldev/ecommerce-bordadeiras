@@ -27,6 +27,13 @@ function parseExpiresAt(raw: string | undefined): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** Quando a chave não foi salva: sandbox no dev, produção no deploy. */
+function parseUseSandbox(raw: string | undefined): boolean {
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  return process.env.NODE_ENV !== "production";
+}
+
 export async function getMelhorEnvioSettings(): Promise<MelhorEnvioSettings> {
   const values = await getSettings([...ALL_KEYS]);
 
@@ -50,16 +57,41 @@ export async function getMelhorEnvioSettings(): Promise<MelhorEnvioSettings> {
   };
 
   return {
-    useSandbox: values[SETTING_KEYS.melhorEnvio.useSandbox] !== "false",
+    useSandbox: parseUseSandbox(values[SETTING_KEYS.melhorEnvio.useSandbox]),
     sandbox: readEnv("sandbox"),
     production: readEnv("production"),
   };
 }
 
-export function getActiveMelhorEnvioEnvironment(
+/** Ambiente preferido conforme toggle (ou NODE_ENV quando ainda não salvo). */
+export function getPreferredMelhorEnvioEnvironment(
   settings: MelhorEnvioSettings,
 ): MelhorEnvioEnvironment {
   return settings.useSandbox ? "sandbox" : "production";
+}
+
+/**
+ * Ambiente efetivo para chamadas à API: usa o preferido se houver token;
+ * caso contrário, tenta o outro ambiente (evita sandbox vazio em produção).
+ */
+export function getActiveMelhorEnvioEnvironment(
+  settings: MelhorEnvioSettings,
+): MelhorEnvioEnvironment {
+  const preferred = getPreferredMelhorEnvioEnvironment(settings);
+  if (getMelhorEnvioTokenForEnv(settings, preferred).accessToken) {
+    return preferred;
+  }
+
+  const alternate: MelhorEnvioEnvironment =
+    preferred === "sandbox" ? "production" : "sandbox";
+  if (getMelhorEnvioTokenForEnv(settings, alternate).accessToken) {
+    console.warn(
+      `[melhor-envio] Token ausente em ${preferred}; usando ambiente ${alternate}.`,
+    );
+    return alternate;
+  }
+
+  return preferred;
 }
 
 export function getMelhorEnvioTokenForEnv(
@@ -77,10 +109,21 @@ export function getMelhorEnvioCredentialsForEnv(
   return getMelhorEnvioTokenForEnv(settings, env);
 }
 
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+
+function isMelhorEnvioTokenUsable(creds: MelhorEnvioEnvToken): boolean {
+  if (!creds.accessToken) return false;
+  const expiresAt =
+    creds.expiresAt ?? decodeMelhorEnvioTokenExpiry(creds.accessToken);
+  if (!expiresAt) return true;
+  return expiresAt - TOKEN_EXPIRY_BUFFER_MS > Date.now();
+}
+
 export function isMelhorEnvioConnected(settings: MelhorEnvioSettings): boolean {
-  const env = getActiveMelhorEnvioEnvironment(settings);
-  const token = getMelhorEnvioTokenForEnv(settings, env);
-  return Boolean(token.accessToken);
+  return (
+    isMelhorEnvioTokenUsable(settings.sandbox) ||
+    isMelhorEnvioTokenUsable(settings.production)
+  );
 }
 
 export async function saveMelhorEnvioAccessToken(

@@ -7,7 +7,19 @@ export type MelhorEnvioHttpResponse = {
   body: string;
 };
 
-function melhorEnvioHttpsRequest(
+function isRetryableNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("timeout") ||
+    msg.includes("econnreset") ||
+    msg.includes("econnrefused") ||
+    msg.includes("enetunreach") ||
+    msg.includes("eai_again")
+  );
+}
+
+function melhorEnvioHttpsRequestOnce(
   method: "GET" | "POST",
   url: string,
   headers: Record<string, string>,
@@ -28,7 +40,6 @@ function melhorEnvioHttpsRequest(
           ...headers,
           ...(payload ? { "Content-Length": payload.length } : {}),
         },
-        family: 4,
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -50,6 +61,21 @@ function melhorEnvioHttpsRequest(
     if (payload) req.write(payload);
     req.end();
   });
+}
+
+async function melhorEnvioHttpsRequest(
+  method: "GET" | "POST",
+  url: string,
+  headers: Record<string, string>,
+  body?: string,
+  timeoutMs = 15_000,
+): Promise<MelhorEnvioHttpResponse> {
+  try {
+    return await melhorEnvioHttpsRequestOnce(method, url, headers, body, timeoutMs);
+  } catch (err) {
+    if (!isRetryableNetworkError(err)) throw err;
+    return melhorEnvioHttpsRequestOnce(method, url, headers, body, timeoutMs);
+  }
 }
 
 /** Direct HTTPS POST (bypasses Node fetch / HTTP_PROXY). */

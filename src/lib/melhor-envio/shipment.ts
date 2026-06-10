@@ -3,11 +3,12 @@ import {
   getMelhorEnvioSettings,
   isMelhorEnvioConnected,
 } from "@/lib/data/melhor-envio-settings";
-import { getValidMelhorEnvioAccessToken } from "@/lib/melhor-envio/auth";
+import { resolveValidMelhorEnvioCredentials } from "@/lib/melhor-envio/auth";
 import { getMelhorEnvioApiUrl, MELHOR_ENVIO_USER_AGENT } from "@/lib/melhor-envio/config";
 import { melhorEnvioHttpsPost } from "@/lib/melhor-envio/http";
 
-const CALCULATE_TIMEOUT_MS = 12_000;
+const CALCULATE_TIMEOUT_MS =
+  process.env.NODE_ENV === "production" ? 20_000 : 12_000;
 
 const MIN_WEIGHT_KG = 0.3;
 const DEFAULT_LENGTH_CM = 16;
@@ -54,10 +55,10 @@ type MeCalculateProduct = {
 type MeCalculateResponseItem = {
   id: number;
   name: string;
-  price?: string;
-  custom_price?: string;
-  delivery_time?: number;
-  custom_delivery_time?: number;
+  price?: string | number;
+  custom_price?: string | number;
+  delivery_time?: number | string;
+  custom_delivery_time?: number | string;
   company?: {
     name?: string;
     picture?: string;
@@ -65,14 +66,25 @@ type MeCalculateResponseItem = {
   error?: string;
 };
 
-function parsePriceToCents(value: string | undefined): number {
-  if (!value) return 0;
+function parsePriceToCents(value: string | number | undefined | null): number {
+  if (value == null) return 0;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.round(value * 100) : 0;
+  }
   const trimmed = value.trim();
+  if (!trimmed) return 0;
   const normalized = trimmed.includes(",")
     ? trimmed.replace(/\./g, "").replace(",", ".")
     : trimmed;
   const n = Number.parseFloat(normalized);
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+function parseDeliveryDays(value: number | string | undefined): number {
+  if (value == null) return 0;
+  const n =
+    typeof value === "number" ? value : Number.parseInt(String(value), 10);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 
 function toMeProducts(products: MelhorEnvioProductInput[]): MeCalculateProduct[] {
@@ -88,21 +100,28 @@ function toMeProducts(products: MelhorEnvioProductInput[]): MeCalculateProduct[]
 }
 
 function mapResponseItem(item: MeCalculateResponseItem): MelhorEnvioShippingOption | null {
-  if (item.error) return null;
+  try {
+    if (item.error) return null;
 
-  const priceCents = parsePriceToCents(item.custom_price ?? item.price);
-  if (priceCents <= 0) return null;
+    const priceCents = parsePriceToCents(item.custom_price ?? item.price);
+    if (priceCents <= 0) return null;
 
-  const deliveryDays = item.custom_delivery_time ?? item.delivery_time ?? 0;
+    const deliveryDays = parseDeliveryDays(
+      item.custom_delivery_time ?? item.delivery_time,
+    );
 
-  return {
-    serviceId: String(item.id),
-    label: item.name,
-    company: item.company?.name ?? "Transportadora",
-    companyLogoUrl: item.company?.picture,
-    priceCents,
-    deliveryDays,
-  };
+    return {
+      serviceId: String(item.id),
+      label: item.name,
+      company: item.company?.name ?? "Transportadora",
+      companyLogoUrl: item.company?.picture,
+      priceCents,
+      deliveryDays,
+    };
+  } catch (err) {
+    console.warn("[melhor-envio] failed to map quote item:", err);
+    return null;
+  }
 }
 
 export function buildMelhorEnvioProductsFromCart(
@@ -175,17 +194,22 @@ export async function calculateMelhorEnvioShipment(input: {
     };
   }
 
-  const accessToken = await getValidMelhorEnvioAccessToken();
-  if (!accessToken) {
+  const credentials = await resolveValidMelhorEnvioCredentials();
+  if (!credentials) {
+    const preferred = getActiveMelhorEnvioEnvironment(settings);
+    const hasAnyToken =
+      Boolean(settings.sandbox.accessToken) ||
+      Boolean(settings.production.accessToken);
     return {
       ok: false,
       error: "Token Melhor Envio inválido",
-      fallbackMessage:
-        "Token Melhor Envio expirado. Gere um novo no painel ME e cole em Admin → Configurações → Frete e Envio.",
+      fallbackMessage: hasAnyToken
+        ? `Token Melhor Envio expirado ou incompatível com o ambiente ${preferred === "sandbox" ? "Sandbox" : "Produção"}. Gere um novo token e confira o toggle Modo sandbox em Admin → Configurações.`
+        : "Cole o Access Token em Admin → Configurações → Frete e Envio.",
     };
   }
 
-  const env = getActiveMelhorEnvioEnvironment(settings);
+  const { accessToken, env } = credentials;
   const url = getMelhorEnvioApiUrl(env, "/api/v2/me/shipment/calculate");
   const body = JSON.stringify({
     from: { postal_code: originCep },
@@ -224,15 +248,27 @@ export async function calculateMelhorEnvioShipment(input: {
       };
     }
 
-    const data = JSON.parse(res.body) as MeCalculateResponseItem[];
-    const options = (Array.isArray(data) ? data : [])
+    let data: MeCalculateResponseItem[];
+    try {
+      const parsed = JSON.parse(res.body) as unknown;
+      data = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      console.error("[melhor-envio] invalid JSON:", res.body.slice(0, 300));
+      return {
+        ok: false,
+        error: "Resposta inválida do Melhor Envio",
+        fallbackMessage:
+          "Resposta inesperada do Melhor Envio. Verifique o token e o ambiente (sandbox vs produção) em Admin → Configurações.",
+      };
+    }
+
+    const options = data
       .map(mapResponseItem)
       .filter((o): o is MelhorEnvioShippingOption => o != null)
       .sort((a, b) => a.priceCents - b.priceCents);
 
     if (options.length === 0) {
-      const items = Array.isArray(data) ? data : [];
-      const firstError = items.find((i) => i.error)?.error;
+      const firstError = data.find((i) => i.error)?.error;
       console.error(
         "[melhor-envio] no shipping options:",
         res.body.slice(0, 500),

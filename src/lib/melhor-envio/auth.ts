@@ -3,6 +3,7 @@ import {
   getActiveMelhorEnvioEnvironment,
   getMelhorEnvioTokenForEnv,
   getMelhorEnvioSettings,
+  getPreferredMelhorEnvioEnvironment,
 } from "@/lib/data/melhor-envio-settings";
 import {
   getMelhorEnvioApiUrl,
@@ -31,20 +32,54 @@ function melhorEnvioAuthHeaders(accessToken: string): HeadersInit {
 
 export { decodeMelhorEnvioTokenExpiry } from "@/lib/melhor-envio/token-utils";
 
-export async function getValidMelhorEnvioAccessToken(): Promise<string | null> {
+function isMelhorEnvioTokenExpired(
+  accessToken: string,
+  storedExpiresAt: number | null,
+): boolean {
+  const expiresAt = storedExpiresAt ?? decodeMelhorEnvioTokenExpiry(accessToken);
+  if (!expiresAt) return false;
+  return expiresAt - TOKEN_EXPIRY_BUFFER_MS <= Date.now();
+}
+
+export async function resolveValidMelhorEnvioCredentials(): Promise<{
+  env: MelhorEnvioEnvironment;
+  accessToken: string;
+} | null> {
   const settings = await getMelhorEnvioSettings();
-  const env = getActiveMelhorEnvioEnvironment(settings);
-  const creds = getMelhorEnvioTokenForEnv(settings, env);
+  const preferred = getPreferredMelhorEnvioEnvironment(settings);
+  const alternate: MelhorEnvioEnvironment =
+    preferred === "sandbox" ? "production" : "sandbox";
 
-  if (!creds.accessToken) return null;
+  const candidates = [
+    getActiveMelhorEnvioEnvironment(settings),
+    preferred,
+    alternate,
+  ];
 
-  const expiresAt =
-    creds.expiresAt ?? decodeMelhorEnvioTokenExpiry(creds.accessToken);
-  if (expiresAt && expiresAt - TOKEN_EXPIRY_BUFFER_MS <= Date.now()) {
-    return null;
+  const seen = new Set<MelhorEnvioEnvironment>();
+  for (const env of candidates) {
+    if (seen.has(env)) continue;
+    seen.add(env);
+
+    const creds = getMelhorEnvioTokenForEnv(settings, env);
+    if (!creds.accessToken) continue;
+    if (isMelhorEnvioTokenExpired(creds.accessToken, creds.expiresAt)) continue;
+
+    if (env !== preferred) {
+      console.warn(
+        `[melhor-envio] Usando token de ${env} (preferido: ${preferred}).`,
+      );
+    }
+
+    return { env, accessToken: creds.accessToken };
   }
 
-  return creds.accessToken;
+  return null;
+}
+
+export async function getValidMelhorEnvioAccessToken(): Promise<string | null> {
+  const resolved = await resolveValidMelhorEnvioCredentials();
+  return resolved?.accessToken ?? null;
 }
 
 /** Validate token against a real ME API endpoint (list transportadoras). */

@@ -140,11 +140,15 @@ async function quoteMelhorEnvioForItems(
   ]);
 
   if (!isMelhorEnvioConnected(meSettings)) {
+    const hasAnyToken =
+      Boolean(meSettings.sandbox.accessToken) ||
+      Boolean(meSettings.production.accessToken);
     return {
       ok: false,
       error: "Melhor Envio não conectado",
-      fallbackMessage:
-        "Cole o Access Token em Admin → Configurações → Frete e Envio.",
+      fallbackMessage: hasAnyToken
+        ? "Token Melhor Envio expirado ou ambiente incorreto. Em produção, desative o modo Sandbox e use o token de melhorenvio.com.br."
+        : "Cole o Access Token em Admin → Configurações → Frete e Envio.",
     };
   }
 

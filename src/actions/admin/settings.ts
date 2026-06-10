@@ -409,8 +409,11 @@ export async function getMelhorEnvioSettingsForAdmin() {
     const settings = await getMelhorEnvioSettings();
     const activeConnected = isMelhorEnvioConnected(settings);
 
+    const activeEnv = getActiveMelhorEnvioEnvironment(settings);
+
     return {
       useSandbox: settings.useSandbox,
+      activeEnv,
       hasSandboxToken: Boolean(settings.sandbox.accessToken),
       hasProductionToken: Boolean(settings.production.accessToken),
       sandboxConnected: Boolean(settings.sandbox.accessToken),
@@ -462,22 +465,23 @@ export async function probeMelhorEnvioApiAccessForAdmin(): Promise<
   ActionResult & { message?: string }
 > {
   return withAdminRead(async () => {
-    const settings = await getMelhorEnvioSettings();
-    const env = getActiveMelhorEnvioEnvironment(settings);
-    const token =
-      env === "sandbox"
-        ? settings.sandbox.accessToken
-        : settings.production.accessToken;
+    const { resolveValidMelhorEnvioCredentials, probeMelhorEnvioTokenAccess } =
+      await import("@/lib/melhor-envio/auth");
+    const credentials = await resolveValidMelhorEnvioCredentials();
 
-    if (!token) {
+    if (!credentials) {
+      const settings = await getMelhorEnvioSettings();
+      const env = getActiveMelhorEnvioEnvironment(settings);
       return {
         success: false,
-        error: `Cole o Access Token de ${env === "sandbox" ? "Sandbox" : "Produção"} e salve antes de testar.`,
+        error: `Cole um Access Token válido de ${env === "sandbox" ? "Sandbox" : "Produção"} e salve antes de testar.`,
       };
     }
 
-    const { probeMelhorEnvioTokenAccess } = await import("@/lib/melhor-envio/auth");
-    const result = await probeMelhorEnvioTokenAccess(env, token);
+    const result = await probeMelhorEnvioTokenAccess(
+      credentials.env,
+      credentials.accessToken,
+    );
     if (result.ok) {
       return { success: true, message: result.message };
     }
