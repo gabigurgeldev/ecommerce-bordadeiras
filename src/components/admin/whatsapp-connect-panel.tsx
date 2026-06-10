@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { MessageCircle } from "lucide-react";
+import { AlertTriangle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { AdminConfirmDialog } from "@/components/admin/admin-confirm-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,9 @@ import { cn } from "@/lib/utils";
 type SessionState = {
   status: string;
   qr?: string;
+  serviceReachable?: boolean;
+  serviceError?: string;
+  serviceUrl?: string;
 };
 
 export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string }) {
@@ -22,10 +25,19 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
   const fetchQr = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/whatsapp/qr", { cache: "no-store" });
-      if (!res.ok) throw new Error("Falha ao buscar status");
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Falha ao buscar status");
+      }
       const data = (await res.json()) as SessionState;
       setSession(data);
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Falha ao buscar status";
+      setSession((prev) => ({
+        ...prev,
+        serviceReachable: false,
+        serviceError: message,
+      }));
       console.error(e);
     }
   }, []);
@@ -33,22 +45,28 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
   useEffect(() => {
     void fetchQr();
     const interval = setInterval(() => {
-      if (session.status === "qr" || session.status === "disconnected" || session.status === "reconnecting") {
+      if (
+        session.status === "qr" ||
+        session.status === "disconnected" ||
+        session.status === "reconnecting" ||
+        session.serviceReachable === false
+      ) {
         void fetchQr();
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [fetchQr, session.status]);
+  }, [fetchQr, session.status, session.serviceReachable]);
 
   async function handleReconnect() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/whatsapp/reconnect", { method: "POST" });
-      if (!res.ok) throw new Error("Erro ao reconectar");
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(body?.error ?? "Erro ao reconectar");
       toast.success("Reconectando…");
       await fetchQr();
-    } catch {
-      toast.error("Não foi possível reconectar");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível reconectar");
     } finally {
       setLoading(false);
     }
@@ -58,11 +76,12 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
     setLoading(true);
     try {
       const res = await fetch("/api/admin/whatsapp/logout", { method: "POST" });
-      if (!res.ok) throw new Error("Erro ao desconectar");
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(body?.error ?? "Erro ao desconectar");
       toast.success("Sessão encerrada. Escaneie o novo QR.");
       await fetchQr();
-    } catch {
-      toast.error("Não foi possível desconectar");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível desconectar");
     } finally {
       setLoading(false);
       setLogoutConfirmOpen(false);
@@ -77,6 +96,7 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
   };
 
   const isConnected = session.status === "connected";
+  const serviceDown = session.serviceReachable === false;
 
   return (
     <>
@@ -100,6 +120,30 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {serviceDown && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-medium">Serviço WhatsApp indisponível</p>
+                  <p className="text-xs opacity-90">
+                    {session.serviceError ??
+                      "A app não conseguiu falar com o microsserviço Baileys."}
+                  </p>
+                  {session.serviceUrl && (
+                    <p className="text-xs opacity-75">
+                      URL configurada: <code>{session.serviceUrl}</code>
+                    </p>
+                  )}
+                  <p className="text-xs opacity-75">
+                    Confirme no EasyPanel/VPS: container <strong>whatsapp-service</strong> rodando,
+                    mesma rede Docker da app, e <code>WHATSAPP_SERVICE_URL=http://whatsapp-service:4001</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3">
             <span className="text-sm font-medium">Status</span>
             <Badge variant={isConnected ? "default" : "secondary"}>
@@ -127,7 +171,9 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
             </p>
           ) : (
             <p className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-              Aguardando QR… Confirme se o serviço whatsapp está em execução na VPS.
+              {serviceDown
+                ? "Sem conexão com o serviço. O QR só aparece quando o whatsapp-service estiver acessível."
+                : "Aguardando QR… O código deve aparecer em alguns segundos."}
             </p>
           )}
 

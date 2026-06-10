@@ -1,27 +1,70 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-function getClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url?.trim() || !key?.trim()) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL must be set");
+const TABLE = "WhatsappSession";
+const RECIPIENT_TABLE = "WhatsappRecipient";
+const TEMPLATE_TABLE = "WhatsappTemplate";
+
+let warnedMissingConfig = false;
+
+function resolveSupabaseUrl(): string | undefined {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    process.env.SUPABASE_URL?.trim() ||
+    undefined
+  );
+}
+
+function resolveServiceRoleKey(): string | undefined {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || undefined;
+}
+
+export function getSupabaseConfigStatus(): {
+  configured: boolean;
+  url?: string;
+  missing: string[];
+} {
+  const url = resolveSupabaseUrl();
+  const key = resolveServiceRoleKey();
+  const missing: string[] = [];
+  if (!url) missing.push("NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_URL");
+  if (!key) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  return { configured: missing.length === 0, url, missing };
+}
+
+function warnMissingConfig(context: string) {
+  if (warnedMissingConfig) return;
+  warnedMissingConfig = true;
+  const { missing } = getSupabaseConfigStatus();
+  console.warn(
+    `[whatsapp/db] Supabase não configurado (${context}). Defina no serviço whatsapp: ${missing.join(", ")}`,
+  );
+}
+
+function getClient(): SupabaseClient | null {
+  const url = resolveSupabaseUrl();
+  const key = resolveServiceRoleKey();
+  if (!url || !key) {
+    warnMissingConfig("operação ignorada");
+    return null;
   }
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
 
-const TABLE = "WhatsappSession";
-const RECIPIENT_TABLE = "WhatsappRecipient";
-const TEMPLATE_TABLE = "WhatsappTemplate";
-
 export async function loadSession(sessionId = "default") {
-  const { data, error } = await getClient()
+  const db = getClient();
+  if (!db) return null;
+
+  const { data, error } = await db
     .from(TABLE)
     .select("*")
     .eq("sessionId", sessionId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) {
+    console.error("[whatsapp/db] loadSession error:", error);
+    return null;
+  }
   return data;
 }
 
@@ -35,6 +78,8 @@ export async function saveSession(
   },
 ) {
   const db = getClient();
+  if (!db) return null;
+
   const now = new Date().toISOString();
   const { data: existing } = await db
     .from(TABLE)
@@ -58,7 +103,10 @@ export async function saveSession(
       .eq("sessionId", sessionId)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      console.error("[whatsapp/db] saveSession update error:", error);
+      return null;
+    }
     return row;
   }
 
@@ -66,7 +114,10 @@ export async function saveSession(
     ...payload,
     createdAt: now,
   }).select().single();
-  if (error) throw error;
+  if (error) {
+    console.error("[whatsapp/db] saveSession insert error:", error);
+    return null;
+  }
   return row;
 }
 
@@ -80,45 +131,62 @@ export async function clearSession(sessionId = "default") {
 }
 
 export async function getActiveRecipients() {
-  const { data, error } = await getClient()
+  const db = getClient();
+  if (!db) return [];
+
+  const { data, error } = await db
     .from(RECIPIENT_TABLE)
     .select("*")
     .eq("active", true)
     .order("createdAt", { ascending: true });
-  if (error) throw error;
+  if (error) {
+    console.error("[whatsapp/db] getActiveRecipients error:", error);
+    return [];
+  }
   return data ?? [];
 }
 
-// Template functions
 export async function getTemplateByKey(key: string) {
-  const { data, error } = await getClient()
+  const db = getClient();
+  if (!db) return null;
+
+  const { data, error } = await db
     .from(TEMPLATE_TABLE)
     .select("*")
     .eq("key", key)
     .eq("active", true)
     .maybeSingle();
   if (error) {
-    console.error("[db] getTemplateByKey error:", error);
+    console.error("[whatsapp/db] getTemplateByKey error:", error);
     return null;
   }
   return data;
 }
 
 export async function getTemplatesByEvent(event: string) {
-  const { data, error } = await getClient()
+  const db = getClient();
+  if (!db) return [];
+
+  const { data, error } = await db
     .from(TEMPLATE_TABLE)
     .select("*")
     .eq("event", event)
     .eq("active", true);
   if (error) {
-    console.error("[db] getTemplatesByEvent error:", error);
+    console.error("[whatsapp/db] getTemplatesByEvent error:", error);
     return [];
   }
   return data ?? [];
 }
 
-export async function getTemplateForRecipient(event: string, recipientType: "CUSTOMER" | "ADMIN") {
-  const { data, error } = await getClient()
+export async function getTemplateForRecipient(
+  event: string,
+  recipientType: "CUSTOMER" | "ADMIN",
+) {
+  const db = getClient();
+  if (!db) return null;
+
+  const { data, error } = await db
     .from(TEMPLATE_TABLE)
     .select("*")
     .eq("event", event)
@@ -126,7 +194,7 @@ export async function getTemplateForRecipient(event: string, recipientType: "CUS
     .eq("active", true)
     .maybeSingle();
   if (error) {
-    console.error("[db] getTemplateForRecipient error:", error);
+    console.error("[whatsapp/db] getTemplateForRecipient error:", error);
     return null;
   }
   return data;

@@ -4,12 +4,12 @@ import {
   getWhatsappQr,
   logoutWhatsapp,
   reconnectWhatsapp,
+  checkWhatsappServiceHealth,
 } from "@/lib/whatsapp-client";
 import { jsonError } from "@/lib/api-utils";
+import { WhatsappServiceError } from "@/lib/whatsapp-fetch";
 import { getWhatsappServiceBaseUrl } from "@/lib/whatsapp-service-url";
-
-const secret = process.env.WHATSAPP_SERVICE_SECRET ?? "";
-const baseUrl = getWhatsappServiceBaseUrl();
+import { getDb, TABLES } from "@/lib/supabase/db";
 
 async function requireAdminApi() {
   const actor = await getAdminActor();
@@ -17,54 +17,108 @@ async function requireAdminApi() {
   return actor;
 }
 
-async function proxy(
-  method: string,
-  path: string,
-  body?: unknown
-): Promise<Response> {
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
+async function getFallbackSessionFromDb() {
+  const { data } = await getDb()
+    .from(TABLES.WhatsappSession)
+    .select("status, qrCode")
+    .eq("sessionId", "default")
+    .maybeSingle();
+
+  return {
+    status: data?.status != null ? String(data.status) : "disconnected",
+    qr: data?.qrCode != null ? String(data.qrCode) : undefined,
+  };
+}
+
+function whatsappServiceErrorResponse(err: unknown) {
+  const message =
+    err instanceof WhatsappServiceError
+      ? err.message
+      : err instanceof Error
+        ? err.message
+        : "WhatsApp error";
+
+  return NextResponse.json(
+    {
+      error: message,
+      serviceUrl: getWhatsappServiceBaseUrl(),
+      serviceReachable: false,
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  return new Response(text, {
-    status: res.status,
-    headers: { "Content-Type": res.headers.get("Content-Type") ?? "application/json" },
-  });
+    { status: 503 },
+  );
 }
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ path?: string[] }> }
+  { params }: { params: Promise<{ path?: string[] }> },
 ) {
   if (!(await requireAdminApi())) return jsonError("Forbidden", 403);
 
   const { path = [] } = await params;
   const segment = path.join("/");
 
+  if (segment === "health") {
+    try {
+      const data = await checkWhatsappServiceHealth();
+      return NextResponse.json({
+        ...data,
+        serviceUrl: getWhatsappServiceBaseUrl(),
+        serviceReachable: true,
+      });
+    } catch (err) {
+      return whatsappServiceErrorResponse(err);
+    }
+  }
+
   if (segment === "qr") {
     try {
       const data = await getWhatsappQr();
-      return NextResponse.json(data);
-    } catch (e) {
-      return jsonError(e instanceof Error ? e.message : "WhatsApp error", 502);
+      return NextResponse.json({ ...data, serviceReachable: true });
+    } catch (err) {
+      const fallback = await getFallbackSessionFromDb();
+      const message =
+        err instanceof WhatsappServiceError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "WhatsApp error";
+
+      return NextResponse.json({
+        ...fallback,
+        serviceReachable: false,
+        serviceError: message,
+        serviceUrl: getWhatsappServiceBaseUrl(),
+      });
     }
   }
 
   if (segment === "status") {
-    return proxy("GET", "/session/status");
+    try {
+      const data = await getWhatsappQr();
+      return NextResponse.json({ ...data, serviceReachable: true });
+    } catch (err) {
+      const fallback = await getFallbackSessionFromDb();
+      const message =
+        err instanceof WhatsappServiceError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "WhatsApp error";
+
+      return NextResponse.json({
+        ...fallback,
+        serviceReachable: false,
+        serviceError: message,
+      });
+    }
   }
 
   return jsonError("Not found", 404);
 }
 
 export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ path?: string[] }> }
+  _request: Request,
+  { params }: { params: Promise<{ path?: string[] }> },
 ) {
   if (!(await requireAdminApi())) return jsonError("Forbidden", 403);
 
@@ -75,8 +129,8 @@ export async function POST(
     try {
       const data = await reconnectWhatsapp();
       return NextResponse.json(data);
-    } catch (e) {
-      return jsonError(e instanceof Error ? e.message : "WhatsApp error", 502);
+    } catch (err) {
+      return whatsappServiceErrorResponse(err);
     }
   }
 
@@ -84,19 +138,9 @@ export async function POST(
     try {
       const data = await logoutWhatsapp();
       return NextResponse.json(data);
-    } catch (e) {
-      return jsonError(e instanceof Error ? e.message : "WhatsApp error", 502);
+    } catch (err) {
+      return whatsappServiceErrorResponse(err);
     }
-  }
-
-  if (segment === "send") {
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return jsonError("Invalid JSON");
-    }
-    return proxy("POST", "/messages/send", body);
   }
 
   return jsonError("Not found", 404);

@@ -1,22 +1,10 @@
-import { getWhatsappServiceBaseUrl } from "@/lib/whatsapp-service-url";
-
-const baseUrl = getWhatsappServiceBaseUrl();
-const secret = process.env.WHATSAPP_SERVICE_SECRET ?? "";
+import { fetchWhatsappService, fetchWhatsappServiceJson } from "@/lib/whatsapp-fetch";
 
 async function whatsappFetch(path: string, body: Record<string, unknown>) {
-  const res = await fetch(`${baseUrl}${path}`, {
+  return fetchWhatsappServiceJson(path, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
-    },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`WhatsApp service error ${res.status}: ${text}`);
-  }
-  return res.json();
 }
 
 // Notify admin about new order, optionally notify customer
@@ -102,29 +90,19 @@ export async function sendAdminCustomMessage(params: { text: string }) {
 
 // Connection management
 export async function getWhatsappQr(): Promise<{ qr?: string; status: string }> {
-  const res = await fetch(`${baseUrl}/session/qr`, {
-    headers: secret ? { Authorization: `Bearer ${secret}` } : {},
-  });
-  if (!res.ok) throw new Error(`WhatsApp QR error ${res.status}`);
-  return res.json();
+  return fetchWhatsappServiceJson("/session/qr");
 }
 
 export async function reconnectWhatsapp(): Promise<{ status: string }> {
-  const res = await fetch(`${baseUrl}/session/reconnect`, {
-    method: "POST",
-    headers: secret ? { Authorization: `Bearer ${secret}` } : {},
-  });
-  if (!res.ok) throw new Error(`WhatsApp reconnect error ${res.status}`);
-  return res.json();
+  return fetchWhatsappServiceJson("/session/reconnect", { method: "POST" });
 }
 
 export async function logoutWhatsapp(): Promise<{ status: string }> {
-  const res = await fetch(`${baseUrl}/session/logout`, {
-    method: "POST",
-    headers: secret ? { Authorization: `Bearer ${secret}` } : {},
-  });
-  if (!res.ok) throw new Error(`WhatsApp logout error ${res.status}`);
-  return res.json();
+  return fetchWhatsappServiceJson("/session/logout", { method: "POST" });
+}
+
+export async function checkWhatsappServiceHealth(): Promise<{ ok: boolean }> {
+  return fetchWhatsappServiceJson("/health");
 }
 
 // Helper function to safely send WhatsApp to customer (won't throw if phone is missing)

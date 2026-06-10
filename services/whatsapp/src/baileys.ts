@@ -132,7 +132,7 @@ export async function reconnect(): Promise<void> {
   }
   startPromise = null;
   connectionStatus = "reconnecting";
-  await startBaileys();
+  void startBaileys().catch((err) => console.error("[whatsapp] reconnect start failed:", err));
 }
 
 export async function logoutSession(): Promise<void> {
@@ -154,8 +154,13 @@ export async function logoutSession(): Promise<void> {
     await rm(AUTH_DIR, { recursive: true, force: true });
   }
 
-  await clearSession(SESSION_ID);
-  await startBaileys();
+  try {
+    await clearSession(SESSION_ID);
+  } catch (err) {
+    console.error("[whatsapp] clearSession failed:", err);
+  }
+
+  void startBaileys().catch((err) => console.error("[whatsapp] logout start failed:", err));
 }
 
 export async function sendAdminMessage(text: string): Promise<void> {
@@ -190,13 +195,20 @@ export async function sendMessageToPhone(phone: string, text: string): Promise<v
 }
 
 export async function getQrPayload() {
-  if (!sock && connectionStatus === "disconnected") {
+  if (!sock && (connectionStatus === "disconnected" || connectionStatus === "reconnecting")) {
     void startBaileys().catch((err) => console.error("[whatsapp] lazy start failed:", err));
   }
 
-  const row = await loadSession(SESSION_ID);
+  let qrFromDb: string | null | undefined;
+  try {
+    const row = await loadSession(SESSION_ID);
+    qrFromDb = row?.qrCode != null ? String(row.qrCode) : null;
+  } catch (err) {
+    console.error("[whatsapp] loadSession failed:", err);
+  }
+
   return {
     status: connectionStatus,
-    qr: currentQr ?? row?.qrCode ?? undefined,
+    qr: currentQr ?? qrFromDb ?? undefined,
   };
 }

@@ -8,7 +8,7 @@ import {
   getConnectionStatus,
   sendMessageToPhone,
 } from "./baileys.js";
-import { getTemplateByKey, getTemplateForRecipient } from "./db.js";
+import { getSupabaseConfigStatus, getTemplateByKey, getTemplateForRecipient } from "./db.js";
 
 const app = express();
 app.use(express.json());
@@ -67,18 +67,40 @@ app.get("/session/status", (_req, res) => {
 });
 
 app.get("/session/qr", async (_req, res) => {
-  const data = await getQrPayload();
-  res.json(data);
+  try {
+    const data = await getQrPayload();
+    res.json(data);
+  } catch (err) {
+    console.error("[whatsapp] GET /session/qr failed:", err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to get QR",
+      status: getConnectionStatus().status,
+    });
+  }
 });
 
 app.post("/session/reconnect", async (_req, res) => {
-  await reconnect();
-  res.json({ status: "reconnecting" });
+  try {
+    await reconnect();
+    res.json({ status: "reconnecting" });
+  } catch (err) {
+    console.error("[whatsapp] POST /session/reconnect failed:", err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to reconnect",
+    });
+  }
 });
 
 app.post("/session/logout", async (_req, res) => {
-  await logoutSession();
-  res.json({ status: "disconnected" });
+  try {
+    await logoutSession();
+    res.json({ status: "disconnected" });
+  } catch (err) {
+    console.error("[whatsapp] POST /session/logout failed:", err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to logout",
+    });
+  }
 });
 
 // Send message to customer using template
@@ -367,6 +389,19 @@ app.post("/notify/order-cancelled", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`WhatsApp service on :${PORT}`);
+
+  const supabase = getSupabaseConfigStatus();
+  if (!supabase.configured) {
+    console.error(
+      `[whatsapp] AVISO: Supabase não configurado. Variáveis faltando: ${supabase.missing.join(", ")}`,
+    );
+    console.error(
+      "[whatsapp] O QR pode funcionar, mas destinatários/templates e status no admin exigem Supabase.",
+    );
+  } else {
+    console.log(`[whatsapp] Supabase OK (${supabase.url})`);
+  }
+
   void startBaileys().catch((err) => {
     console.error("[whatsapp] Initial Baileys start failed:", err);
   });
