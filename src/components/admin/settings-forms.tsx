@@ -330,6 +330,8 @@ export function SettingsTabs({
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [probingMelhorEnvio, setProbingMelhorEnvio] = useState(false);
+  const [diagResult, setDiagResult] = useState<Array<{step: string; ok: boolean; detail: string}> | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
   const mpForm = useForm<MpFormValues>({
     resolver: zodResolver(mercadoPagoSettingsSchema),
     defaultValues: mercadoPago,
@@ -1499,6 +1501,51 @@ export function SettingsTabs({
                     . Se &quot;Testar conexão API&quot; retornar HTTP 403, o servidor pode estar
                     bloqueando saída para melhorenvio.com.br — libere na hospedagem.
                   </span>
+                </div>
+
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={diagLoading}
+                    onClick={async () => {
+                      setDiagLoading(true);
+                      setDiagResult(null);
+                      try {
+                        const res = await fetch("/api/admin/shipping/diagnose");
+                        const data = await res.json() as { allOk: boolean; steps: Array<{step: string; ok: boolean; detail: string}> };
+                        setDiagResult(data.steps);
+                      } catch (err) {
+                        toast.error("Falha ao executar diagnóstico: " + String(err));
+                      } finally {
+                        setDiagLoading(false);
+                      }
+                    }}
+                  >
+                    {diagLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Diagnosticando…
+                      </>
+                    ) : (
+                      "🔍 Diagnóstico completo de frete"
+                    )}
+                  </Button>
+
+                  {diagResult ? (
+                    <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-xs font-mono">
+                      {diagResult.map((s, i) => (
+                        <div key={i} className={`flex gap-2 items-start ${s.ok ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
+                          <span className="shrink-0">{s.ok ? "✅" : "❌"}</span>
+                          <div>
+                            <p className="font-semibold">{s.step}</p>
+                            <p className="opacity-80 break-all">{s.detail}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>

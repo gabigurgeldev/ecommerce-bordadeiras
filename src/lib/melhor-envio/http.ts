@@ -1,10 +1,17 @@
-import https from "node:https";
-import { URL } from "node:url";
-
 export type MelhorEnvioHttpResponse = {
   status: number;
   contentType: string;
   body: string;
+};
+
+const DEFAULT_TIMEOUT_MS = 20_000;
+
+const BASE_HEADERS: Record<string, string> = {
+  Accept: "application/json, */*;q=0.8",
+  "Accept-Encoding": "gzip, deflate, br",
+  "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+  "Cache-Control": "no-cache",
+  "Pragma": "no-cache",
 };
 
 function isRetryableNetworkError(err: unknown): boolean {
@@ -12,87 +19,79 @@ function isRetryableNetworkError(err: unknown): boolean {
   const msg = err.message.toLowerCase();
   return (
     msg.includes("timeout") ||
+    msg.includes("abort") ||
     msg.includes("econnreset") ||
     msg.includes("econnrefused") ||
     msg.includes("enetunreach") ||
-    msg.includes("eai_again")
+    msg.includes("eai_again") ||
+    msg.includes("fetch failed")
   );
 }
 
-function melhorEnvioHttpsRequestOnce(
+async function melhorEnvioFetchOnce(
   method: "GET" | "POST",
   url: string,
   headers: Record<string, string>,
   body?: string,
-  timeoutMs = 15_000,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<MelhorEnvioHttpResponse> {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    const payload = body ? Buffer.from(body, "utf8") : null;
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), timeoutMs);
 
-    const req = https.request(
-      {
-        hostname: parsed.hostname,
-        port: parsed.port ? Number(parsed.port) : 443,
-        path: `${parsed.pathname}${parsed.search}`,
-        method,
-        headers: {
-          ...headers,
-          ...(payload ? { "Content-Length": payload.length } : {}),
-        },
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () => {
-          resolve({
-            status: res.statusCode ?? 0,
-            contentType: String(res.headers["content-type"] ?? ""),
-            body: Buffer.concat(chunks).toString("utf8"),
-          });
-        });
-      },
-    );
-
-    req.on("error", reject);
-    req.setTimeout(timeoutMs, () => {
-      req.destroy(new Error("Melhor Envio request timeout"));
-    });
-    if (payload) req.write(payload);
-    req.end();
-  });
-}
-
-async function melhorEnvioHttpsRequest(
-  method: "GET" | "POST",
-  url: string,
-  headers: Record<string, string>,
-  body?: string,
-  timeoutMs = 15_000,
-): Promise<MelhorEnvioHttpResponse> {
   try {
-    return await melhorEnvioHttpsRequestOnce(method, url, headers, body, timeoutMs);
-  } catch (err) {
-    if (!isRetryableNetworkError(err)) throw err;
-    return melhorEnvioHttpsRequestOnce(method, url, headers, body, timeoutMs);
+    const res = await fetch(url, {
+      method,
+      headers: { ...BASE_HEADERS, ...headers },
+      body,
+      signal: controller.signal,
+      // @ts-expect-error — Node.js fetch-only option; safe to ignore in browser bundles
+      duplex: "half",
+    });
+
+    const contentType = res.headers.get("content-type") ?? "";
+    const resBody = await res.text();
+
+    return {
+      status: res.status,
+      contentType,
+      body: resBody,
+    };
+  } finally {
+    clearTimeout(timerId);
   }
 }
 
-/** Direct HTTPS POST (bypasses Node fetch / HTTP_PROXY). */
+async function melhorEnvioFetch(
+  method: "GET" | "POST",
+  url: string,
+  headers: Record<string, string>,
+  body?: string,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<MelhorEnvioHttpResponse> {
+  try {
+    return await melhorEnvioFetchOnce(method, url, headers, body, timeoutMs);
+  } catch (err) {
+    if (!isRetryableNetworkError(err)) throw err;
+    // single retry after transient failure
+    return melhorEnvioFetchOnce(method, url, headers, body, timeoutMs);
+  }
+}
+
+/** POST request to Melhor Envio. */
 export function melhorEnvioHttpsPost(
   url: string,
   body: string,
   headers: Record<string, string>,
-  timeoutMs = 15_000,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<MelhorEnvioHttpResponse> {
-  return melhorEnvioHttpsRequest("POST", url, headers, body, timeoutMs);
+  return melhorEnvioFetch("POST", url, headers, body, timeoutMs);
 }
 
-/** Direct HTTPS GET (bypasses Node fetch / HTTP_PROXY). */
+/** GET request to Melhor Envio. */
 export function melhorEnvioHttpsGet(
   url: string,
   headers: Record<string, string>,
-  timeoutMs = 15_000,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<MelhorEnvioHttpResponse> {
-  return melhorEnvioHttpsRequest("GET", url, headers, undefined, timeoutMs);
+  return melhorEnvioFetch("GET", url, headers, undefined, timeoutMs);
 }

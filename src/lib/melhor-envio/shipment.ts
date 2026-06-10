@@ -231,20 +231,59 @@ export async function calculateMelhorEnvioShipment(input: {
     );
 
     if (res.status < 200 || res.status >= 300) {
-      console.error("[melhor-envio] calculate failed:", res.status, res.body.slice(0, 300));
+      const bodySnippet = res.body.slice(0, 500);
+      console.error("[melhor-envio] calculate failed:", res.status, bodySnippet);
+
+      let meMessage: string | null = null;
+      try {
+        const errBody = JSON.parse(res.body) as Record<string, unknown>;
+        if (typeof errBody.message === "string" && errBody.message.trim()) {
+          meMessage = errBody.message.trim();
+        } else if (typeof errBody.error === "string" && errBody.error.trim()) {
+          meMessage = errBody.error.trim();
+        } else if (Array.isArray(errBody.errors)) {
+          meMessage = (errBody.errors as string[]).join("; ");
+        }
+      } catch {
+        /* non-JSON body */
+      }
+
+      const envLabel = env === "sandbox" ? "Sandbox" : "Produção";
+
       if (res.status === 401) {
-        const envLabel = env === "sandbox" ? "Sandbox" : "Produção";
         return {
           ok: false,
           error: "Melhor Envio HTTP 401",
           fallbackMessage:
-            `Token inválido para o ambiente ${envLabel}. Gere o token no painel correto (sandbox.melhorenvio.com.br ≠ melhorenvio.com.br) ou ajuste o toggle Modo sandbox em Admin → Configurações → Frete e Envio.`,
+            `Token inválido para o ambiente ${envLabel}. Gere o token no painel correto (sandbox.melhorenvio.com.br ≠ melhorenvio.com.br) ou ajuste o toggle Modo sandbox em Admin → Configurações.`,
         };
       }
+
+      if (res.status === 422) {
+        return {
+          ok: false,
+          error: "Melhor Envio HTTP 422",
+          fallbackMessage: meMessage
+            ? `Melhor Envio rejeitou o pedido: ${meMessage}`
+            : "Dados inválidos para cotação. Verifique CEP de origem, peso e dimensões do produto em Admin.",
+        };
+      }
+
+      if (res.status === 403) {
+        return {
+          ok: false,
+          error: "Melhor Envio HTTP 403",
+          fallbackMessage:
+            `Token sem permissão ou servidor bloqueando saída para ${envLabel}. Verifique se o token tem escopo "shipping-calculate" e se o firewall libera melhorenvio.com.br.`,
+        };
+      }
+
       return {
         ok: false,
         error: `Melhor Envio HTTP ${res.status}`,
-        fallbackMessage: "Não foi possível calcular o frete. Tente novamente em instantes.",
+        fallbackMessage: meMessage
+          ? `Melhor Envio (HTTP ${res.status}): ${meMessage}`
+          : `Serviço Melhor Envio retornou HTTP ${res.status}. Tente novamente em instantes.`,
       };
     }
 
