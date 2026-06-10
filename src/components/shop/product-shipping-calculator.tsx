@@ -35,10 +35,14 @@ function maskCep(raw: string): string {
 export function ProductShippingCalculator({
   productId,
   quantity,
+  variantId,
+  embedded = false,
   className,
 }: {
   productId: string;
   quantity: number;
+  variantId?: string;
+  embedded?: boolean;
   className?: string;
 }) {
   const [cep, setCep] = useState("");
@@ -70,6 +74,7 @@ export function ProductShippingCalculator({
           productId,
           quantity,
           cep: digits,
+          ...(variantId ? { variantId } : {}),
         }),
         signal: controller.signal,
       });
@@ -117,15 +122,39 @@ export function ProductShippingCalculator({
   }
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div
+      className={cn(
+        "space-y-4",
+        embedded &&
+          "rounded-xl border border-[var(--color-card-border)] bg-[var(--secondary)]/30 p-4",
+        className,
+      )}
+    >
       <div className="flex items-center gap-2">
-        <MapPin className="h-5 w-5 text-[var(--color-brown)]" />
-        <h2 className="font-display text-lg font-semibold text-[var(--color-brown)]">
-          Calcular frete e prazo
-        </h2>
+        <MapPin
+          className={cn(
+            "text-[var(--color-brown)]",
+            embedded ? "h-4 w-4" : "h-5 w-5",
+          )}
+        />
+        {embedded ? (
+          <p className="text-sm font-semibold text-[var(--color-brown)]">
+            Calcular frete e prazo
+          </p>
+        ) : (
+          <h2 className="font-display text-lg font-semibold text-[var(--color-brown)]">
+            Calcular frete e prazo
+          </h2>
+        )}
       </div>
 
-      <form onSubmit={handleCalculate} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <form
+        onSubmit={handleCalculate}
+        className={cn(
+          "flex flex-col gap-3 sm:flex-row sm:items-end",
+          embedded && "gap-2",
+        )}
+      >
         <div className="flex-1 space-y-1.5">
           <label htmlFor="product-shipping-cep" className="text-sm font-medium text-[var(--color-brown)]">
             CEP

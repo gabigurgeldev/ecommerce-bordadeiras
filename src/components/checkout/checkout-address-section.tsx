@@ -143,7 +143,7 @@ export function CheckoutAddressSection({
   cardStyle?: React.CSSProperties;
   headingStyle?: React.CSSProperties;
 }) {
-  const { lines } = useCartStore();
+  const { lines, hasHydrated } = useCartStore();
 
   const [selectedId, setSelectedId] = useState<string | "new">(
     savedAddressId ??
@@ -173,6 +173,7 @@ export function CheckoutAddressSection({
   const [savingAddress, setSavingAddress] = useState(false);
   const [confirmed, setConfirmed] = useState(initialConfirmed);
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [shippingError, setShippingError] = useState<string | null>(null);
 
   const shippingRequestRef = useRef(0);
 
@@ -195,6 +196,8 @@ export function CheckoutAddressSection({
 
   const updateShipping = useCallback(
     async (cep: string, method?: ShippingMethodId) => {
+      if (!hasHydrated) return;
+
       const cartItems = lines.map((l) => ({
         productId: l.productId,
         variantId: l.variantId,
@@ -204,6 +207,7 @@ export function CheckoutAddressSection({
       if (digits.length !== 8 || cartItems.length === 0) {
         setShippingCalculated(false);
         setShippingOptions([]);
+        setShippingError(null);
         notifyShipping(0, "", undefined, false);
         return;
       }
@@ -211,6 +215,7 @@ export function CheckoutAddressSection({
       const requestId = ++shippingRequestRef.current;
       setLoadingShipping(true);
       setShippingCalculated(false);
+      setShippingError(null);
 
       try {
         const result = await estimateShipping(digits, cartItems, method);
@@ -219,8 +224,8 @@ export function CheckoutAddressSection({
         if (!result.ok) {
           setShippingOptions([]);
           setEstimatedDays("");
+          setShippingError(result.error);
           notifyShipping(0, "", undefined, false);
-          toast.error(result.error);
           return;
         }
 
@@ -231,6 +236,7 @@ export function CheckoutAddressSection({
         setShippingMethod(result.method);
         setFreeShipping(Boolean(result.freeShipping) || result.shippingCents === 0);
         setShippingCalculated(true);
+        setShippingError(null);
         notifyShipping(
           result.shippingCents,
           result.estimatedDays,
@@ -243,24 +249,26 @@ export function CheckoutAddressSection({
         }
       }
     },
-    [lines, notifyShipping],
+    [hasHydrated, lines, notifyShipping],
   );
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (selectedId !== "new") {
       const addr = addresses.find((a) => a.id === selectedId);
       if (addr) void updateShipping(addr.zipCode);
     }
-  }, [selectedId, addresses, updateShipping]);
+  }, [hasHydrated, selectedId, addresses, updateShipping]);
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (selectedId === "new") {
       const digits = form.cep.replace(/\D/g, "");
       if (digits.length === 8) {
         void updateShipping(digits);
       }
     }
-  }, [lines, selectedId, form.cep, updateShipping]);
+  }, [hasHydrated, lines, selectedId, form.cep, updateShipping]);
 
   async function handleCepChange(raw: string) {
     const masked = maskCep(raw);
@@ -690,11 +698,19 @@ export function CheckoutAddressSection({
               </div>
             )}
 
-            {!loadingShipping && !shippingCalculated && (
+            {!loadingShipping && !shippingCalculated && !shippingError && (
               <p className="mt-2 text-sm text-zinc-500">
-                Informe o CEP para calcular o frete
+                {hasHydrated
+                  ? "Informe o CEP para calcular o frete"
+                  : "Carregando carrinho…"}
               </p>
             )}
+
+            {shippingError ? (
+              <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {shippingError}
+              </p>
+            ) : null}
 
             {!loadingShipping && shippingCalculated && shippingOptions.length > 0 && (
               <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">

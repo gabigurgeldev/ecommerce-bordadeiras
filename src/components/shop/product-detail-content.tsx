@@ -3,7 +3,6 @@
 import { BuyBox } from "@/components/shop/buy-box";
 import { ProductGallery } from "@/components/shop/product-gallery";
 import { ProductReviewsSection } from "@/components/shop/product-reviews-section";
-import { ProductShippingCalculator } from "@/components/shop/product-shipping-calculator";
 import { sanitizeProductHtml } from "@/lib/sanitize";
 import type {
   ProductReviewPublic,
@@ -90,10 +89,6 @@ export function ProductDetailContent({
         canReview={canReview}
         existingUserReview={existingUserReview}
       />
-
-      <ProductSectionCard title="Entrega">
-        <ProductShippingCalculator productId={product.id} quantity={qty} />
-      </ProductSectionCard>
     </div>
   );
 }

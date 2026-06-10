@@ -15,6 +15,8 @@ const DEFAULT_WIDTH_CM = 11;
 const DEFAULT_HEIGHT_CM = 2;
 /** Limite típico de valor segurado (R$) aceito pelas transportadoras na cotação ME. */
 const MAX_INSURANCE_VALUE_REAIS = 4477;
+/** Valor mínimo exigido pela API ME — 0 invalida cotações. */
+const MIN_INSURANCE_VALUE_REAIS = 0.01;
 
 export type MelhorEnvioProductInput = {
   id: string;
@@ -80,7 +82,7 @@ function toMeProducts(products: MelhorEnvioProductInput[]): MeCalculateProduct[]
     height: Math.max(p.height, 1),
     length: Math.max(p.length, 1),
     weight: Math.max(p.weight, MIN_WEIGHT_KG),
-    insurance_value: Math.max(p.insuranceValue, 0),
+    insurance_value: Math.max(p.insuranceValue, MIN_INSURANCE_VALUE_REAIS),
     quantity: Math.max(p.quantity, 1),
   }));
 }
@@ -120,9 +122,12 @@ export function buildMelhorEnvioProductsFromCart(
     height: item.heightCm ?? DEFAULT_HEIGHT_CM,
     length: item.lengthCm ?? DEFAULT_LENGTH_CM,
     weight: Math.max((item.weightGrams ?? 300) / 1000, MIN_WEIGHT_KG),
-    insuranceValue: Math.min(
-      (item.priceCents ?? 0) / 100,
-      MAX_INSURANCE_VALUE_REAIS,
+    insuranceValue: Math.max(
+      MIN_INSURANCE_VALUE_REAIS,
+      Math.min(
+        ((item.priceCents ?? 0) * item.quantity) / 100,
+        MAX_INSURANCE_VALUE_REAIS,
+      ),
     ),
     quantity: item.quantity,
   }));
@@ -228,6 +233,10 @@ export async function calculateMelhorEnvioShipment(input: {
     if (options.length === 0) {
       const items = Array.isArray(data) ? data : [];
       const firstError = items.find((i) => i.error)?.error;
+      console.error(
+        "[melhor-envio] no shipping options:",
+        res.body.slice(0, 500),
+      );
       return {
         ok: false,
         error: "Nenhuma opção de frete",

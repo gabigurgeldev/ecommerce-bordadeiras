@@ -13,6 +13,7 @@ export const maxDuration = 20;
 const quoteSchema = z.object({
   cep: z.string().min(8),
   productId: entityIdSchema,
+  variantId: entityIdSchema.optional(),
   quantity: z.coerce.number().int().positive().max(99).default(1),
 });
 
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     const parsed = parseBody(quoteSchema, body);
     if (!parsed.success) return parsed.response;
 
-    const { cep, productId, quantity } = parsed.data;
+    const { cep, productId, variantId, quantity } = parsed.data;
 
     if (!isValidCep(cep)) {
       return jsonError("CEP inválido (8 dígitos)", 422);
@@ -42,10 +43,30 @@ export async function POST(request: Request) {
       return jsonError("Produto não encontrado", 404);
     }
 
+    let priceCents = Number(product.priceCents);
+
+    if (variantId) {
+      const { data: variant } = await getDb()
+        .from(TABLES.ProductVariant)
+        .select("id, productId, priceCents, active")
+        .eq("id", variantId)
+        .eq("productId", productId)
+        .eq("active", true)
+        .maybeSingle();
+
+      if (!variant) {
+        return jsonError("Variação não encontrada", 404);
+      }
+
+      if (variant.priceCents != null) {
+        priceCents = Number(variant.priceCents);
+      }
+    }
+
     const quote = await calculateShippingForProduct(cep, {
       productId: String(product.id),
       quantity,
-      priceCents: Number(product.priceCents),
+      priceCents,
       weightGrams:
         product.weightGrams != null ? Number(product.weightGrams) : null,
       lengthCm: product.lengthCm != null ? Number(product.lengthCm) : null,
@@ -64,7 +85,10 @@ export async function POST(request: Request) {
         {
           ok: false,
           error: quote.error,
-          message: quote.fallbackMessage ?? quote.error,
+          message:
+            quote.fallbackMessage ??
+            quote.error ??
+            "Não foi possível calcular o frete.",
         },
         { status: 422 },
       );

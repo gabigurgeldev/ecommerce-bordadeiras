@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppSession } from "@/components/providers/session-provider";
+import { ProductShippingCalculator } from "@/components/shop/product-shipping-calculator";
 import { cn } from "@/lib/utils";
 
 function variantLabel(v: ProductVariant) {
@@ -222,6 +223,8 @@ export function BuyBox({
           disabled={!inStock}
           onClick={() => {
             addToCart();
+            const cartLines = useCartStore.getState().lines;
+            if (cartLines.length === 0) return;
             if (!user) {
               router.push("/login?callbackUrl=%2Fcheckout");
             } else {
@@ -233,6 +236,13 @@ export function BuyBox({
           Comprar agora
         </Button>
       </div>
+
+      <ProductShippingCalculator
+        productId={product.id}
+        quantity={qty}
+        variantId={selectedVariant?.id}
+        embedded
+      />
 
       <div className="grid gap-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--secondary)]/30 p-4 sm:grid-cols-3">
         <div className="flex items-start gap-2.5">

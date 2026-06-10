@@ -11,6 +11,7 @@ type CartState = {
   couponCode: string | null;
   syncedUserId: string | null;
   syncEpoch: number;
+  hasHydrated: boolean;
   addItem: (item: Omit<CartLineInput, "quantity"> & { quantity?: number }) => void;
   removeItem: (lineId: string) => void;
   setQuantity: (lineId: string, quantity: number) => void;
@@ -18,6 +19,7 @@ type CartState = {
   clearCart: () => void;
   applyCoupon: (code: string | null) => void;
   setSyncedUserId: (userId: string | null) => void;
+  setHasHydrated: (value: boolean) => void;
   itemCount: () => number;
   subtotalCents: () => number;
 };
@@ -33,6 +35,7 @@ export const useCartStore = create<CartState>()(
       couponCode: null,
       syncedUserId: null,
       syncEpoch: 0,
+      hasHydrated: false,
       addItem: (item) => {
         const id = lineId(item.productId, item.variantId);
         const qty = item.quantity ?? 1;
@@ -88,11 +91,23 @@ export const useCartStore = create<CartState>()(
         })),
       applyCoupon: (code) => set({ couponCode: code }),
       setSyncedUserId: (userId) => set({ syncedUserId: userId }),
+      setHasHydrated: (value) => set({ hasHydrated: value }),
       itemCount: () =>
         get().lines.reduce((sum, l) => sum + l.quantity, 0),
       subtotalCents: () =>
         get().lines.reduce((sum, l) => sum + l.priceCents * l.quantity, 0),
     }),
-    { name: "bordadeiras-cart" },
+    {
+      name: "bordadeiras-cart",
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+      partialize: (state) => ({
+        lines: state.lines,
+        couponCode: state.couponCode,
+        syncedUserId: state.syncedUserId,
+        syncEpoch: state.syncEpoch,
+      }),
+    },
   ),
 );

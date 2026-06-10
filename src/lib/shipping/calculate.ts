@@ -54,11 +54,55 @@ function formatEstimatedDaysRange(options: ShippingOption[]): string {
   return `${min}–${max} dias úteis`;
 }
 
+function validateFixedItems(items: ShippingCartItem[]): ShippingQuoteFailure | null {
+  const invalid = items.filter(
+    (i) =>
+      i.shippingMode === ShippingMode.FIXED &&
+      (i.fixedShippingCents == null || i.fixedShippingCents <= 0),
+  );
+  if (invalid.length === 0) return null;
+  return {
+    ok: false,
+    error: "Frete fixo não configurado",
+    fallbackMessage:
+      "Este produto está com frete fixo sem valor definido. Configure em Admin → Produtos.",
+  };
+}
+
 function sumFixedShipping(items: ShippingCartItem[]): number {
   return items.reduce((sum, item) => {
     if (item.shippingMode !== ShippingMode.FIXED) return sum;
     return sum + (item.fixedShippingCents ?? 0);
   }, 0);
+}
+
+function ensureAtLeastOneOption(
+  options: ShippingOption[],
+  shippingCents: number,
+  estimatedDays: string,
+  freeShippingApplied: boolean,
+): ShippingOption[] {
+  if (options.length > 0) return options;
+  if (freeShippingApplied || shippingCents === 0) {
+    return [
+      {
+        serviceId: "FREE",
+        label: "Frete grátis",
+        company: "",
+        priceCents: 0,
+        deliveryDays: 0,
+      },
+    ];
+  }
+  return [
+    {
+      serviceId: "SHIPPING",
+      label: "Frete",
+      company: "",
+      priceCents: shippingCents,
+      deliveryDays: 0,
+    },
+  ];
 }
 
 function cartSubtotalCents(items: ShippingCartItem[]): number {
@@ -104,7 +148,8 @@ async function quoteMelhorEnvioForItems(
     };
   }
 
-  if (!shippingSettings.originCep) {
+  const originCep = normalizeCep(shippingSettings.originCep);
+  if (!originCep) {
     return {
       ok: false,
       error: "CEP de origem não configurado",
@@ -113,7 +158,7 @@ async function quoteMelhorEnvioForItems(
   }
 
   const quote = await calculateMelhorEnvioShipment({
-    fromCep: shippingSettings.originCep,
+    fromCep: originCep,
     toCep: destinationCep,
     products: buildMelhorEnvioProductsFromCart(calculatedItems),
   });
@@ -168,6 +213,9 @@ export async function calculateShippingForCart(
   const calculatedItems = items.filter(
     (i) => i.shippingMode === ShippingMode.CORREIOS,
   );
+
+  const fixedValidation = validateFixedItems(fixedItems);
+  if (fixedValidation) return fixedValidation;
 
   const fixedCents = sumFixedShipping(fixedItems);
 
@@ -253,7 +301,7 @@ export async function calculateShippingForCart(
     };
   }
 
-  const finalOptions =
+  const finalOptions = ensureAtLeastOneOption(
     adjustedOptions.length > 0
       ? adjustedOptions
       : threshold.cents > 0
@@ -266,7 +314,11 @@ export async function calculateShippingForCart(
               deliveryDays: 0,
             },
           ]
-        : [];
+        : [],
+    threshold.cents,
+    estimatedDays,
+    false,
+  );
 
   return {
     ok: true,

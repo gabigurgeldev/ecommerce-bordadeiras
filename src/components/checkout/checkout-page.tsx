@@ -69,7 +69,8 @@ export function CheckoutPage({
   checkoutTheme?: CheckoutTheme;
 }) {
   const router = useRouter();
-  const { lines, couponCode, applyCoupon, subtotalCents } = useCartStore();
+  const { lines, couponCode, applyCoupon, subtotalCents, hasHydrated } =
+    useCartStore();
 
   const [wizardStep, setWizardStep] = useState<WizardStep>("endereco");
   const [addressData, setAddressData] = useState<AddressReady | null>(null);
@@ -99,10 +100,11 @@ export function CheckoutPage({
   trustMsgIdxRef.current = trustMsgIdx;
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (lines.length === 0) {
       router.replace("/sacola");
     }
-  }, [lines.length, router]);
+  }, [lines.length, hasHydrated, router]);
 
   useEffect(() => {
     if (trustMessages.length < 2) return;
