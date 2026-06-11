@@ -283,6 +283,7 @@ function buildOrderPayerFromBrick(
 
   return {
     email,
+    entity_type: "individual",
     first_name: firstName,
     last_name: lastName,
     ...(identification ? { identification } : {}),
@@ -425,6 +426,7 @@ export async function createPixPayment(input: {
     total_amount: amount,
     payer: {
       email,
+      entity_type: "individual",
       first_name: firstName,
       last_name: lastName,
     },
@@ -437,7 +439,6 @@ export async function createPixPayment(input: {
       ],
     },
   };
-  appendNotificationUrl(body);
 
   const order = await createMpOrder(input.orderId, "pix-order", body);
   const payment = order.transactions?.payments?.[0];
@@ -546,7 +547,6 @@ export async function createBrickPayment(input: {
       ],
     },
   };
-  appendNotificationUrl(body);
 
   const order = await createMpOrder(
     input.orderId,

@@ -13,6 +13,8 @@ import { jsonError } from "@/lib/api-utils";
 import { WhatsappServiceError } from "@/lib/whatsapp-fetch";
 import { getWhatsappServiceBaseUrl } from "@/lib/whatsapp-service-url";
 
+export const dynamic = "force-dynamic";
+
 async function requireAdminApi() {
   const actor = await getAdminActor();
   if (!actor) return null;
@@ -74,8 +76,10 @@ export async function GET(
       return new Response(upstream.body, {
         headers: {
           "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache, no-transform",
+          "Cache-Control": "no-cache, no-store, no-transform",
           Connection: "keep-alive",
+          "X-Accel-Buffering": "no",
+          "Transfer-Encoding": "chunked",
         },
       });
     } catch (err) {

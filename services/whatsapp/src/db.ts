@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const TABLE = "WhatsappSession";
@@ -111,6 +112,7 @@ export async function saveSession(
   }
 
   const { data: row, error } = await db.from(TABLE).insert({
+    id: randomUUID(),
     ...payload,
     createdAt: now,
   }).select().single();
