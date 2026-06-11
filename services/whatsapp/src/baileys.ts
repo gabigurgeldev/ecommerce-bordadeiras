@@ -1,11 +1,15 @@
+import NodeCache from "@cacheable/node-cache";
 import { existsSync } from "fs";
 import { rm } from "fs/promises";
 import makeWASocket, {
   Browsers,
+  DEFAULT_CACHE_TTLS,
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
+  proto,
   useMultiFileAuthState,
+  type CacheStore,
   type WASocket,
   type WAVersion,
 } from "@whiskeysockets/baileys";
@@ -27,12 +31,98 @@ let connectionStatus = "disconnected";
 let startPromise: Promise<WASocket> | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+const messageStore = new Map<string, proto.IMessage>();
+const msgRetryCounterCache = new NodeCache({
+  stdTTL: DEFAULT_CACHE_TTLS.MSG_RETRY,
+  useClones: false,
+}) as unknown as CacheStore;
+
+function messageStoreKey(key: proto.IMessageKey): string | null {
+  if (!key.remoteJid || !key.id) return null;
+  return `${key.remoteJid}:${key.id}:${key.fromMe ? "1" : "0"}`;
+}
+
+function rememberMessage(key: proto.IMessageKey, message: proto.IMessage | null | undefined) {
+  const storeKey = messageStoreKey(key);
+  if (!storeKey || !message) return;
+  messageStore.set(storeKey, message);
+  if (messageStore.size > 500) {
+    const oldest = messageStore.keys().next().value;
+    if (oldest) messageStore.delete(oldest);
+  }
+}
+
 export function normalizePhoneDigits(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");
   if (digits.length < 10) return null;
   if (digits.startsWith("55") && digits.length >= 12) return digits;
   if (digits.length === 10 || digits.length === 11) return `55${digits}`;
   return digits;
+}
+
+/** Brazilian mobiles may be stored with or without the 9th digit — try both. */
+export function buildBrazilPhoneCandidates(raw: string): string[] {
+  const base = normalizePhoneDigits(raw);
+  if (!base) return [];
+
+  const candidates: string[] = [base];
+  if (base.startsWith("55") && (base.length === 12 || base.length === 13)) {
+    const area = base.slice(2, 4);
+    const local = base.slice(4);
+    if (base.length === 13 && local.length === 9 && local.startsWith("9")) {
+      candidates.push(`55${area}${local.slice(1)}`);
+    } else if (base.length === 12 && local.length === 8) {
+      candidates.push(`55${area}9${local}`);
+    }
+  }
+  return [...new Set(candidates)];
+}
+
+async function resolveDeliveryJid(phone: string): Promise<{ jid: string; digits: string }> {
+  if (!sock || connectionStatus !== "connected") {
+    throw new Error("NOT_CONNECTED: WhatsApp not connected");
+  }
+
+  const candidates = buildBrazilPhoneCandidates(phone);
+  if (candidates.length === 0) {
+    throw new Error("Invalid phone number");
+  }
+
+  for (const digits of candidates) {
+    const pnJid = `${digits}@s.whatsapp.net`;
+    try {
+      const results = await sock.onWhatsApp(pnJid);
+      const hit = results?.find((entry) => !!entry.exists);
+      if (hit?.jid) {
+        if (hit.jid !== pnJid) {
+          appendLog({
+            level: "info",
+            category: "send",
+            message: "Destinatário resolvido via onWhatsApp (LID/PN)",
+            meta: {
+              phone: maskPhone(digits),
+              resolvedJid: hit.jid.endsWith("@lid") ? "lid" : "pn",
+            },
+          });
+        }
+        return { jid: hit.jid, digits };
+      }
+    } catch (err) {
+      appendLog({
+        level: "warn",
+        category: "send",
+        message: "onWhatsApp falhou para candidato de telefone",
+        meta: {
+          phone: maskPhone(digits),
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
+    }
+  }
+
+  throw new Error(
+    `NOT_ON_WHATSAPP: Número não registrado no WhatsApp (${maskPhone(candidates[0])})`,
+  );
 }
 
 export function getConnectionStatus() {
@@ -136,7 +226,12 @@ export async function startBaileys(): Promise<WASocket> {
         // reduz a latência das init queries (causa comum do "Timed Out").
         keys: makeCacheableSignalKeyStore(state.keys, logger),
       },
-      generateHighQualityLinkPreview: true,
+      generateHighQualityLinkPreview: false,
+      msgRetryCounterCache,
+      getMessage: async (key) => {
+        const storeKey = messageStoreKey(key);
+        return storeKey ? messageStore.get(storeKey) : undefined;
+      },
       // Sem timeout fixo nas queries: as init queries após o pareamento
       // costumam estourar o default (60s) em redes lentas → statusCode 408.
       defaultQueryTimeoutMs: undefined,
@@ -152,6 +247,31 @@ export async function startBaileys(): Promise<WASocket> {
     socket.ev.on("creds.update", async () => {
       await saveCreds();
       await persistAuthState(state.creds as object, {}, connectionStatus, currentQr);
+    });
+
+    socket.ev.on("messages.upsert", ({ messages }) => {
+      for (const msg of messages) {
+        rememberMessage(msg.key, msg.message);
+      }
+    });
+
+    socket.ev.on("messages.update", (updates) => {
+      for (const { key, update } of updates) {
+        if (update.message) {
+          rememberMessage(key, update.message);
+        }
+        if (update.status === proto.WebMessageInfo.Status.ERROR) {
+          appendLog({
+            level: "error",
+            category: "send",
+            message: "WhatsApp reportou falha na entrega da mensagem",
+            meta: {
+              remoteJid: key.remoteJid?.endsWith("@lid") ? "lid" : "pn",
+              messageId: key.id ?? null,
+            },
+          });
+        }
+      }
     });
 
     socket.ev.on("connection.update", async (update) => {
@@ -307,23 +427,10 @@ export async function sendAdminMessage(text: string): Promise<AdminMessageResult
   let skipped = 0;
 
   for (const recipient of recipients) {
-    const digits = normalizePhoneDigits(String(recipient.phone));
-    if (!digits) {
-      skipped++;
-      appendLog({
-        level: "warn",
-        category: "send",
-        message: "Destinatário admin ignorado — telefone inválido",
-        meta: {
-          label: recipient.label ? String(recipient.label) : null,
-          phone: maskPhone(String(recipient.phone)),
-        },
-      });
-      continue;
-    }
-    const jid = `${digits}@s.whatsapp.net`;
     try {
-      await sock.sendMessage(jid, { text });
+      const { jid, digits } = await resolveDeliveryJid(String(recipient.phone));
+      const sentMsg = await sock.sendMessage(jid, { text });
+      if (sentMsg) rememberMessage(sentMsg.key, sentMsg.message);
       sent++;
       appendLog({
         level: "success",
@@ -335,13 +442,28 @@ export async function sendAdminMessage(text: string): Promise<AdminMessageResult
         },
       });
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.startsWith("Invalid phone") || message.startsWith("NOT_ON_WHATSAPP:")) {
+        skipped++;
+        appendLog({
+          level: "warn",
+          category: "send",
+          message: "Destinatário admin ignorado — telefone inválido ou ausente no WhatsApp",
+          meta: {
+            label: recipient.label ? String(recipient.label) : null,
+            phone: maskPhone(String(recipient.phone)),
+            error: message.replace(/^[A-Z_]+:\s*/, ""),
+          },
+        });
+        continue;
+      }
       appendLog({
         level: "error",
         category: "send",
         message: "Falha ao enviar para destinatário admin",
         meta: {
-          phone: maskPhone(digits),
-          error: err instanceof Error ? err.message : String(err),
+          phone: maskPhone(String(recipient.phone)),
+          error: message,
         },
       });
       throw err;
@@ -364,13 +486,10 @@ export async function sendMessageToPhone(phone: string, text: string): Promise<v
     throw new Error("NOT_CONNECTED: WhatsApp not connected");
   }
 
-  const digits = normalizePhoneDigits(phone);
-  if (!digits) {
-    throw new Error("Invalid phone number");
-  }
-  const jid = `${digits}@s.whatsapp.net`;
   try {
-    await sock.sendMessage(jid, { text });
+    const { jid, digits } = await resolveDeliveryJid(phone);
+    const sentMsg = await sock.sendMessage(jid, { text });
+    if (sentMsg) rememberMessage(sentMsg.key, sentMsg.message);
     appendLog({
       level: "success",
       category: "send",
@@ -383,7 +502,7 @@ export async function sendMessageToPhone(phone: string, text: string): Promise<v
       category: "send",
       message: "Falha ao enviar para cliente",
       meta: {
-        phone: maskPhone(digits),
+        phone: maskPhone(phone),
         error: err instanceof Error ? err.message : String(err),
       },
     });
