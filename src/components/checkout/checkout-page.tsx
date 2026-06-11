@@ -69,7 +69,7 @@ export function CheckoutPage({
   checkoutTheme?: CheckoutTheme;
 }) {
   const router = useRouter();
-  const { lines, couponCode, applyCoupon, subtotalCents, hasHydrated } =
+  const { lines, couponCode, applyCoupon, subtotalCents, hasHydrated, clearCart } =
     useCartStore();
 
   const [wizardStep, setWizardStep] = useState<WizardStep>("endereco");
@@ -243,6 +243,7 @@ export function CheckoutPage({
         return;
       }
 
+      clearCart();
       setOrderId(result.orderId);
       setTotalCents(result.totalCents);
       if (result.shippingCents !== addressData.shippingCents) {

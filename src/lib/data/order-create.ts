@@ -1,4 +1,6 @@
+import { fetchOrderWithItems } from "@/lib/data/order-fetch";
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
+import { formatSupabaseError } from "@/lib/supabase/error-message";
 import type { JsonValue } from "@/lib/types/database";
 
 export type CreateOrderInput = {
@@ -52,7 +54,7 @@ export async function createOrderWithItems(input: CreateOrderInput) {
     createdAt: now,
     updatedAt: now,
   });
-  if (orderError) throw orderError;
+  if (orderError) throw new Error(formatSupabaseError(orderError));
 
   const itemRows = input.items.map((item) => ({
     id: newId(),
@@ -66,13 +68,7 @@ export async function createOrderWithItems(input: CreateOrderInput) {
   }));
 
   const { error: itemsError } = await db.from(TABLES.OrderItem).insert(itemRows);
-  if (itemsError) throw itemsError;
+  if (itemsError) throw new Error(formatSupabaseError(itemsError));
 
-  const { data: order } = await db
-    .from(TABLES.Order)
-    .select("*, OrderItem(*)")
-    .eq("id", orderId)
-    .single();
-
-  return order;
+  return fetchOrderWithItems(orderId);
 }

@@ -59,23 +59,35 @@ function addressToShipping(addr: Address): ShippingAddress {
   };
 }
 
-async function lookupCep(cep: string) {
+type CepLookupResult =
+  | {
+      status: "ok";
+      data: {
+        logradouro?: string;
+        bairro?: string;
+        localidade?: string;
+        uf?: string;
+      };
+    }
+  | { status: "not_found" }
+  | { status: "unavailable" };
+
+async function lookupCep(cep: string): Promise<CepLookupResult> {
   const digits = cep.replace(/\D/g, "");
-  if (digits.length !== 8) return null;
+  if (digits.length !== 8) return { status: "unavailable" };
   try {
-    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-    if (!res.ok) return null;
+    const res = await fetch(`/api/cep/${digits}`);
+    if (res.status === 404) return { status: "not_found" };
+    if (!res.ok) return { status: "unavailable" };
     const data = (await res.json()) as {
-      erro?: boolean;
       logradouro?: string;
       bairro?: string;
       localidade?: string;
       uf?: string;
     };
-    if (data.erro) return null;
-    return data;
+    return { status: "ok", data };
   } catch {
-    return null;
+    return { status: "unavailable" };
   }
 }
 
@@ -277,19 +289,23 @@ export function CheckoutAddressSection({
     if (digits.length === 8) {
       setLoadingCep(true);
       try {
-        const data = await lookupCep(digits);
-        if (data) {
+        const result = await lookupCep(digits);
+        if (result.status === "ok") {
           setForm((f) => ({
             ...f,
-            street: data.logradouro ?? f.street,
-            neighborhood: data.bairro ?? f.neighborhood,
-            city: data.localidade ?? f.city,
-            state: data.uf ?? f.state,
+            street: result.data.logradouro ?? f.street,
+            neighborhood: result.data.bairro ?? f.neighborhood,
+            city: result.data.localidade ?? f.city,
+            state: result.data.uf ?? f.state,
           }));
-          await updateShipping(digits);
           setErrors((e) => ({ ...e, cep: undefined }));
-        } else {
+        } else if (result.status === "not_found") {
           setErrors((e) => ({ ...e, cep: "CEP não encontrado" }));
+        } else {
+          setErrors((e) => ({
+            ...e,
+            cep: "Não foi possível buscar o endereço automaticamente. Preencha manualmente.",
+          }));
         }
       } finally {
         setLoadingCep(false);

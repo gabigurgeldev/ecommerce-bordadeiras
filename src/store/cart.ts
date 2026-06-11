@@ -87,6 +87,7 @@ export const useCartStore = create<CartState>()(
         set((state) => ({
           lines: [],
           couponCode: null,
+          syncedUserId: null,
           syncEpoch: state.syncEpoch + 1,
         })),
       applyCoupon: (code) => set({ couponCode: code }),

@@ -2,7 +2,9 @@ import {
   getActiveMelhorEnvioEnvironment,
   getMelhorEnvioSettings,
   isMelhorEnvioConnected,
+  type MelhorEnvioSettings,
 } from "@/lib/data/melhor-envio-settings";
+import type { MelhorEnvioEnvironment } from "@/lib/melhor-envio/config";
 import { resolveValidMelhorEnvioCredentials } from "@/lib/melhor-envio/auth";
 import { getMelhorEnvioApiUrl, MELHOR_ENVIO_USER_AGENT } from "@/lib/melhor-envio/config";
 import { melhorEnvioHttpsPost } from "@/lib/melhor-envio/http";
@@ -209,6 +211,16 @@ export async function calculateMelhorEnvioShipment(input: {
     };
   }
 
+  return calculateWithCredentials(input, credentials, settings, originCep, destCep);
+}
+
+async function calculateWithCredentials(
+  input: { products: MelhorEnvioProductInput[] },
+  credentials: { env: MelhorEnvioEnvironment; accessToken: string },
+  settings: MelhorEnvioSettings,
+  originCep: string,
+  destCep: string,
+): Promise<MelhorEnvioQuoteResult> {
   const { accessToken, env } = credentials;
   const url = getMelhorEnvioApiUrl(env, "/api/v2/me/shipment/calculate");
   const body = JSON.stringify({
@@ -270,11 +282,28 @@ export async function calculateMelhorEnvioShipment(input: {
       }
 
       if (res.status === 403) {
+        const isSandbox = env === "sandbox";
+
+        // If sandbox gets 403, attempt production fallback automatically
+        if (isSandbox && settings.production.accessToken) {
+          console.warn(
+            "[melhor-envio] Sandbox returned 403; falling back to production token.",
+          );
+          return calculateWithCredentials(
+            input,
+            { env: "production", accessToken: settings.production.accessToken },
+            settings,
+            originCep,
+            destCep,
+          );
+        }
+
         return {
           ok: false,
           error: "Melhor Envio HTTP 403",
-          fallbackMessage:
-            `Token sem permissão ou servidor bloqueando saída para ${envLabel}. Verifique se o token tem escopo "shipping-calculate" e se o firewall libera melhorenvio.com.br.`,
+          fallbackMessage: isSandbox
+            ? `Modo sandbox ativo, mas sandbox.melhorenvio.com.br está bloqueado para este servidor. Vá em Admin → Configurações → Frete e Envio, desative "Modo sandbox" e salve o token de melhorenvio.com.br (produção).`
+            : `O servidor não conseguiu acessar a API Melhor Envio (HTTP 403). Verifique se o token tem escopo "shipping-calculate" e se o firewall libera melhorenvio.com.br.`,
         };
       }
 

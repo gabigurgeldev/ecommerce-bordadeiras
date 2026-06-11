@@ -47,7 +47,8 @@ describe("useCartStore", () => {
     expect(useCartStore.getState().lines[0].quantity).toBe(2);
   });
 
-  it("clearCart increments syncEpoch", () => {
+  it("clearCart increments syncEpoch and resets syncedUserId", () => {
+    useCartStore.setState({ syncedUserId: "user-1" });
     const store = useCartStore.getState();
     store.addItem({
       productId: "p1",
@@ -59,6 +60,7 @@ describe("useCartStore", () => {
     store.clearCart();
     expect(useCartStore.getState().lines).toHaveLength(0);
     expect(useCartStore.getState().syncEpoch).toBe(1);
+    expect(useCartStore.getState().syncedUserId).toBeNull();
   });
 
   it("removes item when quantity goes below 1", () => {

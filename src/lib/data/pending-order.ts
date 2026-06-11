@@ -2,7 +2,9 @@ import {
   createOrderWithItems,
   type CreateOrderInput,
 } from "@/lib/data/order-create";
+import { fetchOrderWithItems } from "@/lib/data/order-fetch";
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
+import { formatSupabaseError } from "@/lib/supabase/error-message";
 import { OrderStatus } from "@/lib/types/database";
 
 export async function upsertPendingCheckoutOrder(
@@ -56,7 +58,7 @@ export async function upsertPendingCheckoutOrder(
     })
     .eq("id", orderId);
 
-  if (updateError) throw updateError;
+  if (updateError) throw new Error(formatSupabaseError(updateError));
 
   await db.from(TABLES.OrderItem).delete().eq("orderId", orderId);
 
@@ -72,17 +74,9 @@ export async function upsertPendingCheckoutOrder(
   }));
 
   const { error: itemsError } = await db.from(TABLES.OrderItem).insert(rows);
-  if (itemsError) throw itemsError;
+  if (itemsError) throw new Error(formatSupabaseError(itemsError));
 
-  const { data: order, error: fetchError } = await db
-    .from(TABLES.Order)
-    .select("*, OrderItem(*)")
-    .eq("id", orderId)
-    .single();
-
-  if (fetchError || !order) {
-    throw fetchError ?? new Error("Order not found after update");
-  }
+  const order = await fetchOrderWithItems(orderId);
 
   return { order, reused: true, previousCouponId };
 }

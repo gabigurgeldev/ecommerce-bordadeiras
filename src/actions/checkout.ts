@@ -9,8 +9,10 @@ import {
 } from "@/lib/checkout-items";
 import { getServerCart } from "@/lib/data/cart";
 import { validateCouponCode } from "@/lib/data/coupon-validate";
+import { clearServerCartForUser } from "@/lib/data/cart";
 import { upsertPendingCheckoutOrder } from "@/lib/data/pending-order";
 import { generateOrderNumber } from "@/lib/order-utils";
+import { formatSupabaseError } from "@/lib/supabase/error-message";
 import {
   calculateShippingForCart,
   getShippingOptionDisplayLabel,
@@ -159,6 +161,8 @@ export async function createOrderDraft(input: CheckoutInput) {
       })),
     });
 
+    await clearServerCartForUser(sessionUser.id);
+
     return {
       ok: true as const,
       orderId: String(order.id),
@@ -170,7 +174,7 @@ export async function createOrderDraft(input: CheckoutInput) {
     console.error("[createOrderDraft]", e);
     return {
       ok: false as const,
-      error: "Não foi possível criar o pedido. Verifique o banco de dados.",
+      error: formatSupabaseError(e),
     };
   }
 }

@@ -26,8 +26,6 @@ export function CheckoutFooterLinks({ theme }: { theme?: CheckoutTheme }) {
           <Link
             key={link.href}
             href={link.href}
-            target="_blank"
-            rel="noopener noreferrer"
             className="text-xs text-zinc-400 underline-offset-2 transition-colors hover:text-zinc-600 hover:underline dark:text-zinc-500 dark:hover:text-zinc-300"
           >
             {link.label}

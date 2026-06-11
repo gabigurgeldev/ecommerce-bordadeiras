@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import {
   clearServerCartForUser,
   getServerCart,
+  isStaleServerCartForPendingOrder,
   syncServerCart,
 } from "@/lib/data/cart";
 import { mergeCartLines } from "@/lib/data/cart-merge";
@@ -27,7 +28,17 @@ export async function mergeGuestCart(
   const user = await getSessionUser();
   if (!user?.id) return guestLines;
 
-  const serverLines = await getServerCart(user.id);
+  let serverLines = await getServerCart(user.id);
+
+  if (
+    guestLines.length === 0 &&
+    serverLines.length > 0 &&
+    (await isStaleServerCartForPendingOrder(user.id, serverLines))
+  ) {
+    await clearServerCartForUser(user.id);
+    serverLines = [];
+  }
+
   const merged = mergeCartLines(guestLines, serverLines);
   return syncServerCart(user.id, merged);
 }

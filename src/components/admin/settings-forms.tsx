@@ -113,19 +113,18 @@ async function lookupCep(cep: string) {
   const digits = cep.replace(/\D/g, "");
   if (digits.length !== 8) return null;
   try {
-    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-    if (!res.ok) return null;
+    const res = await fetch(`/api/cep/${digits}`);
+    if (res.status === 404) return { notFound: true as const };
+    if (!res.ok) return { unavailable: true as const };
     const data = (await res.json()) as {
-      erro?: boolean;
       logradouro?: string;
       bairro?: string;
       localidade?: string;
       uf?: string;
     };
-    if (data.erro) return null;
     return data;
   } catch {
-    return null;
+    return { unavailable: true as const };
   }
 }
 
@@ -1192,7 +1191,13 @@ export function SettingsTabs({
                             setLoadingCep(true);
                             try {
                               const data = await lookupCep(digits);
-                              if (data) {
+                              if (data && "notFound" in data) {
+                                toast.error("CEP não encontrado");
+                              } else if (data && "unavailable" in data) {
+                                toast.error(
+                                  "Não foi possível buscar o endereço. Preencha manualmente.",
+                                );
+                              } else if (data) {
                                 shippingForm.setValue("originStreet", data.logradouro ?? "", {
                                   shouldValidate: true,
                                 });
@@ -1205,8 +1210,6 @@ export function SettingsTabs({
                                 shippingForm.setValue("originState", data.uf ?? "", {
                                   shouldValidate: true,
                                 });
-                              } else {
-                                toast.error("CEP não encontrado");
                               }
                             } finally {
                               setLoadingCep(false);

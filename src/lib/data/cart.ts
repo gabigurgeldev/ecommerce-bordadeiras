@@ -1,5 +1,6 @@
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
-import { cartLineKey } from "@/lib/data/cart-merge";
+import { cartLineKey, cartLinesSignature } from "@/lib/data/cart-merge";
+import { OrderStatus } from "@/lib/types/database";
 import type { CartLine } from "@/store/cart";
 
 export type ServerCartRow = {
@@ -194,4 +195,48 @@ export async function revalidateCartLines(lines: CartLine[]): Promise<CartLine[]
 export async function clearServerCartForUser(userId: string): Promise<void> {
   const db = getDb();
   await db.from(TABLES.CartItem).delete().eq("userId", userId);
+}
+
+/** Server cart left over from a pending checkout order (items already converted). */
+export async function isStaleServerCartForPendingOrder(
+  userId: string,
+  serverLines: CartLine[],
+): Promise<boolean> {
+  if (serverLines.length === 0) return false;
+
+  const db = getDb();
+  const { data: pending } = await db
+    .from(TABLES.Order)
+    .select("id")
+    .eq("userId", userId)
+    .eq("status", OrderStatus.PENDING)
+    .order("createdAt", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!pending) return false;
+
+  const { data: items } = await db
+    .from(TABLES.OrderItem)
+    .select("productId, variantId, quantity")
+    .eq("orderId", pending.id);
+
+  if (!items?.length) return false;
+
+  const orderAsCartLines: CartLine[] = items.map((item) => {
+    const productId = String(item.productId);
+    const variantId = item.variantId ? String(item.variantId) : undefined;
+    return {
+      lineId: cartLineKey(productId, variantId),
+      productId,
+      variantId,
+      slug: "",
+      name: "",
+      priceCents: 0,
+      imageUrl: "",
+      quantity: Number(item.quantity),
+    };
+  });
+
+  return cartLinesSignature(serverLines) === cartLinesSignature(orderAsCartLines);
 }
