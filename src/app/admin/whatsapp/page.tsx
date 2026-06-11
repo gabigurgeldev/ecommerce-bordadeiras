@@ -3,6 +3,7 @@ import { getWhatsappStatus } from "@/actions/admin/settings";
 import { listWhatsappRecipients } from "@/actions/admin/whatsapp-recipients";
 import { PageHeader } from "@/components/admin/page-header";
 import { WhatsappConnectPanel } from "@/components/admin/whatsapp-connect-panel";
+import { WhatsappLiveLogsPanel } from "@/components/admin/whatsapp-live-logs-panel";
 import { WhatsappRecipientsPanel } from "@/components/admin/whatsapp-recipients-panel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +16,8 @@ export default async function AdminWhatsappPage() {
     listWhatsappRecipients(),
   ]);
 
+  const activeRecipientCount = recipients.filter((r) => r.active).length;
+
   return (
     <div>
       <PageHeader
@@ -23,33 +26,35 @@ export default async function AdminWhatsappPage() {
       />
 
       <Tabs defaultValue="connection" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
-          <TabsTrigger value="connection" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Conexão</span>
-          </TabsTrigger>
-          <TabsTrigger value="recipients" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Destinatários</span>
-            {recipients.filter((r) => r.active).length > 0 && (
-              <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                {recipients.filter((r) => r.active).length}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2" asChild>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList className="grid w-full grid-cols-2 sm:w-[280px]">
+            <TabsTrigger value="connection" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Conexão</span>
+            </TabsTrigger>
+            <TabsTrigger value="recipients" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Destinatários</span>
+              {activeRecipientCount > 0 && (
+                <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                  {activeRecipientCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <Button variant="outline" size="sm" className="gap-2 shrink-0" asChild>
             <Link href="/admin/whatsapp/templates">
               <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Templates</span>
+              Templates
             </Link>
-          </TabsTrigger>
-        </TabsList>
+          </Button>
+        </div>
 
         <TabsContent value="connection" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
             <WhatsappConnectPanel initialStatus={session.status} />
-            
-            {/* Quick link to templates */}
+
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -94,24 +99,16 @@ export default async function AdminWhatsappPage() {
         </TabsContent>
 
         <TabsContent value="recipients" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            <WhatsappConnectPanel initialStatus={session.status} />
-            <WhatsappRecipientsPanel
-              recipients={recipients}
-              whatsappConnected={session.status === "connected"}
-            />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="templates">
-          {/* This tab navigates to a separate page */}
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">Redirecionando para página de templates...</p>
-            </CardContent>
-          </Card>
+          <WhatsappRecipientsPanel
+            recipients={recipients}
+            whatsappConnected={session.status === "connected"}
+          />
         </TabsContent>
       </Tabs>
+
+      <div className="mt-8">
+        <WhatsappLiveLogsPanel />
+      </div>
     </div>
   );
 }

@@ -32,6 +32,15 @@ import {
 
 type FormValues = z.infer<typeof whatsappRecipientSchema>;
 
+type ServiceHealth = {
+  connected: boolean;
+  activeRecipients: number;
+  supabaseConfigured: boolean;
+  supabaseMissing?: string[];
+  serviceReachable: boolean;
+  serviceUrl?: string;
+};
+
 export function WhatsappRecipientsPanel({
   recipients,
   whatsappConnected: initialConnected = false,
@@ -40,32 +49,67 @@ export function WhatsappRecipientsPanel({
   whatsappConnected?: boolean;
 }) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
-  const [whatsappConnected, setWhatsappConnected] = useState(initialConnected);
+  const [health, setHealth] = useState<ServiceHealth>({
+    connected: initialConnected,
+    activeRecipients: 0,
+    supabaseConfigured: true,
+    serviceReachable: true,
+  });
   const activeCount = recipients.filter((r) => r.active).length;
 
-  const fetchConnectionStatus = useCallback(async () => {
+  const fetchHealth = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/whatsapp/health", { cache: "no-store" });
-      if (!res.ok) {
-        setWhatsappConnected(false);
+      const data = (await res.json().catch(() => null)) as {
+        connected?: boolean;
+        activeRecipients?: number;
+        supabaseConfigured?: boolean;
+        supabaseMissing?: string[];
+        serviceReachable?: boolean;
+        serviceUrl?: string;
+        error?: string;
+      } | null;
+
+      if (!res.ok || !data) {
+        setHealth({
+          connected: false,
+          activeRecipients: 0,
+          supabaseConfigured: false,
+          serviceReachable: false,
+          serviceUrl: data?.serviceUrl,
+        });
         return;
       }
-      const data = (await res.json()) as { connected?: boolean };
-      setWhatsappConnected(data.connected === true);
+
+      setHealth({
+        connected: data.connected === true,
+        activeRecipients: data.activeRecipients ?? 0,
+        supabaseConfigured: data.supabaseConfigured !== false,
+        supabaseMissing: data.supabaseMissing,
+        serviceReachable: data.serviceReachable !== false,
+        serviceUrl: data.serviceUrl,
+      });
     } catch {
-      setWhatsappConnected(false);
+      setHealth({
+        connected: false,
+        activeRecipients: 0,
+        supabaseConfigured: false,
+        serviceReachable: false,
+      });
     }
   }, []);
 
   useEffect(() => {
-    void fetchConnectionStatus();
+    setMounted(true);
+    void fetchHealth();
     const interval = setInterval(() => {
-      void fetchConnectionStatus();
+      void fetchHealth();
     }, 5000);
     return () => clearInterval(interval);
-  }, [fetchConnectionStatus]);
+  }, [fetchHealth]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(whatsappRecipientSchema),
@@ -86,21 +130,41 @@ export function WhatsappRecipientsPanel({
         error?: string;
         recipientsSent?: number;
         sent?: boolean;
+        serviceUrl?: string;
+        serviceReachable?: boolean;
       } | null;
 
       if (!res.ok) {
-        throw new Error(data?.error ?? "Falha ao enviar teste");
+        let message = data?.error ?? "Falha ao enviar teste";
+        if (data?.serviceReachable === false) {
+          message = `Serviço WhatsApp inacessível${data.serviceUrl ? ` (${data.serviceUrl})` : ""}. Verifique se o container whatsapp-service está rodando.`;
+        }
+        throw new Error(message);
       }
 
       toast.success(
         `Teste enviado para ${data?.recipientsSent ?? 0} destinatário(s)`,
       );
+      void fetchHealth();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao enviar teste");
     } finally {
       setTesting(false);
     }
   }
+
+  const showConnectionBanner = mounted && !health.connected && health.serviceReachable;
+  const showServiceDownBanner = mounted && !health.serviceReachable;
+  const showSupabaseBanner = mounted && health.serviceReachable && !health.supabaseConfigured;
+  const showRecipientMismatchBanner =
+    mounted &&
+    health.serviceReachable &&
+    health.supabaseConfigured &&
+    activeCount > 0 &&
+    health.activeRecipients === 0;
+
+  const canTestAlert =
+    health.serviceReachable && health.connected && health.activeRecipients > 0;
 
   return (
     <>
@@ -114,9 +178,16 @@ export function WhatsappRecipientsPanel({
                 5511999999999 ou (11) 99999-9999
               </CardDescription>
             </div>
-            <Badge variant={activeCount > 0 ? "default" : "secondary"}>
-              {activeCount} ativo{activeCount === 1 ? "" : "s"}
-            </Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant={activeCount > 0 ? "default" : "secondary"}>
+                {activeCount} ativo{activeCount === 1 ? "" : "s"} na loja
+              </Badge>
+              {mounted && health.serviceReachable && (
+                <Badge variant={health.activeRecipients > 0 ? "outline" : "secondary"}>
+                  {health.activeRecipients} visto{health.activeRecipients === 1 ? "" : "s"} pelo serviço
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -133,7 +204,59 @@ export function WhatsappRecipientsPanel({
             </div>
           )}
 
-          {!whatsappConnected && (
+          {showServiceDownBanner && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-medium">Serviço WhatsApp indisponível</p>
+                  <p className="text-xs opacity-90">
+                    A app não conseguiu falar com o microsserviço Baileys
+                    {health.serviceUrl ? ` em ${health.serviceUrl}` : ""}.
+                    Confirme que o container <strong>whatsapp-service</strong> está rodando e que{" "}
+                    <code>WHATSAPP_SERVICE_URL</code> aponta para ele.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showSupabaseBanner && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-medium">Supabase não configurado no whatsapp-service</p>
+                  <p className="text-xs opacity-90">
+                    O microsserviço não consegue ler destinatários nem templates. Configure no
+                    container <strong>whatsapp-service</strong>:{" "}
+                    <code>NEXT_PUBLIC_SUPABASE_URL</code> e{" "}
+                    <code>SUPABASE_SERVICE_ROLE_KEY</code>.
+                  </p>
+                  {health.supabaseMissing && health.supabaseMissing.length > 0 && (
+                    <p className="text-xs opacity-75">
+                      Faltando: {health.supabaseMissing.join(", ")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showRecipientMismatchBanner && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <p>
+                  Há {activeCount} destinatário(s) ativo(s) na loja, mas o microsserviço WhatsApp
+                  enxerga <strong>0</strong>. Verifique as variáveis Supabase no container{" "}
+                  <strong>whatsapp-service</strong> e reinicie o serviço.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {showConnectionBanner && (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -153,6 +276,7 @@ export function WhatsappRecipientsPanel({
                 toast.success("Destinatário adicionado");
                 form.reset({ label: "", phone: "", active: true });
                 refresh();
+                void fetchHealth();
               } else toast.error(res.error);
             })}
           >
@@ -179,7 +303,7 @@ export function WhatsappRecipientsPanel({
                 type="button"
                 variant="outline"
                 className="gap-2"
-                disabled={testing || !whatsappConnected}
+                disabled={testing || !canTestAlert}
                 onClick={() => void handleTestAlert()}
               >
                 {testing ? (
@@ -229,8 +353,10 @@ export function WhatsappRecipientsPanel({
                             variant="outline"
                             onClick={async () => {
                               const res = await toggleWhatsappRecipient(r.id, !r.active);
-                              if (res.success) refresh();
-                              else toast.error(res.error);
+                              if (res.success) {
+                                refresh();
+                                void fetchHealth();
+                              } else toast.error(res.error);
                             }}
                           >
                             {r.active ? "Desativar" : "Ativar"}
@@ -268,6 +394,7 @@ export function WhatsappRecipientsPanel({
             toast.success("Destinatário removido");
             setDeleteId(null);
             refresh();
+            void fetchHealth();
           } else toast.error(res.error);
         }}
       />

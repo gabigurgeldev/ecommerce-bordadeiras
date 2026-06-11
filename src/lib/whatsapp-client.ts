@@ -3,7 +3,12 @@ import type {
   WhatsappDualNotifyResult,
   WhatsappTestAdminResult,
 } from "@/lib/whatsapp-notify-types";
-import { fetchWhatsappService, fetchWhatsappServiceJson } from "@/lib/whatsapp-fetch";
+import type { WhatsappLogEntry, WhatsappLogInput } from "@/lib/whatsapp-log-types";
+import {
+  fetchWhatsappService,
+  fetchWhatsappServiceJson,
+  fetchWhatsappServiceStream,
+} from "@/lib/whatsapp-fetch";
 import { WhatsappServiceError } from "@/lib/whatsapp-fetch";
 
 async function whatsappFetch<T>(path: string, body: Record<string, unknown>) {
@@ -138,8 +143,36 @@ export async function checkWhatsappServiceHealth(): Promise<{
   ok: boolean;
   connected?: boolean;
   activeRecipients?: number;
+  supabaseConfigured?: boolean;
+  supabaseMissing?: string[];
 }> {
   return fetchWhatsappServiceJson("/health");
+}
+
+export async function getWhatsappLogs(): Promise<{ logs: WhatsappLogEntry[] }> {
+  return fetchWhatsappServiceJson("/logs");
+}
+
+export function ingestWhatsappLog(input: WhatsappLogInput): void {
+  void fetchWhatsappService("/logs/ingest", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }).catch(() => {
+    /* fire-and-forget */
+  });
+}
+
+export async function openWhatsappLogStream(): Promise<Response> {
+  const res = await fetchWhatsappServiceStream("/logs/stream");
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new WhatsappServiceError(
+      text || `WhatsApp log stream error ${res.status}`,
+      "http",
+      res.status,
+    );
+  }
+  return res;
 }
 
 // Helper function to safely send WhatsApp to customer (won't throw if phone is missing)

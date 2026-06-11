@@ -24,6 +24,7 @@ import { formatDate } from "@/lib/format";
 import { cn, formatCurrency } from "@/lib/utils";
 
 const POLL_MS = 30_000;
+const EPOCH_ISO = new Date(0).toISOString();
 
 function orderShortId(id: string) {
   return `#${id.slice(-8).toUpperCase()}`;
@@ -34,11 +35,15 @@ function isUnread(paidAt: string, lastSeenAt: string) {
 }
 
 export function AdminOrderNotifications() {
-  const [lastSeenAt, setLastSeenAt] = useState(getLastSeenAt);
+  const [lastSeenAt, setLastSeenAt] = useState(EPOCH_ISO);
   const [unreadCount, setUnreadCount] = useState(0);
   const [recent, setRecent] = useState<AdminOrderNotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLastSeenAt(getLastSeenAt());
+  }, []);
 
   const refresh = useCallback(async () => {
     try {

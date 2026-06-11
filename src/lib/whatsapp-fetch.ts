@@ -42,6 +42,22 @@ function describeFetchError(err: unknown, baseUrl: string): WhatsappServiceError
   return new WhatsappServiceError(cause.message || "Erro desconhecido no serviço WhatsApp", "unknown");
 }
 
+function parseHttpErrorMessage(text: string, status: number): string {
+  if (!text.trim()) return `WhatsApp service error ${status}`;
+  try {
+    const body = JSON.parse(text) as { error?: unknown; message?: unknown };
+    if (typeof body.error === "string" && body.error.trim()) {
+      return body.error.replace(/^[A-Z_]+:\s*/, "");
+    }
+    if (typeof body.message === "string" && body.message.trim()) {
+      return body.message;
+    }
+  } catch {
+    /* not JSON */
+  }
+  return text;
+}
+
 export async function fetchWhatsappService(
   path: string,
   init?: RequestInit,
@@ -76,10 +92,32 @@ export async function fetchWhatsappServiceJson<T>(
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new WhatsappServiceError(
-      text || `WhatsApp service error ${res.status}`,
+      parseHttpErrorMessage(text, res.status),
       "http",
       res.status,
     );
   }
   return res.json() as Promise<T>;
+}
+
+/** Long-lived stream (SSE) — no request timeout. */
+export async function fetchWhatsappServiceStream(
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const baseUrl = getWhatsappServiceBaseUrl();
+  const secret = process.env.WHATSAPP_SERVICE_SECRET ?? "";
+
+  try {
+    return await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: {
+        Accept: "text/event-stream",
+        ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (err) {
+    throw describeFetchError(err, baseUrl);
+  }
 }

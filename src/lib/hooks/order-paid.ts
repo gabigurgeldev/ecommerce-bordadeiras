@@ -2,7 +2,10 @@ import { getDb, TABLES } from "@/lib/supabase/db";
 import { sendOrderConfirmedEmail } from "@/lib/mail";
 import { notifyPaymentApproved } from "@/lib/whatsapp-client";
 import { buildOrderWhatsappMeta } from "@/lib/hooks/order-whatsapp-helpers";
-import { logAdminNotifyResult } from "@/lib/whatsapp-notify-types";
+import {
+  ingestWhatsappHookError,
+  logAdminNotifyResult,
+} from "@/lib/whatsapp-notify-types";
 
 /** Runs when a payment is approved: emails customer + notifies admin via WhatsApp. */
 export async function onOrderPaid(orderId: string, paymentId: string): Promise<void> {
@@ -51,6 +54,6 @@ export async function onOrderPaid(orderId: string, paymentId: string): Promise<v
     });
     logAdminNotifyResult("onOrderPaid", orderId, result);
   } catch (err) {
-    console.error("[onOrderPaid] whatsapp failed", err);
+    ingestWhatsappHookError("onOrderPaid", orderId, err);
   }
 }

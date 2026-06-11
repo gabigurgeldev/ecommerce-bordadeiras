@@ -6,6 +6,8 @@ import {
   reconnectWhatsapp,
   checkWhatsappServiceHealth,
   sendTestAdminAlert,
+  getWhatsappLogs,
+  openWhatsappLogStream,
 } from "@/lib/whatsapp-client";
 import { jsonError } from "@/lib/api-utils";
 import { WhatsappServiceError } from "@/lib/whatsapp-fetch";
@@ -51,6 +53,30 @@ export async function GET(
         ...data,
         serviceUrl: getWhatsappServiceBaseUrl(),
         serviceReachable: true,
+      });
+    } catch (err) {
+      return whatsappServiceErrorResponse(err);
+    }
+  }
+
+  if (segment === "logs") {
+    try {
+      const data = await getWhatsappLogs();
+      return NextResponse.json({ ...data, serviceReachable: true });
+    } catch (err) {
+      return whatsappServiceErrorResponse(err);
+    }
+  }
+
+  if (segment === "logs/stream") {
+    try {
+      const upstream = await openWhatsappLogStream();
+      return new Response(upstream.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+        },
       });
     } catch (err) {
       return whatsappServiceErrorResponse(err);

@@ -1,3 +1,5 @@
+import { ingestWhatsappLog } from "@/lib/whatsapp-client";
+
 export type WhatsappDualNotifyResult = {
   ok: boolean;
   adminNotified: boolean;
@@ -15,18 +17,66 @@ export type WhatsappTestAdminResult = {
   error?: string;
 };
 
+function shortOrderId(orderId: string) {
+  return orderId.slice(-8).toUpperCase();
+}
+
+export function ingestWhatsappHookError(hook: string, orderId: string, err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  ingestWhatsappLog({
+    level: "error",
+    category: "notify",
+    message: `${hook} falhou`,
+    meta: {
+      hook,
+      orderId: shortOrderId(orderId),
+      error: message,
+    },
+  });
+}
+
 export function logAdminNotifyResult(
   hook: string,
   orderId: string,
   result: WhatsappDualNotifyResult,
 ) {
-  if (!result.adminNotified) {
-    console.warn(
-      `[${hook}] admin not notified for order ${orderId}:`,
-      result.adminWarning ?? "unknown reason",
-    );
+  const orderShort = shortOrderId(orderId);
+
+  if (result.adminNotified) {
+    ingestWhatsappLog({
+      level: "success",
+      category: "notify",
+      message: `${hook} — admin notificado`,
+      meta: {
+        hook,
+        orderId: orderShort,
+        recipientsSent: result.adminRecipientsSent ?? 0,
+        customerNotified: result.notifiedCustomer ?? false,
+      },
+    });
+  } else {
+    ingestWhatsappLog({
+      level: "warn",
+      category: "notify",
+      message: `${hook} — admin não notificado`,
+      meta: {
+        hook,
+        orderId: orderShort,
+        warning: result.adminWarning ?? "motivo desconhecido",
+      },
+    });
   }
+
   if (result.customerError) {
-    console.warn(`[${hook}] customer notify failed for order ${orderId}:`, result.customerError);
+    ingestWhatsappLog({
+      level: "warn",
+      category: "notify",
+      message: `${hook} — cliente não notificado`,
+      meta: {
+        hook,
+        orderId: orderShort,
+        error: result.customerError,
+      },
+    });
   }
 }

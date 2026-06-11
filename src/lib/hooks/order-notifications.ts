@@ -14,7 +14,10 @@ import {
 } from "@/lib/whatsapp-client";
 import { getDb, TABLES } from "@/lib/supabase/db";
 import { buildOrderWhatsappMeta } from "@/lib/hooks/order-whatsapp-helpers";
-import { logAdminNotifyResult } from "@/lib/whatsapp-notify-types";
+import {
+  ingestWhatsappHookError,
+  logAdminNotifyResult,
+} from "@/lib/whatsapp-notify-types";
 
 export async function onNewOrder(orderId: string): Promise<void> {
   const db = getDb();
@@ -39,7 +42,7 @@ export async function onNewOrder(orderId: string): Promise<void> {
     });
     logAdminNotifyResult("onNewOrder", orderId, result);
   } catch (err) {
-    console.error("[onNewOrder] whatsapp failed", err);
+    ingestWhatsappHookError("onNewOrder", orderId, err);
   }
 }
 
@@ -74,7 +77,7 @@ export async function onOrderProcessing(orderId: string): Promise<void> {
         orderDate,
       });
     } catch (err) {
-      console.error("[onOrderProcessing] whatsapp failed", err);
+      ingestWhatsappHookError("onOrderProcessing", orderId, err);
     }
   }
 }
@@ -120,7 +123,7 @@ export async function onOrderShipped(orderId: string): Promise<void> {
     });
     logAdminNotifyResult("onOrderShipped", orderId, result);
   } catch (err) {
-    console.error("[onOrderShipped] whatsapp failed", err);
+    ingestWhatsappHookError("onOrderShipped", orderId, err);
   }
 }
 
@@ -155,7 +158,7 @@ export async function onOrderDelivered(orderId: string): Promise<void> {
         orderDate,
       });
     } catch (err) {
-      console.error("[onOrderDelivered] whatsapp failed", err);
+      ingestWhatsappHookError("onOrderDelivered", orderId, err);
     }
   }
 }
@@ -183,7 +186,7 @@ export async function onOrderCancelled(orderId: string): Promise<void> {
     });
     logAdminNotifyResult("onOrderCancelled", orderId, result);
   } catch (err) {
-    console.error("[onOrderCancelled] whatsapp failed", err);
+    ingestWhatsappHookError("onOrderCancelled", orderId, err);
   }
 }
 

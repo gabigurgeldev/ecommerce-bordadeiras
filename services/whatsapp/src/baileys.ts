@@ -10,7 +10,8 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import P from "pino";
 import QRCode from "qrcode";
-import { clearSession, getActiveRecipients, loadSession, saveSession } from "./db.js";
+import { clearSession, getActiveRecipients, saveSession } from "./db.js";
+import { appendLog, maskPhone } from "./log-bus.js";
 
 const logger = P({ level: "warn" });
 const SESSION_ID = "default";
@@ -48,7 +49,14 @@ function scheduleReconnect(delayMs: number) {
   clearReconnectTimer();
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    void startBaileys().catch((err) => console.error("[whatsapp] reconnect failed:", err));
+    void startBaileys().catch((err) => {
+      appendLog({
+        level: "error",
+        category: "connection",
+        message: "Falha ao reconectar automaticamente",
+        meta: { error: err instanceof Error ? err.message : String(err) },
+      });
+    });
   }, delayMs);
 }
 
@@ -59,7 +67,12 @@ async function clearAuthFiles(): Promise<void> {
   try {
     await clearSession(SESSION_ID);
   } catch (err) {
-    console.error("[whatsapp] clearSession failed:", err);
+    appendLog({
+      level: "error",
+      category: "session",
+      message: "Falha ao limpar sessão no banco",
+      meta: { error: err instanceof Error ? err.message : String(err) },
+    });
   }
 }
 
@@ -68,7 +81,12 @@ async function resolveWaVersion(): Promise<WAVersion> {
     const { version } = await fetchLatestBaileysVersion();
     return version;
   } catch (err) {
-    console.warn("[whatsapp] fetchLatestBaileysVersion failed, using fallback:", err);
+    appendLog({
+      level: "warn",
+      category: "system",
+      message: "fetchLatestBaileysVersion falhou — usando versão fallback",
+      meta: { error: err instanceof Error ? err.message : String(err) },
+    });
     return FALLBACK_WA_VERSION;
   }
 }
@@ -82,7 +100,12 @@ async function persistAuthState(creds: object, keys: object, status: string, qr?
       qrCode: qr ?? null,
     });
   } catch (err) {
-    console.error("[whatsapp] Failed to persist session to DB:", err);
+    appendLog({
+      level: "error",
+      category: "session",
+      message: "Falha ao persistir sessão no banco",
+      meta: { error: err instanceof Error ? err.message : String(err) },
+    });
   }
 }
 
@@ -92,6 +115,11 @@ export async function startBaileys(): Promise<WASocket> {
 
   startPromise = (async () => {
     connectionStatus = "connecting";
+    appendLog({
+      level: "info",
+      category: "connection",
+      message: "Iniciando conexão Baileys",
+    });
 
     const version = await resolveWaVersion();
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
@@ -121,8 +149,18 @@ export async function startBaileys(): Promise<WASocket> {
           currentQr = await QRCode.toDataURL(qr);
           connectionStatus = "qr";
           await persistAuthState(state.creds as object, {}, connectionStatus, currentQr);
+          appendLog({
+            level: "info",
+            category: "connection",
+            message: "QR Code gerado — aguardando escaneamento",
+          });
         } catch (err) {
-          console.error("[whatsapp] QR encode failed:", err);
+          appendLog({
+            level: "error",
+            category: "connection",
+            message: "Falha ao gerar QR Code",
+            meta: { error: err instanceof Error ? err.message : String(err) },
+          });
         }
       }
 
@@ -131,6 +169,11 @@ export async function startBaileys(): Promise<WASocket> {
         currentQr = null;
         clearReconnectTimer();
         await persistAuthState(state.creds as object, {}, connectionStatus, null);
+        appendLog({
+          level: "success",
+          category: "connection",
+          message: "WhatsApp conectado",
+        });
       }
 
       if (connection === "close") {
@@ -143,11 +186,23 @@ export async function startBaileys(): Promise<WASocket> {
         sock = null;
 
         if (code === DisconnectReason.loggedOut) {
-          console.warn("[whatsapp] Session logged out — clearing auth for fresh QR");
+          appendLog({
+            level: "warn",
+            category: "connection",
+            message: "Sessão encerrada (loggedOut) — limpando auth para novo QR",
+            meta: { code: code ?? null },
+          });
           await clearAuthFiles();
           scheduleReconnect(1000);
           return;
         }
+
+        appendLog({
+          level: "warn",
+          category: "connection",
+          message: "Conexão fechada — reconectando",
+          meta: { code: code ?? null },
+        });
 
         const delayMs = code === DisconnectReason.restartRequired ? 0 : 5000;
         scheduleReconnect(delayMs);
@@ -161,7 +216,12 @@ export async function startBaileys(): Promise<WASocket> {
     return await startPromise;
   } catch (err) {
     connectionStatus = "disconnected";
-    console.error("[whatsapp] startBaileys failed:", err);
+    appendLog({
+      level: "error",
+      category: "connection",
+      message: "Falha ao iniciar Baileys",
+      meta: { error: err instanceof Error ? err.message : String(err) },
+    });
     throw err;
   } finally {
     startPromise = null;
@@ -169,6 +229,7 @@ export async function startBaileys(): Promise<WASocket> {
 }
 
 export async function reconnect(): Promise<void> {
+  appendLog({ level: "info", category: "session", message: "Reconexão solicitada" });
   clearReconnectTimer();
   if (sock) {
     sock.end(undefined);
@@ -176,10 +237,18 @@ export async function reconnect(): Promise<void> {
   }
   startPromise = null;
   connectionStatus = "reconnecting";
-  void startBaileys().catch((err) => console.error("[whatsapp] reconnect start failed:", err));
+  void startBaileys().catch((err) => {
+    appendLog({
+      level: "error",
+      category: "session",
+      message: "Falha ao iniciar após reconnect",
+      meta: { error: err instanceof Error ? err.message : String(err) },
+    });
+  });
 }
 
 export async function logoutSession(): Promise<void> {
+  appendLog({ level: "info", category: "session", message: "Logout solicitado" });
   clearReconnectTimer();
   if (sock) {
     try {
@@ -197,7 +266,14 @@ export async function logoutSession(): Promise<void> {
 
   await clearAuthFiles();
 
-  void startBaileys().catch((err) => console.error("[whatsapp] logout start failed:", err));
+  void startBaileys().catch((err) => {
+    appendLog({
+      level: "error",
+      category: "session",
+      message: "Falha ao iniciar após logout",
+      meta: { error: err instanceof Error ? err.message : String(err) },
+    });
+  });
 }
 
 export type AdminMessageResult = { sent: number; skipped: number };
@@ -221,11 +297,42 @@ export async function sendAdminMessage(text: string): Promise<AdminMessageResult
     const digits = normalizePhoneDigits(String(recipient.phone));
     if (!digits) {
       skipped++;
+      appendLog({
+        level: "warn",
+        category: "send",
+        message: "Destinatário admin ignorado — telefone inválido",
+        meta: {
+          label: recipient.label ? String(recipient.label) : null,
+          phone: maskPhone(String(recipient.phone)),
+        },
+      });
       continue;
     }
     const jid = `${digits}@s.whatsapp.net`;
-    await sock.sendMessage(jid, { text });
-    sent++;
+    try {
+      await sock.sendMessage(jid, { text });
+      sent++;
+      appendLog({
+        level: "success",
+        category: "send",
+        message: "Mensagem enviada para destinatário admin",
+        meta: {
+          phone: maskPhone(digits),
+          label: recipient.label ? String(recipient.label) : null,
+        },
+      });
+    } catch (err) {
+      appendLog({
+        level: "error",
+        category: "send",
+        message: "Falha ao enviar para destinatário admin",
+        meta: {
+          phone: maskPhone(digits),
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
+      throw err;
+    }
   }
 
   if (sent === 0) {
@@ -249,12 +356,38 @@ export async function sendMessageToPhone(phone: string, text: string): Promise<v
     throw new Error("Invalid phone number");
   }
   const jid = `${digits}@s.whatsapp.net`;
-  await sock.sendMessage(jid, { text });
+  try {
+    await sock.sendMessage(jid, { text });
+    appendLog({
+      level: "success",
+      category: "send",
+      message: "Mensagem enviada para cliente",
+      meta: { phone: maskPhone(digits) },
+    });
+  } catch (err) {
+    appendLog({
+      level: "error",
+      category: "send",
+      message: "Falha ao enviar para cliente",
+      meta: {
+        phone: maskPhone(digits),
+        error: err instanceof Error ? err.message : String(err),
+      },
+    });
+    throw err;
+  }
 }
 
 export async function getQrPayload() {
   if (!sock && (connectionStatus === "disconnected" || connectionStatus === "reconnecting")) {
-    void startBaileys().catch((err) => console.error("[whatsapp] lazy start failed:", err));
+    void startBaileys().catch((err) => {
+      appendLog({
+        level: "error",
+        category: "connection",
+        message: "Falha ao iniciar lazy start",
+        meta: { error: err instanceof Error ? err.message : String(err) },
+      });
+    });
   }
 
   return {
