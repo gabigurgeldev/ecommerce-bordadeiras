@@ -1,6 +1,8 @@
 import { getDb, TABLES } from "@/lib/supabase/db";
 import { sendOrderConfirmedEmail } from "@/lib/mail";
 import { notifyPaymentApproved } from "@/lib/whatsapp-client";
+import { buildOrderWhatsappMeta } from "@/lib/hooks/order-whatsapp-helpers";
+import { logAdminNotifyResult } from "@/lib/whatsapp-notify-types";
 
 /** Runs when a payment is approved: emails customer + notifies admin via WhatsApp. */
 export async function onOrderPaid(orderId: string, paymentId: string): Promise<void> {
@@ -17,21 +19,16 @@ export async function onOrderPaid(orderId: string, paymentId: string): Promise<v
     .select("*")
     .eq("orderId", orderId);
 
-  await db.from(TABLES.Order).update({ status: "PAID" }).eq("id", orderId);
-
   const orderItems = items ?? [];
-  const totalCents =
-    orderItems.reduce(
-      (s, i) => s + Number(i.priceCents) * Number(i.quantity),
-      0,
-    ) + Number(order.shippingCents);
+  const { amountCents, storeName, orderDate, customerPhone } =
+    buildOrderWhatsappMeta(order);
 
   try {
     await sendOrderConfirmedEmail({
       to: String(order.customerEmail),
       orderId: String(order.id),
       customerName: String(order.customerName),
-      totalCents,
+      totalCents: amountCents,
       items: orderItems.map((i) => ({
         name: String(i.name),
         quantity: Number(i.quantity),
@@ -43,13 +40,16 @@ export async function onOrderPaid(orderId: string, paymentId: string): Promise<v
   }
 
   try {
-    await notifyPaymentApproved({
+    const result = await notifyPaymentApproved({
       orderId: String(order.id),
       customerName: String(order.customerName),
-      amountCents: totalCents,
+      amountCents,
       paymentId,
-      customerPhone: order.customerPhone,
+      customerPhone,
+      storeName,
+      orderDate,
     });
+    logAdminNotifyResult("onOrderPaid", orderId, result);
   } catch (err) {
     console.error("[onOrderPaid] whatsapp failed", err);
   }

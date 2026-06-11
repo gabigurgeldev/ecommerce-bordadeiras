@@ -1,9 +1,21 @@
 "use server";
 
-import { getWhatsappStatus } from "@/actions/admin/settings";
+import { resolveWhatsappConnectionStatus } from "@/lib/whatsapp-client";
 import { getWhatsappTemplate } from "@/actions/admin/whatsapp-templates";
+import type { AdminCustomerInsights } from "@/lib/data/admin-customer-insights";
 import { getAdminCustomerInsights } from "@/lib/data/admin-customer-insights";
+import { getActivityLabel, formatActivityDetail } from "@/lib/activity-labels";
+import { getOpenRouterConfig } from "@/lib/openrouter-config";
+import { callOpenRouterPrompt, OpenRouterError } from "@/lib/openrouter/client";
+import {
+  buildCustomerContextBlock,
+  buildCustomerOutreachPrompt,
+} from "@/lib/openrouter/prompts";
 import { siteConfig } from "@/lib/site";
+import {
+  customerOutreachAiInputSchema,
+  customerOutreachAiOutputSchema,
+} from "@/lib/validations/customer-outreach";
 import {
   buildWhatsAppDeepLink,
   formatCurrencyBRL,
@@ -16,7 +28,10 @@ import {
 } from "@/lib/whatsapp-client";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-auth";
-import { auditMutation, withAdminRead } from "./_utils";
+import { auditMutation, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+
+const NOT_CONFIGURED =
+  "Configure a API do OpenRouter em Configurações → Inteligência Artificial";
 
 const outreachSchema = z.object({
   userId: z.string().min(1),
@@ -45,27 +60,53 @@ export type OutreachResult =
 
 function buildDefaultVariables(
   insights: NonNullable<Awaited<ReturnType<typeof getAdminCustomerInsights>>>,
+  templateKey?: string,
 ): Record<string, string | number> {
   const customerName =
     insights.profile.name?.trim() || insights.profile.email.split("@")[0];
   const pending = insights.opportunities.pendingPaymentOrders[0];
   const cartLines = insights.opportunities.activeCart;
+  const siteUrl = siteConfig.url.replace(/\/$/, "");
 
   const cartSummary = cartLines
     .map((l) => `• ${l.name} × ${l.quantity}`)
     .join("\n");
-  const siteUrl = siteConfig.url.replace(/\/$/, "");
 
-  return {
+  const base: Record<string, string | number> = {
     customerName,
     storeName: siteConfig.name,
+    cartSummary: cartSummary || "—",
+    cartTotal: formatCurrencyBRL(insights.opportunities.cartSubtotalCents),
+    message: "",
+  };
+
+  if (templateKey === "outreach_abandoned_cart") {
+    return {
+      ...base,
+      checkoutUrl: siteUrl,
+    };
+  }
+
+  if (templateKey === "outreach_pending_payment") {
+    return {
+      ...base,
+      orderId: pending ? pending.id.slice(-8).toUpperCase() : "",
+      amount: pending ? formatCurrencyBRL(pending.totalCents) : "",
+      amountCents: pending?.totalCents ?? 0,
+      checkoutUrl: pending ? `${siteUrl}/checkout?order=${pending.id}` : siteUrl,
+    };
+  }
+
+  if (templateKey === "outreach_generic") {
+    return base;
+  }
+
+  return {
+    ...base,
     orderId: pending ? pending.id.slice(-8).toUpperCase() : "",
     amount: pending ? formatCurrencyBRL(pending.totalCents) : "",
     amountCents: pending?.totalCents ?? 0,
     checkoutUrl: pending ? `${siteUrl}/checkout?order=${pending.id}` : siteUrl,
-    cartSummary: cartSummary || "—",
-    cartTotal: formatCurrencyBRL(insights.opportunities.cartSubtotalCents),
-    message: "",
   };
 }
 
@@ -90,7 +131,7 @@ export async function sendCustomerOutreach(
       };
     }
 
-    const defaults = buildDefaultVariables(insights);
+    const defaults = buildDefaultVariables(insights, parsed.data.templateKey);
     const variables = { ...defaults, ...parsed.data.variables };
     if (parsed.data.customText?.trim()) {
       variables.message = parsed.data.customText.trim();
@@ -130,7 +171,7 @@ export async function sendCustomerOutreach(
     }
 
     const waLink = buildWhatsAppDeepLink(phone, messageText);
-    const { status: whatsappStatus } = await getWhatsappStatus();
+    const { status: whatsappStatus } = await resolveWhatsappConnectionStatus();
 
     if (whatsappStatus !== "connected") {
       return {
@@ -193,10 +234,174 @@ export async function getOutreachPreview(
     if (!insights) return null;
     const tpl = await getWhatsappTemplate(templateKey);
     if (!tpl) return null;
-    const variables = { ...buildDefaultVariables(insights), ...extraVariables };
+    const variables = {
+      ...buildDefaultVariables(insights, templateKey),
+      ...extraVariables,
+    };
     return {
       preview: formatTemplateText(tpl.template, variables),
       variables,
     };
+  });
+}
+
+function buildCustomerContextForAi(insights: AdminCustomerInsights): string {
+  const customerName =
+    insights.profile.name?.trim() || insights.profile.email.split("@")[0];
+  const siteUrl = siteConfig.url.replace(/\/$/, "");
+
+  let opportunityDetails = "";
+  const pending = insights.opportunities.pendingPaymentOrders[0];
+  if (pending) {
+    const items = pending.items
+      .map((i) => `${i.name} × ${i.quantity}`)
+      .join(", ");
+    opportunityDetails = [
+      "Pedidos pendentes de pagamento:",
+      `- Pedido #${pending.id.slice(-8).toUpperCase()}: ${formatCurrencyBRL(pending.totalCents)}`,
+      `  Itens: ${items}`,
+      `  Link checkout: ${siteUrl}/checkout?order=${pending.id}`,
+    ].join("\n");
+  } else if (insights.opportunities.activeCart.length > 0) {
+    const lines = insights.opportunities.activeCart
+      .map((l) => `- ${l.name} × ${l.quantity} (${formatCurrencyBRL(l.priceCents * l.quantity)})`)
+      .join("\n");
+    opportunityDetails = [
+      "Sacola ativa:",
+      lines,
+      `Total da sacola: ${formatCurrencyBRL(insights.opportunities.cartSubtotalCents)}`,
+    ].join("\n");
+  } else {
+    opportunityDetails = "Sem pedido pendente nem sacola ativa.";
+  }
+
+  const statsSummary = [
+    "Histórico de compras:",
+    `- Pedidos totais: ${insights.stats.totalOrders}`,
+    `- Pedidos pagos: ${insights.stats.paidOrders}`,
+    insights.stats.avgOrderCents > 0
+      ? `- Ticket médio: ${formatCurrencyBRL(insights.stats.avgOrderCents)}`
+      : null,
+    insights.stats.daysSinceLastOrder != null
+      ? `- Dias desde última compra: ${insights.stats.daysSinceLastOrder}`
+      : "- Nunca comprou",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const topProducts =
+    insights.interests.topProducts.length > 0
+      ? [
+          "Produtos de interesse:",
+          ...insights.interests.topProducts
+            .slice(0, 5)
+            .map((p) => `- ${p.name} (${p.source === "cart" ? "na sacola" : "comprou"})`),
+        ].join("\n")
+      : "";
+
+  const recentViews =
+    insights.interests.recentProductViews.length > 0
+      ? [
+          "Visualizações recentes:",
+          ...insights.interests.recentProductViews
+            .slice(0, 5)
+            .map((v) => `- ${v.productName}`),
+        ].join("\n")
+      : "";
+
+  const recentActivity =
+    insights.activity.length > 0
+      ? [
+          "Atividade recente:",
+          ...insights.activity.slice(0, 5).map((a) => {
+            const label = getActivityLabel(a.type);
+            const detail = formatActivityDetail(
+              a.type,
+              a.path,
+              a.productName,
+              a.metadata,
+            );
+            return `- ${label}: ${detail}`;
+          }),
+        ].join("\n")
+      : "";
+
+  return buildCustomerContextBlock({
+    storeName: siteConfig.name,
+    customerName,
+    email: insights.profile.email,
+    phone: insights.resolvedPhone,
+    primaryOpportunity: insights.opportunities.primaryOpportunity,
+    opportunityDetails,
+    statsSummary,
+    topProducts,
+    recentViews,
+    recentActivity,
+  });
+}
+
+export async function generateCustomerOutreachMessage(
+  input: unknown,
+): Promise<ActionResult<{ message: string }>> {
+  return withAdmin(async (actor) => {
+    const parsed = customerOutreachAiInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Dados inválidos";
+      return { success: false, error: msg };
+    }
+
+    const insights = await getAdminCustomerInsights(parsed.data.userId);
+    if (!insights) {
+      return { success: false, error: "Cliente não encontrado" };
+    }
+
+    const config = await getOpenRouterConfig();
+    if (!config) {
+      return { success: false, error: NOT_CONFIGURED };
+    }
+
+    const customerContext = buildCustomerContextForAi(insights);
+    const { system, user } = buildCustomerOutreachPrompt(
+      parsed.data.mode,
+      customerContext,
+      parsed.data.guidance,
+    );
+
+    try {
+      const raw = await callOpenRouterPrompt({
+        apiKey: config.apiKey,
+        model: config.model,
+        system,
+        user,
+        maxTokens: 2048,
+      });
+
+      let parsedJson: unknown;
+      try {
+        parsedJson = JSON.parse(raw);
+      } catch {
+        return { success: false, error: "Resposta inválida da IA, tente novamente" };
+      }
+
+      const outputParsed = customerOutreachAiOutputSchema.safeParse(parsedJson);
+      if (!outputParsed.success) {
+        return { success: false, error: "Resposta inválida da IA, tente novamente" };
+      }
+
+      await auditMutation(actor, {
+        action: "UPDATE",
+        entity: "CustomerOutreachAi",
+        entityId: parsed.data.userId,
+        metadata: { mode: parsed.data.mode },
+      });
+
+      return { success: true, data: { message: outputParsed.data.message } };
+    } catch (err) {
+      if (err instanceof OpenRouterError) {
+        return { success: false, error: err.message };
+      }
+      console.error("[generateCustomerOutreachMessage]", err);
+      return { success: false, error: "Falha ao comunicar com a IA" };
+    }
   });
 }

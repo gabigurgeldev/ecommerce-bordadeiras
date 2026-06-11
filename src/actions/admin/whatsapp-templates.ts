@@ -84,11 +84,14 @@ export async function updateWhatsappTemplate(
       updatedAt: new Date().toISOString(),
     };
 
-    // Don't allow changing key, recipientType, or event on default templates
     if (!existing?.data?.isDefault) {
       if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
       if (parsed.data.template !== undefined) updateData.template = parsed.data.template;
       if (parsed.data.active !== undefined) updateData.active = parsed.data.active;
+      if (parsed.data.event !== undefined) updateData.event = parsed.data.event;
+      if (parsed.data.recipientType !== undefined) {
+        updateData.recipientType = parsed.data.recipientType;
+      }
     } else {
       // For default templates, only allow editing template content and active status
       if (parsed.data.template !== undefined) updateData.template = parsed.data.template;
@@ -281,6 +284,35 @@ Cliente: {{customerName}}
 
 O pedido foi cancelado.`,
       },
+      outreach_pending_payment: {
+        name: "Cobrança - Pagamento Pendente",
+        template: `Olá {{customerName}}! 👋
+
+Vi que você tem um pedido *#{{orderId}}* no valor de *{{amount}}* aguardando pagamento.
+
+Finalize aqui: {{checkoutUrl}}
+
+Posso te ajudar com alguma dúvida? 💜`,
+      },
+      outreach_abandoned_cart: {
+        name: "Recuperação - Sacola Abandonada",
+        template: `Olá {{customerName}}! 👋
+
+Notei que você deixou itens na sacola:
+{{cartSummary}}
+
+Total: *{{cartTotal}}*
+
+Quer finalizar sua compra? Estou à disposição para ajudar! 🛒`,
+      },
+      outreach_generic: {
+        name: "Contato Personalizado",
+        template: `Olá {{customerName}}!
+
+{{message}}
+
+{{storeName}}`,
+      },
     };
 
     const defaultTemplate = defaultTemplates[key];
@@ -320,6 +352,10 @@ export async function getTemplateVariables() {
       { key: "{{trackingCode}}", description: "Código de rastreio", example: "AA123456789BR" },
       { key: "{{storeName}}", description: "Nome da loja", example: "Bordadeiras" },
       { key: "{{orderDate}}", description: "Data do pedido", example: "10/06/2026" },
+      { key: "{{checkoutUrl}}", description: "Link de checkout (outreach)", example: "https://loja.com/checkout?order=abc" },
+      { key: "{{cartSummary}}", description: "Itens da sacola (outreach)", example: "• Linha × 2" },
+      { key: "{{cartTotal}}", description: "Total da sacola (outreach)", example: "R$ 89,90" },
+      { key: "{{message}}", description: "Mensagem personalizada (outreach)", example: "Temos novidades para você!" },
     ];
   });
 }

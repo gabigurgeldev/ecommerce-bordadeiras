@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { AdminConfirmDialog } from "@/components/admin/admin-confirm-dialog";
@@ -15,12 +15,17 @@ type SessionState = {
   serviceReachable?: boolean;
   serviceError?: string;
   serviceUrl?: string;
+  stale?: boolean;
 };
+
+const POLL_STATUSES = new Set(["qr", "disconnected", "reconnecting", "connecting"]);
 
 export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string }) {
   const [session, setSession] = useState<SessionState>({ status: initialStatus });
   const [loading, setLoading] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const statusRef = useRef(initialStatus);
+  const serviceReachableRef = useRef<boolean | undefined>(undefined);
 
   const fetchQr = useCallback(async () => {
     try {
@@ -30,11 +35,16 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
         throw new Error(body?.error ?? "Falha ao buscar status");
       }
       const data = (await res.json()) as SessionState;
+      statusRef.current = data.status;
+      serviceReachableRef.current = data.serviceReachable;
       setSession(data);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Falha ao buscar status";
+      serviceReachableRef.current = false;
       setSession((prev) => ({
         ...prev,
+        status: "disconnected",
+        qr: undefined,
         serviceReachable: false,
         serviceError: message,
       }));
@@ -45,17 +55,15 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
   useEffect(() => {
     void fetchQr();
     const interval = setInterval(() => {
-      if (
-        session.status === "qr" ||
-        session.status === "disconnected" ||
-        session.status === "reconnecting" ||
-        session.serviceReachable === false
-      ) {
+      const shouldPoll =
+        serviceReachableRef.current === false ||
+        POLL_STATUSES.has(statusRef.current);
+      if (shouldPoll) {
         void fetchQr();
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [fetchQr, session.status, session.serviceReachable]);
+  }, [fetchQr]);
 
   async function handleReconnect() {
     setLoading(true);
@@ -93,6 +101,7 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
     qr: "Aguardando QR",
     disconnected: "Desconectado",
     reconnecting: "Reconectando",
+    connecting: "Conectando",
   };
 
   const isConnected = session.status === "connected";

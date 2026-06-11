@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { AdminCustomerInsights } from "@/lib/data/admin-customer-insights";
 import type { WhatsappTemplate } from "@/lib/types/database";
-import { ExternalLink, MessageCircle, Send, Smartphone } from "lucide-react";
+import { CustomerOutreachAiDialog } from "@/components/admin/customer-outreach-ai-dialog";
+import { ExternalLink, MessageCircle, Send, Smartphone, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ export function CustomerWhatsAppPanel({
   const [customText, setCustomText] = useState("");
   const [preview, setPreview] = useState("");
   const [sending, setSending] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
 
   const loadPreview = useCallback(async () => {
     if (mode === "custom") {
@@ -201,19 +203,48 @@ export function CustomerWhatsAppPanel({
               ))}
             </select>
             {templateKey === "outreach_generic" && (
-              <Textarea
-                placeholder="Sua mensagem personalizada (variável {{message}})"
-                value={customText}
-                onChange={(e) => setCustomText(e.target.value)}
-                rows={3}
-              />
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label className="text-sm font-normal text-muted-foreground">
+                    Conteúdo da mensagem
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setAiDialogOpen(true)}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Gerar com IA
+                  </Button>
+                </div>
+                <Textarea
+                  placeholder="Sua mensagem personalizada (variável {{message}})"
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  rows={3}
+                />
+              </div>
             )}
           </div>
         )}
 
         {mode === "custom" && (
           <div className="space-y-2">
-            <Label>Mensagem</Label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label>Mensagem</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setAiDialogOpen(true)}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Gerar mensagem com IA
+              </Button>
+            </div>
             <Textarea
               value={customText}
               onChange={(e) => setCustomText(e.target.value)}
@@ -222,6 +253,16 @@ export function CustomerWhatsAppPanel({
             />
           </div>
         )}
+
+        <CustomerOutreachAiDialog
+          userId={insights.profile.id}
+          open={aiDialogOpen}
+          onOpenChange={setAiDialogOpen}
+          onGenerated={(message) => {
+            setCustomText(message);
+            setMode("custom");
+          }}
+        />
 
         {preview && mode !== "link_only" && (
           <div className="rounded-lg border bg-muted/40 p-4">

@@ -23,9 +23,44 @@ let sock: WASocket | null = null;
 let currentQr: string | null = null;
 let connectionStatus = "disconnected";
 let startPromise: Promise<WASocket> | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function normalizePhoneDigits(raw: string): string | null {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  if (digits.startsWith("55") && digits.length >= 12) return digits;
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  return digits;
+}
 
 export function getConnectionStatus() {
   return { status: connectionStatus, qr: currentQr };
+}
+
+function clearReconnectTimer() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
+function scheduleReconnect(delayMs: number) {
+  clearReconnectTimer();
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    void startBaileys().catch((err) => console.error("[whatsapp] reconnect failed:", err));
+  }, delayMs);
+}
+
+async function clearAuthFiles(): Promise<void> {
+  if (existsSync(AUTH_DIR)) {
+    await rm(AUTH_DIR, { recursive: true, force: true });
+  }
+  try {
+    await clearSession(SESSION_ID);
+  } catch (err) {
+    console.error("[whatsapp] clearSession failed:", err);
+  }
 }
 
 async function resolveWaVersion(): Promise<WAVersion> {
@@ -68,6 +103,7 @@ export async function startBaileys(): Promise<WASocket> {
       browser: Browsers.ubuntu("Bordadeiras"),
       auth: state,
       generateHighQualityLinkPreview: true,
+      keepAliveIntervalMs: 30000,
     });
 
     sock = socket;
@@ -93,6 +129,7 @@ export async function startBaileys(): Promise<WASocket> {
       if (connection === "open") {
         connectionStatus = "connected";
         currentQr = null;
+        clearReconnectTimer();
         await persistAuthState(state.creds as object, {}, connectionStatus, null);
       }
 
@@ -105,9 +142,15 @@ export async function startBaileys(): Promise<WASocket> {
         await persistAuthState(state.creds as object, {}, connectionStatus, null);
         sock = null;
 
-        if (code !== DisconnectReason.loggedOut) {
-          setTimeout(() => void startBaileys(), 5000);
+        if (code === DisconnectReason.loggedOut) {
+          console.warn("[whatsapp] Session logged out — clearing auth for fresh QR");
+          await clearAuthFiles();
+          scheduleReconnect(1000);
+          return;
         }
+
+        const delayMs = code === DisconnectReason.restartRequired ? 0 : 5000;
+        scheduleReconnect(delayMs);
       }
     });
 
@@ -126,6 +169,7 @@ export async function startBaileys(): Promise<WASocket> {
 }
 
 export async function reconnect(): Promise<void> {
+  clearReconnectTimer();
   if (sock) {
     sock.end(undefined);
     sock = null;
@@ -136,6 +180,7 @@ export async function reconnect(): Promise<void> {
 }
 
 export async function logoutSession(): Promise<void> {
+  clearReconnectTimer();
   if (sock) {
     try {
       await sock.logout();
@@ -150,43 +195,56 @@ export async function logoutSession(): Promise<void> {
   connectionStatus = "disconnected";
   currentQr = null;
 
-  if (existsSync(AUTH_DIR)) {
-    await rm(AUTH_DIR, { recursive: true, force: true });
-  }
-
-  try {
-    await clearSession(SESSION_ID);
-  } catch (err) {
-    console.error("[whatsapp] clearSession failed:", err);
-  }
+  await clearAuthFiles();
 
   void startBaileys().catch((err) => console.error("[whatsapp] logout start failed:", err));
 }
 
-export async function sendAdminMessage(text: string): Promise<void> {
-  const recipients = await getActiveRecipients();
-  if (recipients.length === 0) {
-    console.warn("[whatsapp] No active recipients in WhatsappRecipient table");
-    return;
-  }
+export type AdminMessageResult = { sent: number; skipped: number };
+
+export async function sendAdminMessage(text: string): Promise<AdminMessageResult> {
   if (!sock || connectionStatus !== "connected") {
-    throw new Error("WhatsApp not connected");
+    throw new Error("NOT_CONNECTED: WhatsApp not connected");
   }
 
+  const recipients = await getActiveRecipients();
+  if (recipients.length === 0) {
+    throw new Error(
+      "NO_RECIPIENTS: Nenhum destinatário ativo cadastrado em WhatsappRecipient",
+    );
+  }
+
+  let sent = 0;
+  let skipped = 0;
+
   for (const recipient of recipients) {
-    const digits = recipient.phone.replace(/\D/g, "");
-    if (!digits) continue;
+    const digits = normalizePhoneDigits(String(recipient.phone));
+    if (!digits) {
+      skipped++;
+      continue;
+    }
     const jid = `${digits}@s.whatsapp.net`;
     await sock.sendMessage(jid, { text });
+    sent++;
   }
+
+  if (sent === 0) {
+    throw new Error(
+      skipped > 0
+        ? "INVALID_PHONES: Nenhum destinatário com telefone válido"
+        : "NO_RECIPIENTS: Nenhum destinatário ativo cadastrado",
+    );
+  }
+
+  return { sent, skipped };
 }
 
 export async function sendMessageToPhone(phone: string, text: string): Promise<void> {
   if (!sock || connectionStatus !== "connected") {
-    throw new Error("WhatsApp not connected");
+    throw new Error("NOT_CONNECTED: WhatsApp not connected");
   }
 
-  const digits = phone.replace(/\D/g, "");
+  const digits = normalizePhoneDigits(phone);
   if (!digits) {
     throw new Error("Invalid phone number");
   }
@@ -199,16 +257,8 @@ export async function getQrPayload() {
     void startBaileys().catch((err) => console.error("[whatsapp] lazy start failed:", err));
   }
 
-  let qrFromDb: string | null | undefined;
-  try {
-    const row = await loadSession(SESSION_ID);
-    qrFromDb = row?.qrCode != null ? String(row.qrCode) : null;
-  } catch (err) {
-    console.error("[whatsapp] loadSession failed:", err);
-  }
-
   return {
     status: connectionStatus,
-    qr: currentQr ?? qrFromDb ?? undefined,
+    qr: connectionStatus === "qr" ? (currentQr ?? undefined) : undefined,
   };
 }

@@ -2,7 +2,12 @@
 
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { whatsappRecipientSchema } from "@/lib/validations/admin";
+import { normalizeBrazilPhone } from "@/lib/whatsapp-utils";
 import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+
+function normalizeRecipientPhone(raw: string): string | null {
+  return normalizeBrazilPhone(raw);
+}
 
 export async function listWhatsappRecipients() {
   return withAdminRead(async () => {
@@ -20,12 +25,20 @@ export async function createWhatsappRecipient(data: unknown): Promise<ActionResu
     const parsed = whatsappRecipientSchema.safeParse(data);
     if (!parsed.success) return { success: false, error: "Dados inválidos" };
 
+    const phone = normalizeRecipientPhone(parsed.data.phone);
+    if (!phone) {
+      return {
+        success: false,
+        error: "Telefone inválido. Use DDD + número (ex.: 11999999999 ou 5511999999999)",
+      };
+    }
+
     const id = newId();
     const now = new Date().toISOString();
     const { error } = await getDb().from(TABLES.WhatsappRecipient).insert({
       id,
       label: parsed.data.label,
-      phone: parsed.data.phone,
+      phone,
       active: parsed.data.active ?? true,
       createdAt: now,
       updatedAt: now,
@@ -50,11 +63,19 @@ export async function updateWhatsappRecipient(
     const parsed = whatsappRecipientSchema.safeParse(data);
     if (!parsed.success) return { success: false, error: "Dados inválidos" };
 
+    const phone = normalizeRecipientPhone(parsed.data.phone);
+    if (!phone) {
+      return {
+        success: false,
+        error: "Telefone inválido. Use DDD + número (ex.: 11999999999 ou 5511999999999)",
+      };
+    }
+
     const { error } = await getDb()
       .from(TABLES.WhatsappRecipient)
       .update({
         label: parsed.data.label,
-        phone: parsed.data.phone,
+        phone,
         active: parsed.data.active ?? true,
         updatedAt: new Date().toISOString(),
       })

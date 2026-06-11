@@ -76,15 +76,11 @@ export async function getCustomerInsights(id: string) {
   return withAdminRead(async () => {
     const insights = await getAdminCustomerInsights(id);
     if (!insights) return null;
-    const db = getDb();
-    const { data: session } = await db
-      .from(TABLES.WhatsappSession)
-      .select("status")
-      .eq("sessionId", "default")
-      .maybeSingle();
+    const { resolveWhatsappConnectionStatus } = await import("@/lib/whatsapp-client");
+    const { status } = await resolveWhatsappConnectionStatus();
     return {
       ...insights,
-      whatsappConnected: session?.status === "connected",
+      whatsappConnected: status === "connected",
     };
   });
 }

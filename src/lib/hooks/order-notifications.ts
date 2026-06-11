@@ -13,6 +13,8 @@ import {
   notifyOrderDelivered,
 } from "@/lib/whatsapp-client";
 import { getDb, TABLES } from "@/lib/supabase/db";
+import { buildOrderWhatsappMeta } from "@/lib/hooks/order-whatsapp-helpers";
+import { logAdminNotifyResult } from "@/lib/whatsapp-notify-types";
 
 export async function onNewOrder(orderId: string): Promise<void> {
   const db = getDb();
@@ -23,24 +25,19 @@ export async function onNewOrder(orderId: string): Promise<void> {
     .maybeSingle();
   if (!order) return;
 
-  const { data: items } = await db
-    .from(TABLES.OrderItem)
-    .select("*")
-    .eq("orderId", orderId);
-
-  const totalCents =
-    (items ?? []).reduce(
-      (s, i) => s + Number(i.priceCents) * Number(i.quantity),
-      0,
-    ) + Number(order.shippingCents);
+  const { amountCents, storeName, orderDate, customerPhone } =
+    buildOrderWhatsappMeta(order);
 
   try {
-    await notifyNewOrder({
+    const result = await notifyNewOrder({
       orderId: String(order.id),
       customerName: String(order.customerName),
-      amountCents: totalCents,
-      customerPhone: order.customerPhone,
+      amountCents,
+      customerPhone,
+      storeName,
+      orderDate,
     });
+    logAdminNotifyResult("onNewOrder", orderId, result);
   } catch (err) {
     console.error("[onNewOrder] whatsapp failed", err);
   }
@@ -55,7 +52,6 @@ export async function onOrderProcessing(orderId: string): Promise<void> {
     .maybeSingle();
   if (!order) return;
 
-  // Send email
   try {
     await sendOrderProcessingEmail({
       to: String(order.customerEmail),
@@ -66,13 +62,16 @@ export async function onOrderProcessing(orderId: string): Promise<void> {
     console.error("[onOrderProcessing] email failed", err);
   }
 
-  // Send WhatsApp to customer if phone available
-  if (order.customerPhone) {
+  const { customerPhone, storeName, orderDate } = buildOrderWhatsappMeta(order);
+
+  if (customerPhone) {
     try {
       await notifyOrderProcessing({
         orderId: String(order.id),
         customerName: String(order.customerName),
-        customerPhone: String(order.customerPhone),
+        customerPhone,
+        storeName,
+        orderDate,
       });
     } catch (err) {
       console.error("[onOrderProcessing] whatsapp failed", err);
@@ -96,7 +95,6 @@ export async function onOrderShipped(orderId: string): Promise<void> {
     trackingCode,
   );
 
-  // Send email
   try {
     await sendOrderShippedEmail({
       to: String(order.customerEmail),
@@ -109,14 +107,18 @@ export async function onOrderShipped(orderId: string): Promise<void> {
     console.error("[onOrderShipped] email failed", err);
   }
 
-  // Send WhatsApp (to admin and optionally customer)
+  const { customerPhone, storeName, orderDate } = buildOrderWhatsappMeta(order);
+
   try {
-    await notifyOrderShipped({
+    const result = await notifyOrderShipped({
       orderId: String(order.id),
       customerName: String(order.customerName),
       trackingCode,
-      customerPhone: order.customerPhone,
+      customerPhone,
+      storeName,
+      orderDate,
     });
+    logAdminNotifyResult("onOrderShipped", orderId, result);
   } catch (err) {
     console.error("[onOrderShipped] whatsapp failed", err);
   }
@@ -131,7 +133,6 @@ export async function onOrderDelivered(orderId: string): Promise<void> {
     .maybeSingle();
   if (!order) return;
 
-  // Send email
   try {
     await sendOrderDeliveredEmail({
       to: String(order.customerEmail),
@@ -142,13 +143,16 @@ export async function onOrderDelivered(orderId: string): Promise<void> {
     console.error("[onOrderDelivered] email failed", err);
   }
 
-  // Send WhatsApp to customer if phone available
-  if (order.customerPhone) {
+  const { customerPhone, storeName, orderDate } = buildOrderWhatsappMeta(order);
+
+  if (customerPhone) {
     try {
       await notifyOrderDelivered({
         orderId: String(order.id),
         customerName: String(order.customerName),
-        customerPhone: String(order.customerPhone),
+        customerPhone,
+        storeName,
+        orderDate,
       });
     } catch (err) {
       console.error("[onOrderDelivered] whatsapp failed", err);
@@ -165,26 +169,19 @@ export async function onOrderCancelled(orderId: string): Promise<void> {
     .maybeSingle();
   if (!order) return;
 
-  // Calculate total
-  const { data: items } = await db
-    .from(TABLES.OrderItem)
-    .select("*")
-    .eq("orderId", orderId);
+  const { amountCents, customerPhone, storeName, orderDate } =
+    buildOrderWhatsappMeta(order);
 
-  const totalCents =
-    (items ?? []).reduce(
-      (s, i) => s + Number(i.priceCents) * Number(i.quantity),
-      0,
-    ) + Number(order.shippingCents);
-
-  // Send WhatsApp (to admin and optionally customer)
   try {
-    await notifyOrderCancelled({
+    const result = await notifyOrderCancelled({
       orderId: String(order.id),
       customerName: String(order.customerName),
-      amountCents: totalCents,
-      customerPhone: order.customerPhone,
+      amountCents,
+      customerPhone,
+      storeName,
+      orderDate,
     });
+    logAdminNotifyResult("onOrderCancelled", orderId, result);
   } catch (err) {
     console.error("[onOrderCancelled] whatsapp failed", err);
   }

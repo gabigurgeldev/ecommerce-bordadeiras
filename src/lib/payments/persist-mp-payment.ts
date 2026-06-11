@@ -25,7 +25,9 @@ export async function finalizeApprovedOrder(
     .eq("id", orderId)
     .maybeSingle();
 
-  if (order && String(order.status) !== "PAID") {
+  const wasAlreadyPaid = order != null && String(order.status) === "PAID";
+
+  if (order && !wasAlreadyPaid) {
     await db
       .from(TABLES.Order)
       .update({ status: "PAID", paidAt: now, updatedAt: now })
@@ -38,7 +40,10 @@ export async function finalizeApprovedOrder(
 
   await deductOrderStock(orderId);
   await incrementCouponUsageOnPaymentApproved(orderId);
-  void onOrderPaid(orderId, localPaymentId);
+
+  if (!wasAlreadyPaid) {
+    void onOrderPaid(orderId, localPaymentId);
+  }
 
   revalidatePath("/admin");
 }

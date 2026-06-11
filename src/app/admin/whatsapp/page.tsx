@@ -31,6 +31,11 @@ export default async function AdminWhatsappPage() {
           <TabsTrigger value="recipients" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Destinatários</span>
+            {recipients.filter((r) => r.active).length > 0 && (
+              <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                {recipients.filter((r) => r.active).length}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="templates" className="flex items-center gap-2" asChild>
             <Link href="/admin/whatsapp/templates">
@@ -91,7 +96,10 @@ export default async function AdminWhatsappPage() {
         <TabsContent value="recipients" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
             <WhatsappConnectPanel initialStatus={session.status} />
-            <WhatsappRecipientsPanel recipients={recipients} />
+            <WhatsappRecipientsPanel
+              recipients={recipients}
+              whatsappConnected={session.status === "connected"}
+            />
           </div>
         </TabsContent>
 

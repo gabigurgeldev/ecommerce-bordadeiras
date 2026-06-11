@@ -40,6 +40,9 @@ const EVENT_OPTIONS: { value: WhatsappTemplateEvent; label: string }[] = [
   { value: "ORDER_SHIPPED", label: "Pedido Enviado" },
   { value: "ORDER_DELIVERED", label: "Pedido Entregue" },
   { value: "ORDER_CANCELLED", label: "Pedido Cancelado" },
+  { value: "PENDING_PAYMENT", label: "Outreach — Pagamento Pendente" },
+  { value: "ABANDONED_CART", label: "Outreach — Sacola Abandonada" },
+  { value: "CUSTOM_OUTREACH", label: "Outreach — Contato Personalizado" },
 ];
 
 const RECIPIENT_OPTIONS: { value: WhatsappTemplateRecipientType; label: string }[] = [

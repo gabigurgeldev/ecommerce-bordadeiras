@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Phone } from "lucide-react";
+import { AlertTriangle, Loader2, Phone, Send } from "lucide-react";
 import { toast } from "sonner";
 import type { WhatsappRecipient } from "@/lib/types/database";
 import { z } from "zod";
@@ -33,13 +33,40 @@ import {
 type FormValues = z.infer<typeof whatsappRecipientSchema>;
 
 export function WhatsappRecipientsPanel({
-  recipients: initial,
+  recipients,
+  whatsappConnected: initialConnected = false,
 }: {
   recipients: WhatsappRecipient[];
+  whatsappConnected?: boolean;
 }) {
   const router = useRouter();
-  const [recipients] = useState(initial);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [whatsappConnected, setWhatsappConnected] = useState(initialConnected);
+  const activeCount = recipients.filter((r) => r.active).length;
+
+  const fetchConnectionStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/whatsapp/health", { cache: "no-store" });
+      if (!res.ok) {
+        setWhatsappConnected(false);
+        return;
+      }
+      const data = (await res.json()) as { connected?: boolean };
+      setWhatsappConnected(data.connected === true);
+    } catch {
+      setWhatsappConnected(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchConnectionStatus();
+    const interval = setInterval(() => {
+      void fetchConnectionStatus();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [fetchConnectionStatus]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(whatsappRecipientSchema),
     defaultValues: { label: "", phone: "", active: true },
@@ -49,16 +76,75 @@ export function WhatsappRecipientsPanel({
     router.refresh();
   }
 
+  async function handleTestAlert() {
+    setTesting(true);
+    try {
+      const res = await fetch("/api/admin/whatsapp/send-test-admin", {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        recipientsSent?: number;
+        sent?: boolean;
+      } | null;
+
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Falha ao enviar teste");
+      }
+
+      toast.success(
+        `Teste enviado para ${data?.recipientsSent ?? 0} destinatário(s)`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao enviar teste");
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
     <>
       <Card className="h-full shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">Destinatários dos alertas</CardTitle>
-          <CardDescription>
-            Números que recebem avisos de pedido (não é o número emissor). Ex.: 5511999999999
-          </CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Destinatários dos alertas</CardTitle>
+              <CardDescription>
+                Números que recebem avisos de pedido (não é o número emissor). Ex.:
+                5511999999999 ou (11) 99999-9999
+              </CardDescription>
+            </div>
+            <Badge variant={activeCount > 0 ? "default" : "secondary"}>
+              {activeCount} ativo{activeCount === 1 ? "" : "s"}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {activeCount === 0 && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <p>
+                  Nenhum destinatário ativo — alertas de novo pedido{" "}
+                  <strong>não serão entregues</strong> até cadastrar pelo menos um
+                  número.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!whatsappConnected && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <p>
+                  WhatsApp desconectado — conecte o número emissor na aba Conexão
+                  antes de enviar alertas.
+                </p>
+              </div>
+            </div>
+          )}
+
           <form
             className="rounded-lg border bg-muted/20 p-4"
             onSubmit={form.handleSubmit(async (data) => {
@@ -77,7 +163,7 @@ export function WhatsappRecipientsPanel({
               </div>
               <div className="space-y-2">
                 <Label>Telefone</Label>
-                <Input placeholder="5511999999999" {...form.register("phone")} />
+                <Input placeholder="(11) 99999-9999" {...form.register("phone")} />
               </div>
             </div>
             <div className="mt-4">
@@ -86,6 +172,25 @@ export function WhatsappRecipientsPanel({
               </Button>
             </div>
           </form>
+
+          {activeCount > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                disabled={testing || !whatsappConnected}
+                onClick={() => void handleTestAlert()}
+              >
+                {testing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Testar alerta de pedido
+              </Button>
+            </div>
+          )}
 
           {recipients.length === 0 ? (
             <AdminEmptyState

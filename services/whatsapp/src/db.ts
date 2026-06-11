@@ -192,6 +192,8 @@ export async function getTemplateForRecipient(
     .eq("event", event)
     .eq("recipientType", recipientType)
     .eq("active", true)
+    .order("isDefault", { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (error) {
     console.error("[whatsapp/db] getTemplateForRecipient error:", error);

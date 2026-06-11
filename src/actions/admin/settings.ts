@@ -256,14 +256,11 @@ export async function sendSmtpTest(toEmail: string): Promise<ActionResult> {
 
 export async function getWhatsappStatus() {
   return withAdminRead(async () => {
-    const { data: session } = await getDb()
-      .from(TABLES.WhatsappSession)
-      .select("status, updatedAt")
-      .eq("sessionId", "default")
-      .maybeSingle();
+    const { resolveWhatsappConnectionStatus } = await import("@/lib/whatsapp-client");
+    const resolved = await resolveWhatsappConnectionStatus();
     return {
-      status: session?.status ?? "disconnected",
-      updatedAt: session?.updatedAt ?? null,
+      status: resolved.status,
+      updatedAt: resolved.updatedAt ? new Date(resolved.updatedAt) : null,
     };
   });
 }

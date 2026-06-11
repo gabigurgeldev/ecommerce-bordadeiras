@@ -54,3 +54,69 @@ export function maxTokensFor(context: AiImproveContext, scope: AiImproveScope): 
   if (context === "product" && scope === "reviews") return 4096;
   return 2048;
 }
+
+const OUTREACH_SYSTEM_PROMPT = `Você é um redator de mensagens de WhatsApp para a loja "Bordadeiras" (e-commerce de materiais para bordado e artesanato).
+Escreva em português do Brasil, tom acolhedor, direto e natural — como uma conversa real no WhatsApp.
+Responda SOMENTE com um objeto JSON válido: { "message": "..." }.
+A mensagem deve ter no máximo 1200 caracteres, texto plano (sem markdown, HTML ou emojis em excesso).
+Não invente preços, promoções, links ou informações que não estejam no contexto do cliente.
+Use o primeiro nome do cliente quando disponível.`;
+
+const OPPORTUNITY_LABELS: Record<string, string> = {
+  pending_payment: "Cobrar pagamento de pedido pendente",
+  abandoned_cart: "Recuperar sacola abandonada",
+  none: "Reengajamento geral (sem oportunidade urgente)",
+};
+
+export function buildCustomerOutreachPrompt(
+  mode: "auto" | "guided",
+  customerContext: string,
+  guidance?: string,
+): { system: string; user: string } {
+  const modeInstruction =
+    mode === "auto"
+      ? `Analise o perfil do cliente e escolha o melhor ângulo para a mensagem com base na oportunidade principal indicada no contexto.
+Priorize: pagamento pendente > sacola abandonada > reengajamento com base em interesses e histórico.
+A mensagem deve ter uma chamada para ação clara e ser pronta para enviar.`
+      : `Siga as instruções do administrador como prioridade, mantendo os dados factuais do cliente.
+Instruções do administrador:
+${guidance?.trim() ?? ""}`;
+
+  return {
+    system: OUTREACH_SYSTEM_PROMPT,
+    user: `${modeInstruction}
+
+Contexto do cliente:
+${customerContext}
+
+Retorne JSON: { "message": "texto da mensagem pronta para WhatsApp" }`,
+  };
+}
+
+export function buildCustomerContextBlock(context: {
+  storeName: string;
+  customerName: string;
+  email: string;
+  phone: string | null;
+  primaryOpportunity: string;
+  opportunityDetails: string;
+  statsSummary: string;
+  topProducts: string;
+  recentViews: string;
+  recentActivity: string;
+}): string {
+  return [
+    `Loja: ${context.storeName}`,
+    `Cliente: ${context.customerName}`,
+    `Email: ${context.email}`,
+    context.phone ? `Telefone: ${context.phone}` : null,
+    `Oportunidade principal: ${OPPORTUNITY_LABELS[context.primaryOpportunity] ?? context.primaryOpportunity}`,
+    context.opportunityDetails,
+    context.statsSummary,
+    context.topProducts,
+    context.recentViews,
+    context.recentActivity,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}

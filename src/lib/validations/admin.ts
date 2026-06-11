@@ -179,7 +179,8 @@ export const whatsappRecipientSchema = z.object({
   label: z.string().max(120).optional(),
   phone: z
     .string()
-    .regex(/^\d{10,13}$/, "Telefone: somente dígitos (DDI+DDD+número)"),
+    .min(8, "Informe o telefone com DDD")
+    .max(20, "Telefone muito longo"),
   active: z.boolean().optional(),
 });
 

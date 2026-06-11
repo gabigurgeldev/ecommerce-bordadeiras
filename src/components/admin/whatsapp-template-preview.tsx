@@ -26,6 +26,10 @@ const SAMPLE_DATA: Record<string, string> = {
   "{{trackingCode}}": "AA123456789BR",
   "{{storeName}}": "Bordadeiras Store",
   "{{orderDate}}": "10/06/2026",
+  "{{checkoutUrl}}": "https://loja.com/checkout?order=abc123",
+  "{{cartSummary}}": "• Linha de bordado × 2\n• Bastidor 20cm × 1",
+  "{{cartTotal}}": "R$ 89,90",
+  "{{message}}": "Temos novidades que combinam com o seu perfil!",
 };
 
 function formatTemplate(template: string, variables: Record<string, string>): string {
