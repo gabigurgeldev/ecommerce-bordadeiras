@@ -1,7 +1,10 @@
 import { OrderTracking } from "@/components/account/order-tracking";
 import { fetchUserOrder } from "@/actions/orders";
+import { PendingCheckoutBanner } from "@/components/checkout/pending-checkout-banner";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { getPendingCheckoutOrderForUser } from "@/lib/data/pending-order";
 import { buildMetadata } from "@/lib/seo/metadata";
+import { getSessionUser } from "@/lib/auth/session";
 import { notFound } from "next/navigation";
 
 type Props = { params: Promise<{ id: string }> };
@@ -21,9 +24,16 @@ export default async function ContaPedidoDetailPage({ params }: Props) {
   if (!order) notFound();
 
   const addr = order.shippingAddress;
+  const sessionUser = await getSessionUser();
+  const pendingResume =
+    order.status === "PENDING" && sessionUser?.id
+      ? await getPendingCheckoutOrderForUser(sessionUser.id, order.id)
+      : null;
 
   return (
     <div className="space-y-8">
+      {pendingResume && <PendingCheckoutBanner order={pendingResume} />}
+
       <div>
         <h2 className="font-display text-xl font-semibold text-[var(--color-brown)]">
           Pedido #{order.id.slice(-8).toUpperCase()}

@@ -2,6 +2,7 @@ import { fetchUserAddresses } from "@/actions/account/addresses";
 import { getPublicCheckoutTheme } from "@/actions/admin/checkout-theme";
 import { CheckoutPage } from "@/components/checkout/checkout-page";
 import { getSessionUser } from "@/lib/auth/session";
+import { getPendingCheckoutOrderForUser } from "@/lib/data/pending-order";
 import { getCheckoutPaymentConfig } from "@/lib/mercadopago-config";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { getDb, TABLES } from "@/lib/supabase/db";
@@ -12,14 +13,19 @@ export const metadata = buildMetadata({
   noIndex: true,
 });
 
-export default async function CheckoutRoutePage() {
+type Props = { searchParams: Promise<{ order?: string }> };
+
+export default async function CheckoutRoutePage({ searchParams }: Props) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) return null;
 
-  const [addresses, paymentConfig, checkoutTheme] = await Promise.all([
+  const { order: orderParam } = await searchParams;
+
+  const [addresses, paymentConfig, checkoutTheme, initialResume] = await Promise.all([
     fetchUserAddresses(),
     getCheckoutPaymentConfig(),
     getPublicCheckoutTheme(),
+    getPendingCheckoutOrderForUser(sessionUser.id, orderParam),
   ]);
 
   const db = getDb();
@@ -47,6 +53,7 @@ export default async function CheckoutRoutePage() {
       credentialError={paymentConfig.credentialError}
       display={paymentConfig.display}
       checkoutTheme={checkoutTheme}
+      initialResume={initialResume}
     />
   );
 }

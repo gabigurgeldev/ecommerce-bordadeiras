@@ -10,7 +10,11 @@ import {
 import { getServerCart } from "@/lib/data/cart";
 import { validateCouponCode } from "@/lib/data/coupon-validate";
 import { clearServerCartForUser } from "@/lib/data/cart";
-import { upsertPendingCheckoutOrder } from "@/lib/data/pending-order";
+import {
+  getPendingCheckoutOrderForUser,
+  upsertPendingCheckoutOrder,
+  type PendingCheckoutResume,
+} from "@/lib/data/pending-order";
 import { generateOrderNumber } from "@/lib/order-utils";
 import { formatSupabaseError } from "@/lib/supabase/error-message";
 import {
@@ -72,6 +76,14 @@ export async function validateCheckoutCoupon(
   subtotalCents: number,
 ) {
   return validateCouponCode(code, subtotalCents);
+}
+
+export async function fetchPendingCheckoutResume(
+  orderId?: string,
+): Promise<PendingCheckoutResume | null> {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser?.id) return null;
+  return getPendingCheckoutOrderForUser(sessionUser.id, orderId);
 }
 
 export async function createOrderDraft(input: CheckoutInput) {

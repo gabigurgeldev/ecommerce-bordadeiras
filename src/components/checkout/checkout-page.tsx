@@ -24,15 +24,20 @@ import type { CheckoutStep } from "@/components/checkout/checkout-stepper";
 import { CheckoutThemeProvider } from "@/components/checkout/checkout-theme-provider";
 import { CheckoutTrustStrip } from "@/components/checkout/checkout-trust-strip";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   buildAvailableMethods,
   type CheckoutPaymentMethodId,
 } from "@/lib/checkout-payment-methods";
 import type { CheckoutTheme } from "@/lib/checkout-theme";
+import { isValidCpf, maskCpf } from "@/lib/cpf";
+import type { PendingCheckoutResume } from "@/lib/data/pending-order";
 import type { CheckoutDisplayConfig, MercadoPagoEnabledMethods } from "@/lib/mercadopago-config";
 import type { Address } from "@/lib/types/database";
 import { useCartStore } from "@/store/cart";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -54,6 +59,7 @@ export function CheckoutPage({
   credentialError,
   display,
   checkoutTheme,
+  initialResume = null,
 }: {
   userName: string;
   userEmail: string;
@@ -67,6 +73,7 @@ export function CheckoutPage({
   credentialError: string | null;
   display: CheckoutDisplayConfig;
   checkoutTheme?: CheckoutTheme;
+  initialResume?: PendingCheckoutResume | null;
 }) {
   const router = useRouter();
   const { lines, couponCode, applyCoupon, subtotalCents, hasHydrated, clearCart } =
@@ -93,18 +100,50 @@ export function CheckoutPage({
     useState<CheckoutPaymentMethodId | null>(null);
   const [sandboxPayerEmail, setSandboxPayerEmail] = useState("");
   const [sandboxEmailReady, setSandboxEmailReady] = useState(false);
+  const [resumeLines, setResumeLines] = useState<
+    PendingCheckoutResume["items"] | null
+  >(null);
+  const [resumeSubtotalCents, setResumeSubtotalCents] = useState(0);
 
   const trustMessages = checkoutTheme?.cta?.trustMessages ?? [];
   const [trustMsgIdx, setTrustMsgIdx] = useState(0);
   const trustMsgIdxRef = useRef(trustMsgIdx);
   trustMsgIdxRef.current = trustMsgIdx;
+  const resumeAppliedRef = useRef(false);
 
   useEffect(() => {
-    if (!hasHydrated) return;
-    if (lines.length === 0) {
-      router.replace("/sacola");
+    if (!hasHydrated || resumeAppliedRef.current || !initialResume) return;
+    if (lines.length > 0) return;
+
+    resumeAppliedRef.current = true;
+    setOrderId(initialResume.orderId);
+    setTotalCents(initialResume.totalCents);
+    setDiscountCents(initialResume.discountCents);
+    setResumeLines(initialResume.items);
+    setResumeSubtotalCents(initialResume.subtotalCents);
+    setAddressData({
+      shippingAddress: initialResume.shippingAddress,
+      shippingAddressId: initialResume.shippingAddressId ?? undefined,
+      shippingCents: initialResume.shippingCents,
+      estimatedDays: "",
+      shippingServiceName: initialResume.shippingServiceName ?? undefined,
+    });
+    setPersonalInfo({
+      name: initialResume.customerName,
+      email: initialResume.customerEmail,
+      phone: initialResume.customerPhone ?? userPhone ?? "",
+      cpf: "",
+    });
+    setPersonalInfoValid(false);
+    setShippingPreview({
+      shippingCents: initialResume.shippingCents,
+      calculated: true,
+    });
+    if (initialResume.couponCode) {
+      applyCoupon(initialResume.couponCode);
     }
-  }, [lines.length, hasHydrated, router]);
+    setWizardStep("pagamento");
+  }, [hasHydrated, initialResume, lines.length, userPhone, applyCoupon]);
 
   useEffect(() => {
     if (trustMessages.length < 2) return;
@@ -160,14 +199,29 @@ export function CheckoutPage({
     [],
   );
 
+  const cpfReady =
+    personalInfo != null && isValidCpf(cpfDigits(personalInfo.cpf));
+
   const handleSelectPaymentMethod = useCallback(
     (method: CheckoutPaymentMethodId) => {
+      if (personalInfo && !isValidCpf(cpfDigits(personalInfo.cpf))) {
+        toast.error("Informe um CPF válido para continuar");
+        return;
+      }
       setSelectedMethod(method);
       setConfirmedMethod(method);
       setSandboxEmailReady(false);
     },
-    [],
+    [personalInfo],
   );
+
+  function handleResumeCpfChange(value: string) {
+    if (!personalInfo) return;
+    const masked = maskCpf(value);
+    const next = { ...personalInfo, cpf: masked };
+    setPersonalInfo(next);
+    setPersonalInfoValid(isValidCpf(cpfDigits(masked)));
+  }
 
   function handleChangePaymentMethod() {
     setSelectedMethod(null);
@@ -220,6 +274,13 @@ export function CheckoutPage({
       return;
     }
 
+    if (orderId && totalCents > 0) {
+      setSelectedMethod(null);
+      setConfirmedMethod(null);
+      setWizardStep("pagamento");
+      return;
+    }
+
     setCreatingOrder(true);
     try {
       const result = await createOrderDraft({
@@ -243,7 +304,6 @@ export function CheckoutPage({
         return;
       }
 
-      clearCart();
       setOrderId(result.orderId);
       setTotalCents(result.totalCents);
       if (result.shippingCents !== addressData.shippingCents) {
@@ -253,9 +313,12 @@ export function CheckoutPage({
           calculated: true,
         });
       }
+      setResumeLines(null);
+      setResumeSubtotalCents(0);
       setSelectedMethod(null);
       setConfirmedMethod(null);
       setWizardStep("pagamento");
+      clearCart();
       toast.success(
         result.reused
           ? "Continuando seu pedido pendente. Escolha a forma de pagamento."
@@ -345,7 +408,32 @@ export function CheckoutPage({
     onRemoveCoupon: handleRemoveCoupon,
   };
 
-  const stepContent = (
+  const summaryProps = {
+    shippingCents,
+    shippingCalculated,
+    shippingLabel: addressData?.shippingServiceName,
+    discountCents,
+    resumeLines: resumeLines ?? undefined,
+    resumeSubtotalCents: resumeLines ? resumeSubtotalCents : undefined,
+    resumeTotalCents: resumeLines ? totalCents : undefined,
+  };
+
+  const showEmptyCheckout =
+    hasHydrated && lines.length === 0 && !orderId && !initialResume;
+
+  const stepContent = showEmptyCheckout ? (
+    <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-6 py-12 text-center dark:border-zinc-700 dark:bg-zinc-900/50">
+      <p className="text-lg font-medium text-zinc-800 dark:text-zinc-200">
+        Nenhum pedido em andamento
+      </p>
+      <p className="mt-2 text-sm text-zinc-500">
+        Adicione produtos à sacola para iniciar uma compra.
+      </p>
+      <Button className="mt-6" asChild>
+        <Link href="/loja">Ir para a loja</Link>
+      </Button>
+    </div>
+  ) : (
     <>
       {wizardStep === "endereco" && (
         <>
@@ -428,6 +516,25 @@ export function CheckoutPage({
 
             {sandbox && !credentialError && <CheckoutSandboxBanner />}
 
+            {personalInfo && !cpfReady && (
+              <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+                <Label htmlFor="checkout-resume-cpf" className="text-sm font-medium">
+                  CPF para pagamento
+                </Label>
+                <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                  Informe seu CPF para continuar com o pagamento do pedido.
+                </p>
+                <Input
+                  id="checkout-resume-cpf"
+                  inputMode="numeric"
+                  placeholder="000.000.000-00"
+                  value={personalInfo.cpf}
+                  onChange={(e) => handleResumeCpfChange(e.target.value)}
+                  className="mt-3 max-w-xs"
+                />
+              </div>
+            )}
+
             {credentialError && (
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
                 <p className="font-medium">Pagamentos indisponíveis</p>
@@ -446,13 +553,19 @@ export function CheckoutPage({
                   <p className="mb-3 text-sm text-zinc-600" style={mutedStyle}>
                     Escolha como deseja pagar
                   </p>
-                  <CheckoutPaymentMethodSelector
-                    enabledMethods={enabledMethods}
-                    maxInstallments={maxInstallments}
-                    installmentFees={installmentFees}
-                    selectedMethod={selectedMethod}
-                    onSelect={handleSelectPaymentMethod}
-                  />
+                  {cpfReady ? (
+                    <CheckoutPaymentMethodSelector
+                      enabledMethods={enabledMethods}
+                      maxInstallments={maxInstallments}
+                      installmentFees={installmentFees}
+                      selectedMethod={selectedMethod}
+                      onSelect={handleSelectPaymentMethod}
+                    />
+                  ) : (
+                    <p className="text-sm text-zinc-500">
+                      Preencha o CPF acima para escolher a forma de pagamento.
+                    </p>
+                  )}
                 </>
               ) : (
                 <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
@@ -539,7 +652,12 @@ export function CheckoutPage({
     </>
   );
 
-  const inner = (
+  const inner = showEmptyCheckout ? (
+    <div className="mx-auto max-w-lg px-4 py-16 sm:px-6" style={rootFontStyle}>
+      {stepContent}
+      <CheckoutFooterLinks theme={checkoutTheme} />
+    </div>
+  ) : (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12" style={rootFontStyle}>
       {showStepper && <CheckoutStepper currentStep={currentStep} />}
 
@@ -580,14 +698,11 @@ export function CheckoutPage({
       )}
 
       <CheckoutOrderSummary
-        shippingCents={shippingCents}
-        shippingCalculated={shippingCalculated}
-        shippingLabel={addressData?.shippingServiceName}
-        discountCents={discountCents}
+        {...summaryProps}
         collapsible
         cardStyle={cardStyle}
         headingStyle={headingStyle}
-        coupon={couponProps}
+        coupon={resumeLines ? undefined : couponProps}
       />
 
       {trustMessages.length > 0 && (
@@ -609,13 +724,10 @@ export function CheckoutPage({
         <div className="hidden lg:col-span-2 lg:block">
           <div className="sticky top-24 space-y-4">
             <CheckoutOrderSummary
-              shippingCents={shippingCents}
-              shippingCalculated={shippingCalculated}
-              shippingLabel={addressData?.shippingServiceName}
-              discountCents={discountCents}
+              {...summaryProps}
               cardStyle={cardStyle}
               headingStyle={headingStyle}
-              coupon={couponProps}
+              coupon={resumeLines ? undefined : couponProps}
             />
             {trustMessages.length > 0 && (
               <p

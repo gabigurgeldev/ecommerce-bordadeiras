@@ -29,11 +29,20 @@ function formatShippingLine(shippingCents: number, shippingCalculated: boolean) 
   return formatCurrency(shippingCents);
 }
 
+type ResumeLine = {
+  name: string;
+  quantity: number;
+  priceCents: number;
+};
+
 export function CheckoutOrderSummary({
   shippingCents,
   shippingCalculated = false,
   shippingLabel,
   discountCents,
+  resumeLines,
+  resumeSubtotalCents,
+  resumeTotalCents,
   collapsible = false,
   cardStyle,
   headingStyle,
@@ -43,6 +52,9 @@ export function CheckoutOrderSummary({
   shippingCalculated?: boolean;
   shippingLabel?: string;
   discountCents: number;
+  resumeLines?: ResumeLine[];
+  resumeSubtotalCents?: number;
+  resumeTotalCents?: number;
   collapsible?: boolean;
   cardStyle?: React.CSSProperties;
   headingStyle?: React.CSSProperties;
@@ -53,68 +65,94 @@ export function CheckoutOrderSummary({
 
   useEffect(() => setMounted(true), []);
 
-  const subtotal = mounted ? subtotalCents() : 0;
-  const total =
-    subtotal - discountCents + (shippingCalculated ? shippingCents : 0);
+  const isResume = Boolean(resumeLines?.length);
+  const subtotal = isResume
+    ? (resumeSubtotalCents ?? 0)
+    : mounted
+      ? subtotalCents()
+      : 0;
+  const total = isResume
+    ? (resumeTotalCents ??
+      subtotal - discountCents + (shippingCalculated ? shippingCents : 0))
+    : subtotal - discountCents + (shippingCalculated ? shippingCents : 0);
   const displayLines = mounted ? lines : [];
 
   const content = (
     <>
       <ul className="space-y-4">
-        {displayLines.map((line) => (
-          <li key={line.lineId} className="flex gap-3">
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-zinc-50">
-              <Image
-                src={line.imageUrl}
-                alt=""
-                fill
-                className="object-cover"
-                sizes="64px"
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <Link
-                href={`/produto/${line.slug}`}
-                className="line-clamp-2 text-sm font-medium hover:text-rose-600"
-                style={headingStyle}
-              >
-                {line.name}
-              </Link>
-              <p className="text-xs text-zinc-500">
-                {formatCurrency(line.priceCents)} × {line.quantity}
-              </p>
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded border p-1 transition-colors hover:border-zinc-400"
-                  onClick={() => setQuantity(line.lineId, line.quantity - 1)}
-                  aria-label="Diminuir quantidade"
-                >
-                  <Minus className="h-3 w-3" />
-                </button>
-                <span className="min-w-[1.25rem] text-center text-sm font-medium">
-                  {line.quantity}
-                </span>
-                <button
-                  type="button"
-                  className="rounded border p-1 transition-colors hover:border-zinc-400"
-                  onClick={() => setQuantity(line.lineId, line.quantity + 1)}
-                  aria-label="Aumentar quantidade"
-                >
-                  <Plus className="h-3 w-3" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeItem(line.lineId)}
-                  className="ml-auto text-zinc-400 transition-colors hover:text-rose-600"
-                  aria-label="Remover item"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </li>
-        ))}
+        {isResume
+          ? resumeLines!.map((line, idx) => (
+              <li key={`${line.name}-${idx}`} className="flex gap-3">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border bg-zinc-50 text-xs text-zinc-400">
+                  {line.quantity}×
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="line-clamp-2 text-sm font-medium"
+                    style={headingStyle}
+                  >
+                    {line.name}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {formatCurrency(line.priceCents)} × {line.quantity}
+                  </p>
+                </div>
+              </li>
+            ))
+          : displayLines.map((line) => (
+              <li key={line.lineId} className="flex gap-3">
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-zinc-50">
+                  <Image
+                    src={line.imageUrl}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/produto/${line.slug}`}
+                    className="line-clamp-2 text-sm font-medium hover:text-rose-600"
+                    style={headingStyle}
+                  >
+                    {line.name}
+                  </Link>
+                  <p className="text-xs text-zinc-500">
+                    {formatCurrency(line.priceCents)} × {line.quantity}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded border p-1 transition-colors hover:border-zinc-400"
+                      onClick={() => setQuantity(line.lineId, line.quantity - 1)}
+                      aria-label="Diminuir quantidade"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <span className="min-w-[1.25rem] text-center text-sm font-medium">
+                      {line.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded border p-1 transition-colors hover:border-zinc-400"
+                      onClick={() => setQuantity(line.lineId, line.quantity + 1)}
+                      aria-label="Aumentar quantidade"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(line.lineId)}
+                      className="ml-auto text-zinc-400 transition-colors hover:text-rose-600"
+                      aria-label="Remover item"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
       </ul>
 
       {coupon && (

@@ -1,13 +1,17 @@
 "use client";
 
+import { fetchPendingCheckoutResume } from "@/actions/checkout";
 import { CheckoutButton } from "@/components/cart/checkout-button";
+import { PendingCheckoutBanner } from "@/components/checkout/pending-checkout-banner";
 import { StorefrontSheet } from "@/components/storefront/storefront-sheet";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
+import type { PendingCheckoutResume } from "@/lib/data/pending-order";
 import { useCartStore } from "@/store/cart";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 const PREVIEW_LIMIT = 5;
 
@@ -20,9 +24,26 @@ export function CartPopup({
 }) {
   const { lines, removeItem, setQuantity, subtotalCents, itemCount } =
     useCartStore();
+  const [pendingOrder, setPendingOrder] = useState<PendingCheckoutResume | null>(
+    null,
+  );
   const subtotal = subtotalCents();
   const total = subtotal;
   const count = itemCount();
+
+  useEffect(() => {
+    if (!open || lines.length > 0) {
+      setPendingOrder(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchPendingCheckoutResume().then((order) => {
+      if (!cancelled) setPendingOrder(order);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, lines.length]);
 
   const previewLines =
     lines.length > PREVIEW_LIMIT
@@ -78,22 +99,30 @@ export function CartPopup({
     >
       <div className="p-6">
         {lines.length === 0 ? (
-          <div className="flex flex-col items-center justify-center space-y-4 py-12 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-50">
-              <ShoppingBag className="h-10 w-10 text-zinc-300" />
+          pendingOrder ? (
+            <PendingCheckoutBanner
+              order={pendingOrder}
+              compact
+              onContinue={onClose}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center space-y-4 py-12 text-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-50">
+                <ShoppingBag className="h-10 w-10 text-zinc-300" />
+              </div>
+              <div>
+                <p className="text-lg font-medium text-zinc-900">
+                  Sua sacola está vazia
+                </p>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Adicione itens para começar a comprar.
+                </p>
+              </div>
+              <Button onClick={onClose} className="mt-4" asChild>
+                <Link href="/loja">Continuar comprando</Link>
+              </Button>
             </div>
-            <div>
-              <p className="text-lg font-medium text-zinc-900">
-                Sua sacola está vazia
-              </p>
-              <p className="mt-1 text-sm text-zinc-500">
-                Adicione itens para começar a comprar.
-              </p>
-            </div>
-            <Button onClick={onClose} className="mt-4" asChild>
-              <Link href="/loja">Continuar comprando</Link>
-            </Button>
-          </div>
+          )
         ) : (
           <>
             {lines.length > PREVIEW_LIMIT && (

@@ -2,9 +2,11 @@
 
 import { validateCheckoutCoupon } from "@/actions/checkout";
 import { CheckoutButton } from "@/components/cart/checkout-button";
+import { PendingCheckoutBanner } from "@/components/checkout/pending-checkout-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/format";
+import type { PendingCheckoutResume } from "@/lib/data/pending-order";
 import { useCartStore } from "@/store/cart";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
@@ -12,7 +14,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-export function CartView() {
+export function CartView({
+  pendingOrder = null,
+}: {
+  pendingOrder?: PendingCheckoutResume | null;
+}) {
   const { lines, removeItem, setQuantity, applyCoupon, subtotalCents, couponCode } =
     useCartStore();
   const [couponInput, setCouponInput] = useState(couponCode ?? "");
@@ -50,6 +56,14 @@ export function CartView() {
   }
 
   if (lines.length === 0) {
+    if (pendingOrder) {
+      return (
+        <div className="py-8">
+          <PendingCheckoutBanner order={pendingOrder} />
+        </div>
+      );
+    }
+
     return (
       <div className="py-20 text-center">
         <p className="text-zinc-600 dark:text-zinc-400">Sua sacola está vazia.</p>

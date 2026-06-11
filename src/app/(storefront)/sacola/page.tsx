@@ -1,4 +1,6 @@
 import { CartView } from "@/components/cart/cart-view";
+import { getSessionUser } from "@/lib/auth/session";
+import { getPendingCheckoutOrderForUser } from "@/lib/data/pending-order";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata = buildMetadata({
@@ -7,14 +9,19 @@ export const metadata = buildMetadata({
   noIndex: true,
 });
 
-export default function SacolaPage() {
+export default async function SacolaPage() {
+  const sessionUser = await getSessionUser();
+  const pendingOrder = sessionUser?.id
+    ? await getPendingCheckoutOrderForUser(sessionUser.id)
+    : null;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <h1 className="font-display text-4xl font-semibold text-[var(--color-brown)]">
         Sacola
       </h1>
       <div className="mt-10 rounded-3xl border border-[var(--color-card-border)] bg-white p-6 shadow-sm">
-        <CartView />
+        <CartView pendingOrder={pendingOrder} />
       </div>
     </div>
   );
