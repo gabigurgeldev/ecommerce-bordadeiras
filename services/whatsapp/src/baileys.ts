@@ -4,6 +4,7 @@ import makeWASocket, {
   Browsers,
   DisconnectReason,
   fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore,
   useMultiFileAuthState,
   type WASocket,
   type WAVersion,
@@ -128,10 +129,22 @@ export async function startBaileys(): Promise<WASocket> {
       version,
       logger,
       printQRInTerminal: false,
-      browser: Browsers.ubuntu("Bordadeiras"),
-      auth: state,
+      browser: Browsers.ubuntu("Chrome"),
+      auth: {
+        creds: state.creds,
+        // Cache do signal key store evita "Failed to decrypt message" e
+        // reduz a latência das init queries (causa comum do "Timed Out").
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
       generateHighQualityLinkPreview: true,
-      keepAliveIntervalMs: 30000,
+      // Sem timeout fixo nas queries: as init queries após o pareamento
+      // costumam estourar o default (60s) em redes lentas → statusCode 408.
+      defaultQueryTimeoutMs: undefined,
+      connectTimeoutMs: 60_000,
+      keepAliveIntervalMs: 15_000,
+      retryRequestDelayMs: 500,
+      markOnlineOnConnect: false,
+      syncFullHistory: false,
     });
 
     sock = socket;
