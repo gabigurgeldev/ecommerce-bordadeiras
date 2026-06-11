@@ -131,6 +131,26 @@ app.post("/messages/send-to-customer", async (req, res) => {
   res.json({ ok: true, sent: true });
 });
 
+// Send raw text message to customer (admin outreach)
+app.post("/messages/send-to-customer-raw", async (req, res) => {
+  const { phone, text } = req.body as { phone: string; text: string };
+
+  if (!phone || !text?.trim()) {
+    res.status(400).json({ error: "phone and text required" });
+    return;
+  }
+
+  try {
+    await sendMessageToPhone(phone, text.trim());
+    res.json({ ok: true, sent: true });
+  } catch (err) {
+    console.error("[whatsapp] POST /messages/send-to-customer-raw failed:", err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to send message",
+    });
+  }
+});
+
 // Send message to admin using template
 app.post("/messages/send-to-admin", async (req, res) => {
   const { templateKey, variables } = req.body as {

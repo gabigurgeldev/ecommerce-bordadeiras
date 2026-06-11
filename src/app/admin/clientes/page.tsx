@@ -10,11 +10,14 @@ export default async function AdminCustomersPage() {
       <PageHeader title="Clientes" description="Usuários cadastrados na loja" />
       <CustomersList
         customers={customers.map((c) => ({
-          id: c.id,
-          name: c.name,
-          email: c.email,
+          id: String(c.id),
+          name: c.name != null ? String(c.name) : null,
+          email: String(c.email),
+          phone: c.phone != null ? String(c.phone) : null,
           orderCount: c._count.orders,
           createdAt: c.createdAt,
+          hasPendingPayment: c._signals.hasPendingPayment,
+          hasActiveCart: c._signals.hasActiveCart,
         }))}
       />
     </div>

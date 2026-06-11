@@ -2,6 +2,8 @@
 
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/lib/hooks/use-debounce";
+import { recordActivityClient } from "@/lib/tracking/record-activity-client";
+import { CustomerActivityType } from "@/lib/types/database";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
@@ -36,6 +38,16 @@ export function ShopFilters({
       update({ q: debouncedQ || null });
     }
   }, [debouncedQ, searchParams, update]);
+
+  useEffect(() => {
+    const term = debouncedQ.trim();
+    if (term.length < 2) return;
+    recordActivityClient({
+      type: CustomerActivityType.SEARCH,
+      path: "/loja",
+      metadata: { query: term },
+    });
+  }, [debouncedQ]);
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">

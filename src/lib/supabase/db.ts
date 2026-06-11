@@ -38,6 +38,7 @@ export const TABLES = {
   SavedCard: "SavedCard",
   ProductReview: "ProductReview",
   StockMovement: "StockMovement",
+  CustomerActivity: "CustomerActivity",
 } as const;
 
 /** CUID-like id compatible with existing rows. */

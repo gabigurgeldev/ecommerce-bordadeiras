@@ -1,8 +1,10 @@
 "use client";
 
+import { recordActivityClient } from "@/lib/tracking/record-activity-client";
+import type { CartLineInput } from "@/lib/types/catalog";
+import { CustomerActivityType } from "@/lib/types/database";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { CartLineInput } from "@/lib/types/catalog";
 
 export type CartLine = CartLineInput & { lineId: string };
 
@@ -50,27 +52,41 @@ export const useCartStore = create<CartState>()(
               ),
             };
           }
-          return {
-            lines: [
-              ...state.lines,
-              {
-                lineId: id,
-                productId: item.productId,
-                variantId: item.variantId,
-                slug: item.slug,
-                name: item.name,
-                priceCents: item.priceCents,
-                imageUrl: item.imageUrl,
-                quantity: qty,
-              },
-            ],
+          const nextLine = {
+            lineId: id,
+            productId: item.productId,
+            variantId: item.variantId,
+            slug: item.slug,
+            name: item.name,
+            priceCents: item.priceCents,
+            imageUrl: item.imageUrl,
+            quantity: qty,
           };
+          recordActivityClient({
+            type: CustomerActivityType.ADD_TO_CART,
+            path: `/produto/${item.slug}`,
+            productId: item.productId,
+            productName: item.name,
+            metadata: { quantity: qty, variantId: item.variantId ?? null },
+          });
+          return { lines: [...state.lines, nextLine] };
         });
       },
-      removeItem: (lineId) =>
+      removeItem: (lineId) => {
+        const removed = get().lines.find((l) => l.lineId === lineId);
+        if (removed) {
+          recordActivityClient({
+            type: CustomerActivityType.REMOVE_FROM_CART,
+            path: `/produto/${removed.slug}`,
+            productId: removed.productId,
+            productName: removed.name,
+            metadata: { quantity: removed.quantity },
+          });
+        }
         set((state) => ({
           lines: state.lines.filter((l) => l.lineId !== lineId),
-        })),
+        }));
+      },
       setQuantity: (lineId, quantity) => {
         if (quantity < 1) {
           get().removeItem(lineId);

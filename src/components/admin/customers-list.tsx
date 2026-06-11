@@ -20,8 +20,11 @@ type CustomerRow = {
   id: string;
   name: string | null;
   email: string;
+  phone: string | null;
   orderCount: number;
   createdAt: string | Date;
+  hasPendingPayment: boolean;
+  hasActiveCart: boolean;
 };
 
 function getCustomerInitials(name: string | null, email: string): string {
@@ -60,6 +63,30 @@ function CustomerAvatar({
     >
       {initials}
     </span>
+  );
+}
+
+function OpportunityBadges({
+  hasPendingPayment,
+  hasActiveCart,
+}: {
+  hasPendingPayment: boolean;
+  hasActiveCart: boolean;
+}) {
+  if (!hasPendingPayment && !hasActiveCart) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {hasPendingPayment && (
+        <Badge variant="destructive" className="text-[10px] font-normal">
+          Pag. pendente
+        </Badge>
+      )}
+      {hasActiveCart && (
+        <Badge className="bg-amber-600 text-[10px] font-normal hover:bg-amber-600">
+          Sacola ativa
+        </Badge>
+      )}
+    </div>
   );
 }
 
@@ -127,7 +154,9 @@ export function CustomersList({ customers }: { customers: CustomerRow[] }) {
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-[280px]">Cliente</TableHead>
                   <TableHead>E-mail</TableHead>
+                  <TableHead>Telefone</TableHead>
                   <TableHead>Pedidos</TableHead>
+                  <TableHead>Oportunidade</TableHead>
                   <TableHead>Cadastro</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -147,8 +176,17 @@ export function CustomersList({ customers }: { customers: CustomerRow[] }) {
                     <TableCell className="text-muted-foreground truncate max-w-[220px]">
                       {c.email}
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {c.phone ?? "—"}
+                    </TableCell>
                     <TableCell>
                       <OrderCountBadge count={c.orderCount} />
+                    </TableCell>
+                    <TableCell>
+                      <OpportunityBadges
+                        hasPendingPayment={c.hasPendingPayment}
+                        hasActiveCart={c.hasActiveCart}
+                      />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                       {formatDate(c.createdAt)}
@@ -187,6 +225,10 @@ export function CustomersList({ customers }: { customers: CustomerRow[] }) {
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{c.email}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <OpportunityBadges
+                        hasPendingPayment={c.hasPendingPayment}
+                        hasActiveCart={c.hasActiveCart}
+                      />
                       <OrderCountBadge count={c.orderCount} />
                       <span className="text-xs text-muted-foreground">
                         Desde {formatDate(c.createdAt)}

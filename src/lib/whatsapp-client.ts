@@ -75,6 +75,13 @@ export async function sendCustomerMessage(params: {
   return whatsappFetch("/messages/send-to-customer", params);
 }
 
+export async function sendCustomerRawMessage(params: {
+  phone: string;
+  text: string;
+}) {
+  return whatsappFetch("/messages/send-to-customer-raw", params);
+}
+
 // Send custom message to admin using template
 export async function sendAdminTemplateMessage(params: {
   templateKey: string;

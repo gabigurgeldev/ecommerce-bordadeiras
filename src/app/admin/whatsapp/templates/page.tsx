@@ -22,6 +22,9 @@ const EVENT_LABELS: Record<WhatsappTemplateEvent, string> = {
   ORDER_SHIPPED: "Pedido Enviado",
   ORDER_DELIVERED: "Pedido Entregue",
   ORDER_CANCELLED: "Pedido Cancelado",
+  PENDING_PAYMENT: "Cobrança Pendente",
+  ABANDONED_CART: "Sacola Abandonada",
+  CUSTOM_OUTREACH: "Contato Personalizado",
 };
 
 const RECIPIENT_LABELS: Record<WhatsappTemplateRecipientType, { label: string; icon: React.ReactNode }> = {

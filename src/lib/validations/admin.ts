@@ -199,6 +199,9 @@ export const whatsappTemplateSchema = z.object({
     "ORDER_SHIPPED",
     "ORDER_DELIVERED",
     "ORDER_CANCELLED",
+    "PENDING_PAYMENT",
+    "ABANDONED_CART",
+    "CUSTOM_OUTREACH",
   ]),
   active: z.boolean().optional(),
 });

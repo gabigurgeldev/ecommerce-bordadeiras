@@ -449,6 +449,28 @@ export const WhatsappTemplateRecipientType = {
 export type WhatsappTemplateRecipientType =
   (typeof WhatsappTemplateRecipientType)[keyof typeof WhatsappTemplateRecipientType];
 
+export const CustomerActivityType = {
+  PAGE_VIEW: "PAGE_VIEW",
+  PRODUCT_VIEW: "PRODUCT_VIEW",
+  ADD_TO_CART: "ADD_TO_CART",
+  REMOVE_FROM_CART: "REMOVE_FROM_CART",
+  BEGIN_CHECKOUT: "BEGIN_CHECKOUT",
+  SEARCH: "SEARCH",
+} as const;
+export type CustomerActivityType =
+  (typeof CustomerActivityType)[keyof typeof CustomerActivityType];
+
+export type CustomerActivity = {
+  id: string;
+  userId: string;
+  type: CustomerActivityType;
+  path: string | null;
+  productId: string | null;
+  productName: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date;
+};
+
 export const WhatsappTemplateEvent = {
   NEW_ORDER: "NEW_ORDER",
   PAYMENT_APPROVED: "PAYMENT_APPROVED",
@@ -456,6 +478,9 @@ export const WhatsappTemplateEvent = {
   ORDER_SHIPPED: "ORDER_SHIPPED",
   ORDER_DELIVERED: "ORDER_DELIVERED",
   ORDER_CANCELLED: "ORDER_CANCELLED",
+  PENDING_PAYMENT: "PENDING_PAYMENT",
+  ABANDONED_CART: "ABANDONED_CART",
+  CUSTOM_OUTREACH: "CUSTOM_OUTREACH",
 } as const;
 export type WhatsappTemplateEvent =
   (typeof WhatsappTemplateEvent)[keyof typeof WhatsappTemplateEvent];

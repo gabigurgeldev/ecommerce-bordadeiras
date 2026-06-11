@@ -1,3 +1,4 @@
+import { ProductViewTracker } from "@/components/tracking/customer-activity-tracker";
 import { ProductDetailContent } from "@/components/shop/product-detail-content";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { JsonLdScript } from "@/components/seo/json-ld-script";
@@ -65,6 +66,9 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      {isLoggedIn && (
+        <ProductViewTracker productId={product.id} productName={product.name} />
+      )}
       <JsonLdScript data={productJsonLd(product, reviewStats)} />
       <JsonLdScript
         data={breadcrumbJsonLd([

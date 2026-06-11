@@ -34,7 +34,9 @@ import type { CheckoutTheme } from "@/lib/checkout-theme";
 import { isValidCpf, maskCpf } from "@/lib/cpf";
 import type { PendingCheckoutResume } from "@/lib/data/pending-order";
 import type { CheckoutDisplayConfig, MercadoPagoEnabledMethods } from "@/lib/mercadopago-config";
+import { recordActivityClient } from "@/lib/tracking/record-activity-client";
 import type { Address } from "@/lib/types/database";
+import { CustomerActivityType } from "@/lib/types/database";
 import { useCartStore } from "@/store/cart";
 import Image from "next/image";
 import Link from "next/link";
@@ -110,6 +112,16 @@ export function CheckoutPage({
   const trustMsgIdxRef = useRef(trustMsgIdx);
   trustMsgIdxRef.current = trustMsgIdx;
   const resumeAppliedRef = useRef(false);
+  const checkoutTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (checkoutTrackedRef.current) return;
+    checkoutTrackedRef.current = true;
+    recordActivityClient({
+      type: CustomerActivityType.BEGIN_CHECKOUT,
+      path: "/checkout",
+    });
+  }, []);
 
   useEffect(() => {
     if (!hasHydrated || resumeAppliedRef.current || !initialResume) return;
