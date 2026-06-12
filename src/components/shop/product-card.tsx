@@ -1,13 +1,12 @@
 "use client";
 
+import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { formatCurrency, formatInstallment } from "@/lib/format";
 import type { Product } from "@/lib/types/catalog";
-import { useCartStore } from "@/store/cart";
 import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ShoppingCart } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
 
 function ProductCardContent({
   product,
@@ -16,7 +15,6 @@ function ProductCardContent({
   product: Product;
   index: number;
 }) {
-  const addItem = useCartStore((s) => s.addItem);
   const isNew = product.tags?.includes("novo");
 
   return (
@@ -57,22 +55,17 @@ function ProductCardContent({
         </div>
 
         <div className="mt-auto flex flex-col gap-2 pt-1">
-          <Button
+          <AddToCartButton
             size="sm"
             className="h-10 w-full min-h-[44px] shadow-sm"
-            onClick={() =>
-              addItem({
-                productId: product.id,
-                slug: product.slug,
-                name: product.name,
-                priceCents: product.priceCents,
-                imageUrl: product.images[0]!,
-              })
-            }
-          >
-            <ShoppingCart className="h-4 w-4" />
-            Adicionar
-          </Button>
+            item={{
+              productId: product.id,
+              slug: product.slug,
+              name: product.name,
+              priceCents: product.priceCents,
+              imageUrl: product.images[0]!,
+            }}
+          />
           <Link
             href={`/produto/${product.slug}`}
             className="link-muted inline-flex min-h-[44px] items-center justify-center gap-1 text-xs font-medium underline-offset-4 hover:underline sm:text-sm"
@@ -87,7 +80,7 @@ function ProductCardContent({
 }
 
 const cardClassName =
-  "group flex flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-[var(--color-brown)]/10";
+  "group card-shine flex h-full flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-[var(--color-brown)]/10 motion-reduce:hover:translate-y-0";
 
 export function ProductCard({
   product,

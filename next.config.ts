@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 function imageRemotePatterns() {
   const patterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
     { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
+    { protocol: "https", hostname: "img.youtube.com", pathname: "/**" },
     { protocol: "http", hostname: "localhost", pathname: "/**" },
     { protocol: "http", hostname: "127.0.0.1", pathname: "/**" },
   ];

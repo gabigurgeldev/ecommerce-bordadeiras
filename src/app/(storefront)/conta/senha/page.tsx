@@ -1,3 +1,4 @@
+import { AccountSectionHeader } from "@/components/account/account-section-header";
 import { PasswordForm } from "@/components/account/password-form";
 import { buildMetadata } from "@/lib/seo/metadata";
 
@@ -9,13 +10,11 @@ export const metadata = buildMetadata({
 
 export default function ContaSenhaPage() {
   return (
-    <div>
-      <h2 className="font-display text-xl font-semibold text-[var(--color-brown)]">
-        Senha
-      </h2>
-      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-        Defina uma nova senha para sua conta.
-      </p>
+    <div className="space-y-6">
+      <AccountSectionHeader
+        title="Senha"
+        description="Defina uma nova senha para sua conta."
+      />
       <PasswordForm />
     </div>
   );

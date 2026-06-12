@@ -1,40 +1,40 @@
-import { mapBlogPost, parseBlogPostRow } from "@/lib/data/mappers";
-import { mockBlogPosts } from "@/lib/mock/catalog";
-import { getDb, TABLES } from "@/lib/supabase/db";
+import {
+  getBlogPostBySlugPublic,
+  listBlogPosts,
+} from "@/lib/blog/blog-post-service";
 import type { BlogPost } from "@/lib/types/catalog";
 
-export async function getBlogPosts(): Promise<BlogPost[]> {
-  try {
-    const { data, error } = await getDb()
-      .from(TABLES.BlogPost)
-      .select("*")
-      .eq("published", true)
-      .order("publishedAt", { ascending: false });
-    if (!error && data?.length) {
-      return data.map((p) => mapBlogPost(parseBlogPostRow(p as Record<string, unknown>)));
-    }
-  } catch {
-    /* mock fallback */
-  }
-  return [...mockBlogPosts].sort(
-    (a, b) =>
-      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-  );
+function toCatalogPost(
+  post: Awaited<ReturnType<typeof listBlogPosts>>["items"][number],
+): BlogPost {
+  return {
+    id: post.id,
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.excerpt ?? "",
+    content: post.content,
+    coverImage: post.coverImage ?? "",
+    publishedAt: post.publishedAt?.toISOString() ?? post.createdAt.toISOString(),
+    author: post.author?.name ?? "Equipe",
+    tags: post.tags?.map((t) => t.tag?.name).filter(Boolean) as string[] | undefined,
+  };
 }
 
+/** @deprecated Prefer `getPublicBlogPosts` from `@/actions/blog`. */
+export async function getBlogPosts(): Promise<BlogPost[]> {
+  const result = await listBlogPosts({
+    page: 1,
+    pageSize: 200,
+    sortBy: "publishedAt",
+    sortOrder: "desc",
+    publicOnly: true,
+    includeDeleted: false,
+  });
+  return result.items.map(toCatalogPost);
+}
+
+/** @deprecated Prefer `getPublicBlogPost` from `@/actions/blog`. */
 export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> {
-  try {
-    const { data, error } = await getDb()
-      .from(TABLES.BlogPost)
-      .select("*")
-      .eq("slug", slug)
-      .eq("published", true)
-      .maybeSingle();
-    if (!error && data) {
-      return mapBlogPost(parseBlogPostRow(data as Record<string, unknown>));
-    }
-  } catch {
-    /* mock fallback */
-  }
-  return mockBlogPosts.find((p) => p.slug === slug) ?? null;
+  const post = await getBlogPostBySlugPublic(slug);
+  return post ? toCatalogPost(post) : null;
 }

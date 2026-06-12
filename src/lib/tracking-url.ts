@@ -24,3 +24,15 @@ export function buildTrackingUrl(
 
   return null;
 }
+
+export function getTrackingLinkLabel(
+  carrier: string | null | undefined,
+): string {
+  const carrierNorm = (carrier ?? "correios").toLowerCase();
+  const isCorreios = CORREIOS_CARRIERS.some((c) =>
+    carrierNorm.includes(c.toLowerCase()),
+  );
+  if (isCorreios) return "Rastrear nos Correios";
+  if (carrier) return `Rastrear com ${carrier}`;
+  return "Rastrear envio";
+}

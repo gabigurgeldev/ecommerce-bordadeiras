@@ -61,3 +61,23 @@ export async function rateLimitWebhook(identifier: string): Promise<RateLimitRes
   }
   return memoryRateLimit(`webhook:${identifier}`, 60, 60_000);
 }
+
+const blogCommentLimiter = createUpstashLimiter("blog-comment", 5, "10 m");
+const blogViewLimiter = createUpstashLimiter("blog-view", 1, "30 m");
+
+export async function rateLimitBlogComment(identifier: string): Promise<RateLimitResult> {
+  if (blogCommentLimiter) {
+    const r = await blogCommentLimiter.limit(identifier);
+    return { success: r.success, remaining: r.remaining };
+  }
+  return memoryRateLimit(`blog-comment:${identifier}`, 5, 600_000);
+}
+
+/** One view count per slug+IP every 30 minutes. */
+export async function rateLimitBlogView(identifier: string): Promise<RateLimitResult> {
+  if (blogViewLimiter) {
+    const r = await blogViewLimiter.limit(identifier);
+    return { success: r.success, remaining: r.remaining };
+  }
+  return memoryRateLimit(`blog-view:${identifier}`, 1, 1_800_000);
+}

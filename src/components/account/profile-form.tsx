@@ -38,34 +38,34 @@ export function ProfileForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
+    <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
-        <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--color-brown-muted)]">
+        <label className="label-caps mb-1.5 flex items-center gap-1.5">
           <User className="h-3.5 w-3.5" />
           Nome
         </label>
         <Input name="name" defaultValue={initialName} required />
       </div>
       <div className="sm:col-span-2">
-        <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--color-brown-muted)]">
+        <label className="label-caps mb-1.5 flex items-center gap-1.5">
           <Mail className="h-3.5 w-3.5" />
           E-mail
         </label>
         <Input name="email" type="email" defaultValue={email} readOnly />
       </div>
       <div className="sm:col-span-2">
-        <label className="mb-1.5 text-xs font-medium text-[var(--color-brown-muted)]">
-          Telefone
-        </label>
+        <label className="label-caps mb-1.5 block">Telefone</label>
         <Input
           name="phone"
           defaultValue={initialPhone}
           placeholder="(00) 00000-0000"
         />
       </div>
-      <Button type="submit" className="sm:col-span-2 w-fit" disabled={loading}>
-        {loading ? "Salvando…" : "Salvar alterações"}
-      </Button>
+      <div className="sm:col-span-2 flex justify-end">
+        <Button type="submit" disabled={loading}>
+          {loading ? "Salvando…" : "Salvar alterações"}
+        </Button>
+      </div>
     </form>
   );
 }

@@ -1,6 +1,7 @@
 import { siteConfig } from "@/lib/site";
 import type { BlogPost, Product } from "@/lib/types/catalog";
 import type { ProductReviewStats } from "@/lib/data/product-reviews";
+import type { BlogPostWithRelations } from "@/lib/types/database";
 
 export function organizationJsonLd() {
   return {
@@ -69,6 +70,51 @@ export function blogPostJsonLd(post: BlogPost) {
       name: siteConfig.name,
       logo: { "@type": "ImageObject", url: `${siteConfig.url}/brand/logo.png` },
     },
+  };
+}
+
+export function blogArticleJsonLd(
+  post: BlogPostWithRelations,
+  options?: { coverImage?: string; authorName?: string },
+) {
+  const url = `${siteConfig.url}/blog/${post.slug}`;
+  const cover = options?.coverImage ?? post.coverImage ?? undefined;
+  const authorName = options?.authorName ?? post.author?.name?.trim() ?? "Equipe Bordadeiras";
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.seoTitle ?? post.title,
+    description: post.seoDescription ?? post.excerpt ?? undefined,
+    image: cover,
+    datePublished: post.publishedAt?.toISOString?.() ?? post.publishedAt ?? undefined,
+    dateModified: post.updatedAt?.toISOString?.() ?? post.updatedAt ?? undefined,
+    author: { "@type": "Person", name: authorName },
+    publisher: {
+      "@type": "Organization",
+      name: siteConfig.name,
+      logo: { "@type": "ImageObject", url: `${siteConfig.url}/brand/logo.png` },
+    },
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    url,
+    ...(post.category
+      ? { articleSection: post.category.name, keywords: post.tags?.map((t) => t.tag?.name).filter(Boolean) }
+      : {}),
+  };
+}
+
+export function blogListingJsonLd(options: {
+  name: string;
+  description: string;
+  path: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: options.name,
+    description: options.description,
+    url: `${siteConfig.url}${options.path}`,
+    isPartOf: { "@type": "WebSite", name: siteConfig.name, url: siteConfig.url },
   };
 }
 

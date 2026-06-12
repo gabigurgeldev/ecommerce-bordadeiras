@@ -1,3 +1,4 @@
+import { AccountSectionHeader } from "@/components/account/account-section-header";
 import { ProfileForm } from "@/components/account/profile-form";
 import { getSessionUser } from "@/lib/auth/session";
 import { getDb, TABLES } from "@/lib/supabase/db";
@@ -39,10 +40,10 @@ export default async function ContaPerfilPage() {
   const displayEmail = user?.email ?? sessionUser?.email ?? "";
 
   return (
-    <div>
-      <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--secondary)]/30 p-5">
+    <div className="space-y-6">
+      <div className="account-card bg-gradient-to-br from-[var(--secondary)]/50 to-white">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-lg font-semibold text-[var(--color-brown)] shadow-sm">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-xl font-semibold text-[var(--color-brown)] shadow-sm ring-2 ring-[var(--color-price)]/30">
             {displayName[0]?.toUpperCase() ?? "U"}
           </span>
           <div className="min-w-0">
@@ -52,29 +53,34 @@ export default async function ContaPerfilPage() {
             <p className="truncate text-sm text-[var(--muted-foreground)]">
               {displayEmail}
             </p>
+            <span className="mt-2 inline-block rounded-full bg-[var(--color-brown)]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-brown)]">
+              Membro
+            </span>
           </div>
         </div>
       </div>
 
-      <h2 className="mt-8 font-display text-xl font-semibold text-[var(--color-brown)]">
-        Dados do perfil
-      </h2>
-      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-        {sessionUser
-          ? "Atualize seu nome e telefone."
-          : "Faça login para ver e gerenciar seu perfil."}
-      </p>
+      <AccountSectionHeader
+        title="Dados do perfil"
+        description={
+          sessionUser
+            ? "Atualize seu nome e telefone."
+            : "Faça login para ver e gerenciar seu perfil."
+        }
+      />
 
       {!sessionUser ? (
-        <Button className="mt-6" asChild>
+        <Button asChild>
           <Link href="/login?callbackUrl=/conta">Entrar na conta</Link>
         </Button>
       ) : (
-        <ProfileForm
-          initialName={user?.name ?? sessionUser.name ?? ""}
-          email={displayEmail}
-          initialPhone={user?.phone ?? ""}
-        />
+        <div className="account-card">
+          <ProfileForm
+            initialName={user?.name ?? sessionUser.name ?? ""}
+            email={displayEmail}
+            initialPhone={user?.phone ?? ""}
+          />
+        </div>
       )}
     </div>
   );

@@ -11,7 +11,7 @@ export function TrustBar({ items }: { items: TrustBarItem[] }) {
       aria-label="Garantias da loja"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <ul className="flex snap-x snap-mandatory gap-5 overflow-x-auto py-5 [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:py-6 lg:grid-cols-4 lg:gap-5 lg:py-6 [&::-webkit-scrollbar]:hidden">
+        <ul className="flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth py-5 [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:py-6 lg:grid-cols-4 lg:gap-5 lg:py-6 [&::-webkit-scrollbar]:hidden">
           {items.map((item) => {
             const Icon = getTrustIcon(item.icon);
             const content = (

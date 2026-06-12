@@ -1,3 +1,4 @@
+import { AccountSectionHeader } from "@/components/account/account-section-header";
 import { PaymentMethodsManager } from "@/components/account/payment-methods-manager";
 import {
   fetchSavedCards,
@@ -5,6 +6,7 @@ import {
 } from "@/actions/account/payment-methods";
 import { getMercadoPagoPublicKey } from "@/actions/checkout/mercadopago";
 import { buildMetadata } from "@/lib/seo/metadata";
+import { Shield } from "lucide-react";
 
 export const metadata = buildMetadata({
   title: "Formas de pagamento",
@@ -20,16 +22,19 @@ export default async function ContaPagamentosPage() {
   ]);
 
   return (
-    <div>
-      <h2 className="font-display text-xl font-semibold text-[var(--color-brown)]">
-        Formas de pagamento
-      </h2>
-      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-        Salve cartões com segurança via Mercado Pago para agilizar suas compras.
-      </p>
-      <div className="mt-6">
-        <PaymentMethodsManager initialCards={cards} publicKey={publicKey} />
+    <div className="space-y-6">
+      <AccountSectionHeader
+        title="Formas de pagamento"
+        description="Salve cartões com segurança via Mercado Pago para agilizar suas compras."
+      />
+      <div className="flex items-start gap-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--secondary)]/30 px-4 py-3 text-sm text-[var(--muted-foreground)]">
+        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-brown)]" />
+        <p>
+          Seus dados de cartão são tokenizados pelo Mercado Pago. Nós não
+          armazenamos o número completo do cartão.
+        </p>
       </div>
+      <PaymentMethodsManager initialCards={cards} publicKey={publicKey} />
     </div>
   );
 }

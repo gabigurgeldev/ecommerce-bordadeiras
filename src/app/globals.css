@@ -262,6 +262,40 @@ h3 {
   color: var(--color-brown-muted);
 }
 
+/* Rótulos de seção no rodapé (superfície escura) */
+.footer-label {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--footer-fg-muted);
+}
+
+.footer-label::after {
+  content: "";
+  display: block;
+  width: 1.5rem;
+  height: 2px;
+  margin-top: 0.5rem;
+  background: var(--color-price);
+  border-radius: 1px;
+}
+
+/* Cards internos da área Minha conta */
+.account-card {
+  border-radius: 1rem;
+  border: 1px solid var(--color-card-border);
+  background: #fff;
+  padding: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .account-card {
+    padding: 1.5rem;
+  }
+}
+
 /* Links secundários (não-CTA) */
 .link-muted {
   color: var(--color-brown);
@@ -426,7 +460,18 @@ h3 {
   inset: 0;
   background: var(--gradient-card-shine);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.group:hover.card-shine::after {
   opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-shine::after {
+    transition: none;
+  }
 }
 
 /* Pulse suave para CTAs */
@@ -447,6 +492,74 @@ h3 {
 @media (prefers-reduced-motion: reduce) {
   .cta-pulse {
     animation: none;
+  }
+}
+
+/* Active tap feedback for clickable elements */
+.tap-scale {
+  transition: transform 200ms ease;
+}
+
+.tap-scale:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tap-scale:active {
+    transform: none;
+  }
+}
+
+/* Horizontal scroll fade edges */
+.fade-edges-x {
+  position: relative;
+}
+
+.fade-edges-x::before,
+.fade-edges-x::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1.5rem;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.fade-edges-x::before {
+  left: 0;
+  background: linear-gradient(to right, var(--color-header-bg) 0%, transparent 100%);
+}
+
+.fade-edges-x::after {
+  right: 0;
+  background: linear-gradient(to left, var(--color-header-bg) 0%, transparent 100%);
+}
+
+/* Cart badge pop on increment */
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.badge-pop {
+  animation: badge-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-pop {
+    animation: none;
+  }
+
+  .tap-scale {
+    transition: none;
   }
 }
 

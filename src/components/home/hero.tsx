@@ -81,7 +81,7 @@ export function Hero({ banners }: { banners: StorefrontBannerSlide[] }) {
       <div className="relative mx-auto w-full max-w-[1920px]">
         <div
           ref={emblaRef}
-          className="relative w-full overflow-hidden aspect-[21/9] min-h-[220px] max-h-[480px] sm:min-h-[300px] lg:min-h-[400px]"
+          className="relative w-full overflow-hidden aspect-[4/3] min-h-[260px] max-h-[520px] sm:aspect-[21/9] sm:min-h-[300px] lg:min-h-[400px]"
         >
             <div className="flex h-full">
               {slides.map((banner, index) => (
@@ -128,13 +128,17 @@ export function Hero({ banners }: { banners: StorefrontBannerSlide[] }) {
                     aria-selected={index === selectedIndex}
                     aria-label={`Slide ${index + 1}`}
                     onClick={() => emblaApi?.scrollTo(index)}
-                    className={cn(
-                      "h-2 rounded-full transition-all",
-                      index === selectedIndex
-                        ? "w-6 bg-white"
-                        : "w-2 bg-white/50 hover:bg-white/75",
-                    )}
-                  />
+                    className="flex min-h-[44px] min-w-[44px] items-center justify-center"
+                  >
+                    <span
+                      className={cn(
+                        "block h-2 rounded-full transition-all",
+                        index === selectedIndex
+                          ? "w-6 bg-white"
+                          : "w-2 bg-white/50 hover:bg-white/75",
+                      )}
+                    />
+                  </button>
                 ))}
             </div>
           ) : null}

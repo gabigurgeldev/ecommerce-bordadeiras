@@ -9,7 +9,7 @@ import {
 } from "@/actions/account/payment-methods";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreditCard, Trash2 } from "lucide-react";
+import { CreditCard, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -116,65 +116,78 @@ export function PaymentMethodsManager({
 
   if (!publicKey) {
     return (
-      <p className="text-sm text-[var(--muted-foreground)]">
+      <p className="account-card text-sm text-[var(--muted-foreground)]">
         Configure o Mercado Pago em Admin → Configurações para salvar cartões.
       </p>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        {!showForm ? (
+          <Button onClick={() => setShowForm(true)} disabled={!mpReady} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Adicionar cartão
+          </Button>
+        ) : null}
+      </div>
+
       {cards.length === 0 ? (
-        <p className="text-sm text-[var(--muted-foreground)]">
-          Nenhum cartão salvo.
-        </p>
+        <div className="account-card text-center">
+          <CreditCard className="mx-auto h-10 w-10 text-[var(--color-brown-muted)]" />
+          <p className="mt-4 text-sm text-[var(--muted-foreground)]">
+            Nenhum cartão salvo.
+          </p>
+        </div>
       ) : (
         <ul className="space-y-3">
           {cards.map((card) => (
-            <li
-              key={card.id}
-              className="flex items-center justify-between rounded-2xl border border-[var(--color-card-border)] p-4"
-            >
-              <div className="flex items-center gap-3">
-                <CreditCard className="h-5 w-5 text-[var(--color-brown)]" />
-                <div>
-                  <p className="font-medium text-[var(--color-brown)]">
-                    {card.brand ?? "Cartão"} ·••• {card.lastFourDigits ?? "****"}
-                    {card.isDefault && (
-                      <span className="ml-2 rounded-full bg-[var(--secondary)] px-2 py-0.5 text-xs">
-                        Padrão
-                      </span>
-                    )}
-                  </p>
-                  {card.expirationMonth && card.expirationYear && (
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      Validade {String(card.expirationMonth).padStart(2, "0")}/
-                      {card.expirationYear}
+            <li key={card.id} className="account-card">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--color-brown)] to-[var(--color-brown-muted)] text-white shadow-sm">
+                    <CreditCard className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="font-medium text-[var(--color-brown)]">
+                      {card.brand ?? "Cartão"} ·••• {card.lastFourDigits ?? "****"}
+                      {card.isDefault ? (
+                        <span className="ml-2 rounded-full bg-[var(--color-price)]/15 px-2 py-0.5 text-xs font-semibold">
+                          Padrão
+                        </span>
+                      ) : null}
                     </p>
-                  )}
+                    {card.expirationMonth && card.expirationYear ? (
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        Validade {String(card.expirationMonth).padStart(2, "0")}/
+                        {card.expirationYear}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                {!card.isDefault && (
+                <div className="flex gap-2">
+                  {!card.isDefault ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void onSetDefault(card.id)}
+                    >
+                      Padrão
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    onClick={() => void onSetDefault(card.id)}
+                    className="text-red-600"
+                    onClick={() => void onRemove(card.id)}
+                    aria-label="Remover cartão"
                   >
-                    Padrão
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-600"
-                  onClick={() => void onRemove(card.id)}
-                  aria-label="Remover cartão"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                </div>
               </div>
             </li>
           ))}
@@ -184,7 +197,7 @@ export function PaymentMethodsManager({
       {showForm ? (
         <form
           onSubmit={onAddCard}
-          className="grid gap-3 rounded-2xl border border-dashed border-[var(--color-card-border)] p-4 sm:grid-cols-2"
+          className="account-card grid gap-3 border-dashed sm:grid-cols-2"
         >
           <Input
             name="cardholderName"
@@ -214,11 +227,7 @@ export function PaymentMethodsManager({
             </Button>
           </div>
         </form>
-      ) : (
-        <Button onClick={() => setShowForm(true)} disabled={!mpReady}>
-          Adicionar cartão
-        </Button>
-      )}
+      ) : null}
     </div>
   );
 }

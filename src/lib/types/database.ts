@@ -401,10 +401,29 @@ export type TrustItem = {
   updatedAt: Date;
 };
 
+export const BlogPostStatus = {
+  DRAFT: "DRAFT",
+  PUBLISHED: "PUBLISHED",
+  ARCHIVED: "ARCHIVED",
+  SCHEDULED: "SCHEDULED",
+} as const;
+export type BlogPostStatus = (typeof BlogPostStatus)[keyof typeof BlogPostStatus];
+
+export const BlogMediaType = {
+  IMAGE: "IMAGE",
+  YOUTUBE: "YOUTUBE",
+} as const;
+export type BlogMediaType = (typeof BlogMediaType)[keyof typeof BlogMediaType];
+
 export type BlogCategory = {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
+  icon: string | null;
+  postsCount: number;
+  isActive: boolean;
+  sortOrder: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -422,15 +441,79 @@ export type BlogPost = {
   slug: string;
   excerpt: string | null;
   content: string;
+  /** Thumbnail / featured image (spec: thumbnail) */
   coverImage: string | null;
+  youtubeUrl: string | null;
+  /** Legacy boolean — kept in sync with status via DB trigger */
   published: boolean;
+  status: BlogPostStatus;
   publishedAt: Date | null;
+  /** SEO meta title (spec: meta_title) */
+  seoTitle: string | null;
+  /** SEO meta description (spec: meta_description) */
+  seoDescription: string | null;
+  views: number;
+  readingTime: number | null;
+  categoryId: string | null;
+  authorId: string | null;
+  deletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type BlogPostTag = {
+  postId: string;
+  tagId: string;
+};
+
+export type BlogComment = {
+  id: string;
+  postId: string;
+  authorName: string;
+  authorEmail: string;
+  content: string;
+  isApproved: boolean;
+  parentId: string | null;
+  createdAt: Date;
+};
+
+export type BlogMedia = {
+  id: string;
+  postId: string;
+  type: BlogMediaType;
+  url: string;
+  altText: string | null;
+  sortOrder: number;
+  createdAt: Date;
+};
+
+export type BlogPostVersion = {
+  id: string;
+  postId: string;
+  versionNumber: number;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: string;
+  coverImage: string | null;
+  youtubeUrl: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
   categoryId: string | null;
-  authorId: string | null;
+  status: BlogPostStatus;
+  tagIds: string[] | null;
+  notes: string | null;
+  createdById: string | null;
   createdAt: Date;
-  updatedAt: Date;
+};
+
+export type BlogPostWithRelations = BlogPost & {
+  category?: BlogCategory | null;
+  author?: User | null;
+  tags?: (BlogPostTag & { tag?: BlogTag })[];
+  media?: BlogMedia[];
+  comments?: BlogComment[];
+  versions?: BlogPostVersion[];
 };
 
 export type WhatsappRecipient = {

@@ -47,6 +47,8 @@ export async function finalizeApprovedOrder(
   }
 
   revalidatePath("/admin");
+  revalidatePath("/conta/pedidos");
+  revalidatePath(`/conta/pedidos/${orderId}`);
 }
 
 async function markOrderPaidIfApproved(

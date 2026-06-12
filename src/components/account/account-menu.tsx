@@ -50,12 +50,12 @@ export function AccountMenu({
         href="/login"
         onClick={onNavigate}
         className={cn(
-          "inline-flex items-center gap-2 rounded-full border border-[var(--color-card-border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-brown)] shadow-sm transition hover:bg-[var(--secondary)]",
+          "inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[var(--color-card-border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-brown)] shadow-sm transition hover:bg-[var(--secondary)] sm:px-4 lg:px-4",
           className,
         )}
       >
-        <User className="h-4 w-4" />
-        <span>Entrar</span>
+        <User className="h-4 w-4 shrink-0" />
+        <span className="hidden sm:inline">Entrar</span>
       </Link>
     );
   }
@@ -76,15 +76,17 @@ export function AccountMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          "inline-flex items-center gap-2 rounded-full px-2 py-1.5 text-sm font-medium text-[var(--color-brown)] transition hover:bg-[var(--color-brown)]/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brown)]",
+          "inline-flex min-h-[44px] items-center gap-2 rounded-full px-2 py-1.5 text-sm font-medium text-[var(--color-brown)] transition hover:bg-[var(--color-brown)]/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brown)]",
           className,
         )}
         aria-label={`Menu da conta de ${firstName}`}
       >
-        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-card-border)] bg-[var(--secondary)] text-xs font-semibold">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-card-border)] bg-[var(--secondary)] text-xs font-semibold lg:h-9 lg:w-9">
           {initial}
         </span>
-        <span className="hidden max-w-[8rem] truncate sm:inline">{firstName}</span>
+        <span className="hidden max-w-[7rem] truncate sm:inline lg:hidden">
+          {firstName}
+        </span>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent

@@ -1,50 +1,64 @@
-import { Suspense } from "react";
-import { listBlogPosts, listBlogCategories, listBlogTags } from "@/actions/admin/blog";
+import {
+  adminGetBlogStats,
+  adminListBlogComments,
+  adminListBlogPosts,
+} from "@/actions/admin/blog-ext";
+import { BlogDashboardView } from "@/components/admin/blog/blog-dashboard-view";
+import type { BlogCommentRow } from "@/components/admin/blog/blog-comments-list";
+import { aggregateByDate, mapPostRow } from "@/components/admin/blog/blog-utils";
 import { PageHeader } from "@/components/admin/page-header";
-import { BlogAdminView } from "@/components/admin/blog-admin-view";
+import { AdminPageContainer } from "@/components/admin/admin-page-container";
+import type { BlogStats } from "@/lib/blog/types";
+import type { BlogPostWithRelations } from "@/lib/types/database";
 
-export default async function AdminBlogPage() {
-  const [posts, categories, tags] = await Promise.all([
-    listBlogPosts(),
-    listBlogCategories(),
-    listBlogTags(),
+export default async function AdminBlogDashboardPage() {
+  const [statsResult, postsResult, commentsResult] = await Promise.all([
+    adminGetBlogStats(),
+    adminListBlogPosts({ page: 1, pageSize: 100, sortBy: "updatedAt", sortOrder: "desc" }),
+    adminListBlogComments({ page: 1, pageSize: 20, isApproved: "false" }),
   ]);
 
+  const stats = statsResult as BlogStats;
+  const postsRaw = (postsResult as { items?: BlogPostWithRelations[] }).items ?? [];
+  const posts = postsRaw.map((p) => mapPostRow(p));
+
+  const commentsRaw = (commentsResult as { items?: Array<Record<string, unknown>> }).items ?? [];
+  const postMap = new Map(posts.map((p) => [p.id, p]));
+
+  const pendingComments: BlogCommentRow[] = commentsRaw.map((c) => {
+    const postId = String(c.postId);
+    const post = postMap.get(postId);
+    return {
+      id: String(c.id),
+      postId,
+      postTitle: post?.title ?? "Post",
+      postSlug: post?.slug ?? "",
+      authorName: String(c.authorName),
+      authorEmail: String(c.authorEmail),
+      content: String(c.content),
+      isApproved: Boolean(c.isApproved),
+      createdAt: String(c.createdAt),
+    };
+  });
+
+  const chartItems = posts
+    .filter((p) => p.publishedAt)
+    .map((p) => ({ date: p.publishedAt!, value: p.views }));
+  const viewItems = posts.map((p) => ({ date: p.updatedAt, value: p.views }));
+  const chartData = aggregateByDate(chartItems, 30).map((d, i) => ({
+    ...d,
+    views: aggregateByDate(viewItems, 30)[i]?.views ?? 0,
+  }));
+
   return (
-    <div>
-      <PageHeader title="Blog" description="Posts, categorias e tags" />
-      <Suspense fallback={<div className="text-sm text-muted-foreground">Carregando…</div>}>
-        <BlogAdminView
-          posts={posts.map((post) => {
-            const row = post as Record<string, unknown>;
-            const category = (row.BlogCategory ?? row.category) as { name?: string } | null;
-            const postTags = (row.BlogPostTag ?? []) as Array<{
-              BlogTag?: { id: string };
-              tag?: { id: string };
-            }>;
-            const tagIds = postTags
-              .map((pt) => pt.BlogTag?.id ?? pt.tag?.id)
-              .filter((id): id is string => Boolean(id));
-            return {
-              id: post.id,
-              title: post.title,
-              slug: post.slug,
-              excerpt: post.excerpt,
-              content: post.content,
-              coverImage: post.coverImage,
-              published: post.published,
-              seoTitle: post.seoTitle,
-              seoDescription: post.seoDescription,
-              categoryId: post.categoryId,
-              tagIds,
-              updatedAt: post.updatedAt,
-              categoryName: category?.name ?? null,
-            };
-          })}
-          categories={categories}
-          tags={tags}
-        />
-      </Suspense>
-    </div>
+    <AdminPageContainer>
+      <PageHeader title="Blog" description="Visão geral do conteúdo e engajamento" />
+      <BlogDashboardView
+        stats={stats}
+        posts={posts}
+        pendingComments={pendingComments}
+        chartData={chartData}
+      />
+    </AdminPageContainer>
   );
 }

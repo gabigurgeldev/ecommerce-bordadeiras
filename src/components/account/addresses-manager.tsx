@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Address } from "@/lib/types/database";
-import { MapPin, Trash2 } from "lucide-react";
+import { MapPin, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -67,27 +67,38 @@ export function AddressesManager({ addresses }: { addresses: Address[] }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        {!showForm ? (
+          <Button onClick={() => setShowForm(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Adicionar endereço
+          </Button>
+        ) : null}
+      </div>
+
       {addresses.length === 0 ? (
-        <p className="text-sm text-[var(--muted-foreground)]">
-          Nenhum endereço cadastrado.
-        </p>
+        <div className="account-card text-center">
+          <MapPin className="mx-auto h-10 w-10 text-[var(--color-brown-muted)]" />
+          <p className="mt-4 text-sm text-[var(--muted-foreground)]">
+            Nenhum endereço cadastrado.
+          </p>
+        </div>
       ) : (
         <ul className="space-y-4">
           {addresses.map((addr) => (
-            <li
-              key={addr.id}
-              className="rounded-2xl border border-[var(--color-card-border)] p-4"
-            >
+            <li key={addr.id} className="account-card">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex gap-3">
-                  <MapPin className="mt-0.5 h-5 w-5 text-[var(--color-brown)]" />
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--secondary)] ring-1 ring-[var(--color-card-border)]">
+                    <MapPin className="h-5 w-5 text-[var(--color-brown)]" />
+                  </span>
                   <div>
-                    {addr.isDefault && (
-                      <span className="mb-1 inline-block rounded-full bg-[var(--secondary)] px-2 py-0.5 text-xs font-medium">
+                    {addr.isDefault ? (
+                      <span className="mb-1 inline-block rounded-full bg-[var(--color-price)]/15 px-2 py-0.5 text-xs font-semibold text-[var(--color-brown)]">
                         Padrão
                       </span>
-                    )}
+                    ) : null}
                     <p className="font-medium text-[var(--color-brown)]">
                       {addr.recipientName}
                       {addr.label ? ` · ${addr.label}` : ""}
@@ -103,7 +114,7 @@ export function AddressesManager({ addresses }: { addresses: Address[] }) {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {!addr.isDefault && (
+                  {!addr.isDefault ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -112,7 +123,7 @@ export function AddressesManager({ addresses }: { addresses: Address[] }) {
                     >
                       Tornar padrão
                     </Button>
-                  )}
+                  ) : null}
                   <Button
                     type="button"
                     variant="ghost"
@@ -131,7 +142,10 @@ export function AddressesManager({ addresses }: { addresses: Address[] }) {
       )}
 
       {showForm ? (
-        <form onSubmit={onCreate} className="grid gap-3 rounded-2xl border border-dashed border-[var(--color-card-border)] p-4 sm:grid-cols-2">
+        <form
+          onSubmit={onCreate}
+          className="account-card grid gap-3 border-dashed sm:grid-cols-2"
+        >
           <Input name="label" placeholder="Apelido (ex: Casa)" className="sm:col-span-2" />
           <Input name="recipientName" placeholder="Nome do destinatário" required className="sm:col-span-2" />
           <Input name="phone" placeholder="Telefone" />
@@ -155,9 +169,7 @@ export function AddressesManager({ addresses }: { addresses: Address[] }) {
             </Button>
           </div>
         </form>
-      ) : (
-        <Button onClick={() => setShowForm(true)}>Adicionar endereço</Button>
-      )}
+      ) : null}
     </div>
   );
 }

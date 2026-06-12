@@ -49,6 +49,24 @@ export function Logo({ variant = "full", className, href = "/" }: LogoProps) {
     );
   }
 
+  if (variant === "compact") {
+    return (
+      <Link href={href} className={cn("flex min-w-0 items-center gap-2", className)}>
+        <Image
+          src={brandAssets.logoIcon}
+          alt={brandAssets.alt}
+          width={sizes.icon.w}
+          height={sizes.icon.h}
+          className="h-9 w-9 shrink-0 object-contain"
+          priority
+        />
+        <span className="truncate font-display text-sm font-semibold text-[var(--color-brown)] max-w-[120px] min-[375px]:max-w-[9rem]">
+          {siteConfig.name}
+        </span>
+      </Link>
+    );
+  }
+
   return (
     <Link href={href} className="inline-flex shrink-0">
       {image}

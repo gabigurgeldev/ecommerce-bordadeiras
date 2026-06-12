@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { Button } from "@/components/ui/button";
+import { ProductMobileStickyBar } from "@/components/shop/product-mobile-sticky-bar";
 import { formatCurrency, formatInstallment } from "@/lib/format";
 import { siteConfig } from "@/lib/site";
 import type { Product, ProductVariant } from "@/lib/types/catalog";
@@ -12,7 +14,6 @@ import {
   Plus,
   RotateCcw,
   ShieldCheck,
-  ShoppingBag,
   Truck,
   Zap,
 } from "lucide-react";
@@ -47,6 +48,7 @@ export function BuyBox({
   const [internalQty, setInternalQty] = useState(1);
   const qty = controlledQty ?? internalQty;
   const setQty = onQuantityChange ?? setInternalQty;
+  const buyBoxRef = useRef<HTMLDivElement>(null);
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
     product.variants?.[0]?.id,
@@ -67,6 +69,21 @@ export function BuyBox({
   const inStock = stockUnlimited || stock > 0;
   const soldCount = totalSoldCount(product);
 
+  const cartItem = useMemo(
+    () => ({
+      productId: product.id,
+      variantId: selectedVariant?.id,
+      slug: product.slug,
+      name: selectedVariant
+        ? `${product.name} (${variantLabel(selectedVariant)})`
+        : product.name,
+      priceCents,
+      imageUrl: selectedVariant?.imageUrl ?? product.images[0],
+      quantity: qty,
+    }),
+    [product, selectedVariant, priceCents, qty],
+  );
+
   const discountPct =
     compareCents && compareCents > priceCents
       ? Math.round((1 - priceCents / compareCents) * 100)
@@ -82,191 +99,196 @@ export function BuyBox({
     if (match) setSelectedVariantId(match.id);
   }
 
-  function addToCart() {
-    addItem({
-      productId: product.id,
-      variantId: selectedVariant?.id,
-      slug: product.slug,
-      name: selectedVariant
-        ? `${product.name} (${variantLabel(selectedVariant)})`
-        : product.name,
-      priceCents,
-      imageUrl: selectedVariant?.imageUrl ?? product.images[0],
-      quantity: qty,
-    });
+  function addToCartDirect() {
+    addItem(cartItem);
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {categoryName ? (
-        <Link
-          href={`/loja/categoria/${product.categorySlug}`}
-          className="inline-flex w-fit rounded-full border border-[var(--color-card-border)] bg-[var(--secondary)] px-3 py-1 text-xs font-medium uppercase tracking-wide text-[var(--color-brown-muted)] transition-colors hover:border-[var(--color-cta)]/40 hover:text-[var(--color-cta)]"
-        >
-          {categoryName}
-        </Link>
-      ) : null}
+    <>
+      <div ref={buyBoxRef} className="flex flex-col gap-6">
+        {categoryName ? (
+          <Link
+            href={`/loja/categoria/${product.categorySlug}`}
+            className="inline-flex w-fit rounded-full border border-[var(--color-card-border)] bg-[var(--secondary)] px-3 py-1 text-xs font-medium uppercase tracking-wide text-[var(--color-brown-muted)] transition-colors hover:border-[var(--color-cta)]/40 hover:text-[var(--color-cta)]"
+          >
+            {categoryName}
+          </Link>
+        ) : null}
 
-      <div>
-        <h1 className="font-display text-2xl font-semibold leading-tight text-[var(--color-brown)] sm:text-3xl">
-          {product.name}
-        </h1>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[var(--muted-foreground)]">
-          {inStock ? (
-            <span className="inline-flex items-center gap-1 text-[var(--color-green)]">
-              <span className="h-2 w-2 rounded-full bg-[var(--color-green)]" />
-              {stockUnlimited ? "Em estoque" : `${stock} disponíve${stock === 1 ? "l" : "is"}`}
-            </span>
-          ) : (
-            <span className="text-red-600">Indisponível</span>
-          )}
-          {soldCount ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>+{soldCount} vendido{soldCount === 1 ? "" : "s"}</span>
-            </>
-          ) : null}
+        <div>
+          <h1 className="font-display text-2xl font-semibold leading-tight text-[var(--color-brown)] sm:text-3xl">
+            {product.name}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[var(--muted-foreground)]">
+            {inStock ? (
+              <span className="inline-flex items-center gap-1 text-[var(--color-green)]">
+                <span className="h-2 w-2 rounded-full bg-[var(--color-green)]" />
+                {stockUnlimited ? "Em estoque" : `${stock} disponíve${stock === 1 ? "l" : "is"}`}
+              </span>
+            ) : (
+              <span className="text-red-600">Indisponível</span>
+            )}
+            {soldCount ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>+{soldCount} vendido{soldCount === 1 ? "" : "s"}</span>
+              </>
+            ) : null}
+          </div>
         </div>
-      </div>
 
-      {product.showPrice ? (
-        <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--secondary)]/40 p-4">
-          {compareCents && compareCents > priceCents ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm text-[var(--muted-foreground)] line-through">
-                {formatCurrency(compareCents)}
-              </p>
-              {discountPct ? (
-                <span className="rounded-md bg-[var(--color-cta)]/10 px-2 py-0.5 text-xs font-semibold text-[var(--color-cta)]">
-                  {discountPct}% OFF
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-          <p className="font-display text-3xl font-bold text-[var(--color-price)] sm:text-4xl">
-            {formatCurrency(priceCents)}
-          </p>
-          <p className="mt-1 text-sm text-[var(--color-brown-muted)]">
-            {formatInstallment(priceCents, siteConfig.installmentMax)}
-          </p>
-        </div>
-      ) : (
-        <p className="text-lg font-medium text-[var(--color-brown)]">Consulte o preço</p>
-      )}
-
-      {product.options?.length ? (
-        <div className="space-y-4">
-          {product.options.map((opt) => (
-            <div key={opt.name}>
-              <p className="mb-2 text-sm font-medium text-[var(--color-brown)]">{opt.name}</p>
-              <div className="flex flex-wrap gap-2">
-                {opt.values.map((val) => {
-                  const active = selectedVariant?.attributes[opt.name] === val;
-                  return (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => selectOptionValue(opt.name, val)}
-                      className={cn(
-                        "rounded-xl border px-3 py-2 text-sm transition-colors",
-                        active
-                          ? "border-[var(--color-cta)] bg-[var(--color-cta)]/10 font-medium text-[var(--color-cta)]"
-                          : "border-[var(--color-card-border)] bg-white text-[var(--color-brown)] hover:border-[var(--color-brown)]/30",
-                      )}
-                    >
-                      {val}
-                    </button>
-                  );
-                })}
+        {product.showPrice ? (
+          <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--secondary)]/40 p-4">
+            {compareCents && compareCents > priceCents ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-[var(--muted-foreground)] line-through">
+                  {formatCurrency(compareCents)}
+                </p>
+                {discountPct ? (
+                  <span className="rounded-md bg-[var(--color-cta)]/10 px-2 py-0.5 text-xs font-semibold text-[var(--color-cta)]">
+                    {discountPct}% OFF
+                  </span>
+                ) : null}
               </div>
+            ) : null}
+            <p className="font-display text-3xl font-bold text-[var(--color-price)] sm:text-4xl">
+              {formatCurrency(priceCents)}
+            </p>
+            <p className="mt-1 text-sm text-[var(--color-brown-muted)]">
+              {formatInstallment(priceCents, siteConfig.installmentMax)}
+            </p>
+          </div>
+        ) : (
+          <p className="text-lg font-medium text-[var(--color-brown)]">Consulte o preço</p>
+        )}
+
+        {product.options?.length ? (
+          <div className="space-y-4">
+            {product.options.map((opt) => (
+              <div key={opt.name}>
+                <p className="mb-2 text-sm font-medium text-[var(--color-brown)]">{opt.name}</p>
+                <div className="flex flex-wrap gap-2">
+                  {opt.values.map((val) => {
+                    const active = selectedVariant?.attributes[opt.name] === val;
+                    return (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => selectOptionValue(opt.name, val)}
+                        className={cn(
+                          "rounded-xl border px-3 py-2 text-sm transition-all duration-200",
+                          active
+                            ? "border-[var(--color-cta)] bg-[var(--color-cta)]/10 font-medium text-[var(--color-cta)] ring-2 ring-[var(--color-cta)]/30"
+                            : "border-[var(--color-card-border)] bg-white text-[var(--color-brown)] hover:border-[var(--color-brown)]/30",
+                        )}
+                      >
+                        {val}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-4">
+          <p className="text-sm font-medium text-[var(--color-brown)]">Quantidade</p>
+          <div className="flex items-center rounded-xl border border-[var(--color-card-border)] bg-white">
+            <button
+              type="button"
+              className="tap-scale flex min-h-[44px] min-w-[44px] items-center justify-center rounded-l-xl text-[var(--color-brown)] transition-colors hover:bg-[var(--secondary)] disabled:opacity-40"
+              onClick={() => setQty(Math.max(1, qty - 1))}
+              disabled={qty <= 1}
+              aria-label="Diminuir quantidade"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <span className="min-w-[2.5rem] text-center text-sm font-semibold text-[var(--color-brown)]">
+              {qty}
+            </span>
+            <button
+              type="button"
+              className="tap-scale flex min-h-[44px] min-w-[44px] items-center justify-center rounded-r-xl text-[var(--color-brown)] transition-colors hover:bg-[var(--secondary)] disabled:opacity-40"
+              onClick={() => setQty(stockUnlimited ? qty + 1 : Math.min(stock, qty + 1))}
+              disabled={!inStock || (!stockUnlimited && qty >= stock)}
+              aria-label="Aumentar quantidade"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <AddToCartButton
+            size="lg"
+            className="flex-1"
+            icon="bag"
+            idleLabel="Adicionar ao carrinho"
+            item={cartItem}
+            disabled={!inStock}
+          />
+          <Button
+            size="lg"
+            variant="gold"
+            className="flex-1"
+            disabled={!inStock}
+            onClick={() => {
+              addToCartDirect();
+              const cartLines = useCartStore.getState().lines;
+              if (cartLines.length === 0) return;
+              if (!user) {
+                router.push("/login?callbackUrl=%2Fcheckout");
+              } else {
+                router.push("/checkout");
+              }
+            }}
+          >
+            <Zap className="h-4 w-4" />
+            Comprar agora
+          </Button>
+        </div>
+
+        <ProductShippingCalculator
+          productId={product.id}
+          quantity={qty}
+          variantId={selectedVariant?.id}
+          embedded
+        />
+
+        <div className="grid gap-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--secondary)]/30 p-4 sm:grid-cols-3">
+          <div className="flex items-start gap-2.5">
+            <RotateCcw className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-green)]" />
+            <div>
+              <p className="text-xs font-semibold text-[var(--color-brown)]">Devolução grátis</p>
+              <p className="text-[11px] text-[var(--muted-foreground)]">Consulte condições</p>
             </div>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-4">
-        <p className="text-sm font-medium text-[var(--color-brown)]">Quantidade</p>
-        <div className="flex items-center rounded-xl border border-[var(--color-card-border)] bg-white">
-          <button
-            type="button"
-            className="rounded-l-xl p-2.5 text-[var(--color-brown)] transition-colors hover:bg-[var(--secondary)] disabled:opacity-40"
-            onClick={() => setQty(Math.max(1, qty - 1))}
-            disabled={qty <= 1}
-            aria-label="Diminuir quantidade"
-          >
-            <Minus className="h-4 w-4" />
-          </button>
-          <span className="min-w-[2.5rem] text-center text-sm font-semibold text-[var(--color-brown)]">
-            {qty}
-          </span>
-          <button
-            type="button"
-            className="rounded-r-xl p-2.5 text-[var(--color-brown)] transition-colors hover:bg-[var(--secondary)] disabled:opacity-40"
-            onClick={() => setQty(stockUnlimited ? qty + 1 : Math.min(stock, qty + 1))}
-            disabled={!inStock || (!stockUnlimited && qty >= stock)}
-            aria-label="Aumentar quantidade"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-green)]" />
+            <div>
+              <p className="text-xs font-semibold text-[var(--color-brown)]">Compra garantida</p>
+              <p className="text-[11px] text-[var(--muted-foreground)]">Receba o que pediu</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <Truck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-green)]" />
+            <div>
+              <p className="text-xs font-semibold text-[var(--color-brown)]">Envio seguro</p>
+              <p className="text-[11px] text-[var(--muted-foreground)]">Rastreamento disponível</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Button size="lg" className="flex-1" disabled={!inStock} onClick={addToCart}>
-          <ShoppingBag className="h-4 w-4" />
-          Adicionar ao carrinho
-        </Button>
-        <Button
-          size="lg"
-          variant="gold"
-          className="flex-1"
-          disabled={!inStock}
-          onClick={() => {
-            addToCart();
-            const cartLines = useCartStore.getState().lines;
-            if (cartLines.length === 0) return;
-            if (!user) {
-              router.push("/login?callbackUrl=%2Fcheckout");
-            } else {
-              router.push("/checkout");
-            }
-          }}
-        >
-          <Zap className="h-4 w-4" />
-          Comprar agora
-        </Button>
-      </div>
-
-      <ProductShippingCalculator
-        productId={product.id}
+      <ProductMobileStickyBar
+        buyBoxRef={buyBoxRef}
+        product={product}
+        priceCents={priceCents}
         quantity={qty}
-        variantId={selectedVariant?.id}
-        embedded
+        inStock={inStock}
+        cartItem={cartItem}
       />
-
-      <div className="grid gap-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--secondary)]/30 p-4 sm:grid-cols-3">
-        <div className="flex items-start gap-2.5">
-          <RotateCcw className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-green)]" />
-          <div>
-            <p className="text-xs font-semibold text-[var(--color-brown)]">Devolução grátis</p>
-            <p className="text-[11px] text-[var(--muted-foreground)]">Consulte condições</p>
-          </div>
-        </div>
-        <div className="flex items-start gap-2.5">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-green)]" />
-          <div>
-            <p className="text-xs font-semibold text-[var(--color-brown)]">Compra garantida</p>
-            <p className="text-[11px] text-[var(--muted-foreground)]">Receba o que pediu</p>
-          </div>
-        </div>
-        <div className="flex items-start gap-2.5">
-          <Truck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-green)]" />
-          <div>
-            <p className="text-xs font-semibold text-[var(--color-brown)]">Envio seguro</p>
-            <p className="text-[11px] text-[var(--muted-foreground)]">Rastreamento disponível</p>
-          </div>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }

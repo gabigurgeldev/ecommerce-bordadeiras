@@ -11,6 +11,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "db:seed": "node --env-file=.env.local scripts/seed-supabase.mjs",
+    "db:seed:blog": "node --env-file=.env.local scripts/seed-blog.mjs",
     "whatsapp:dev": "tsx --env-file=.env.local services/whatsapp/src/index.ts",
     "env:check": "node scripts/check-env.mjs"
   },
@@ -59,6 +60,7 @@
     "react-icons": "^5.6.0",
     "recharts": "^2.15.1",
     "sanitize-html": "^2.14.0",
+    "sharp": "^0.35.1",
     "sonner": "^2.0.1",
     "tailwind-merge": "^3.0.2",
     "zod": "^3.24.2",

@@ -1,153 +1,161 @@
+import { BlogAuthorAvatar } from "@/components/blog/blog-author-avatar";
+import { BlogBreadcrumb } from "@/components/blog/blog-breadcrumb";
+import { BlogCommentsSection } from "@/components/blog/blog-comments";
+import { BlogMobileToc } from "@/components/blog/blog-mobile-toc";
+import { BlogPostHeader } from "@/components/blog/blog-post-header";
+import { BlogPostHero } from "@/components/blog/blog-post-hero";
+import { BlogRelatedPosts } from "@/components/blog/blog-related-posts";
+import { BlogPostSidebar } from "@/components/blog/blog-sidebar";
+import { BlogArticleContent } from "@/components/blog/blog-reading-mode";
+import { BlogReadingProgress } from "@/components/blog/blog-reading-progress";
+import { BlogShareButtons } from "@/components/blog/blog-share-buttons";
+import { BlogViewTracker } from "@/components/blog/blog-view-tracker";
+import { BlogYouTubeEmbed } from "@/components/blog/blog-youtube-embed";
 import { JsonLdScript } from "@/components/seo/json-ld-script";
-import { getBlogPostBySlug, getBlogPosts } from "@/lib/data/blog";
-import { formatDate } from "@/lib/format";
-import { blogPostJsonLd } from "@/lib/seo/json-ld";
+import {
+  getPublicBlogCategories,
+  getPublicBlogComments,
+  getPublicBlogPost,
+  getPublicBlogPosts,
+} from "@/actions/blog";
+import { ARTICLE_PROSE_CLASS } from "@/lib/blog/article-prose";
+import {
+  extractHeadingsFromHtml,
+  getAuthorName,
+  getPostCoverImage,
+  getPostShareUrl,
+  getPostTags,
+  prepareArticleHtml,
+} from "@/lib/blog/public-utils";
+import { blogArticleJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { buildMetadata } from "@/lib/seo/metadata";
-import { ChevronLeft } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 type Props = { params: Promise<{ slug: string }> };
 
+export const revalidate = 300;
+
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
-  const post = await getBlogPostBySlug(slug);
-  if (!post) return {};
+  const data = await getPublicBlogPost(slug);
+  if (!data) return {};
+  const { post, meta } = data;
+  const authorName = getAuthorName(post);
   return buildMetadata({
-    title: post.title,
-    description: post.excerpt,
+    title: meta.openGraph.title,
+    description: meta.description,
     path: `/blog/${slug}`,
-    image: post.coverImage,
+    image: meta.openGraph.images[0]?.url,
+    type: "article",
+    publishedTime: post.publishedAt
+      ? new Date(String(post.publishedAt)).toISOString()
+      : undefined,
+    modifiedTime: new Date(String(post.updatedAt)).toISOString(),
+    authors: [authorName],
+    rssPath: "/blog/rss.xml",
   });
 }
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
-  const [post, allPosts] = await Promise.all([
-    getBlogPostBySlug(slug),
-    getBlogPosts(),
-  ]);
-  if (!post) notFound();
+  const data = await getPublicBlogPost(slug);
+  if (!data) notFound();
 
-  const recent = allPosts.filter((p) => p.slug !== post.slug).slice(0, 4);
-  const tags = Array.from(new Set(allPosts.flatMap((p) => p.tags ?? []))).slice(
-    0,
-    8,
-  );
+  const { post } = data;
+  const cover = getPostCoverImage(post);
+  const tags = getPostTags(post);
+  const toc = extractHeadingsFromHtml(post.content);
+  const contentWithIds = prepareArticleHtml(post.content);
+  const shareUrl = getPostShareUrl(slug);
+
+  const breadcrumbItems = [
+    { name: "Página inicial", path: "/" },
+    { name: "Blog", path: "/blog" },
+    ...(post.category
+      ? [{ name: post.category.name, path: `/blog/categoria/${post.category.slug}` }]
+      : []),
+    { name: post.title, path: `/blog/${slug}` },
+  ];
+
+  const categorySlug = post.category?.slug;
+  const [comments, categories, relatedResult] = await Promise.all([
+    getPublicBlogComments(post.id),
+    getPublicBlogCategories(),
+    getPublicBlogPosts({
+      page: "1",
+      pageSize: "4",
+      categorySlug: categorySlug ?? undefined,
+      sortBy: "publishedAt",
+      sortOrder: "desc",
+    }),
+  ]);
+
+  const relatedPosts = relatedResult.items.filter((p) => p.slug !== slug).slice(0, 3);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <JsonLdScript data={blogPostJsonLd(post)} />
+    <>
+      <link rel="preload" as="image" href={cover} />
+      <JsonLdScript data={blogArticleJsonLd(post, { coverImage: cover, authorName: getAuthorName(post) })} />
+      <JsonLdScript data={breadcrumbJsonLd(breadcrumbItems)} />
+      <BlogReadingProgress />
+      <BlogViewTracker slug={slug} />
 
-      <nav className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
-        <Link href="/" className="transition hover:text-[var(--color-cta)]">
-          Home
-        </Link>
-        <span>/</span>
-        <Link href="/blog" className="transition hover:text-[var(--color-cta)]">
-          Blog
-        </Link>
-        <span>/</span>
-        <span className="truncate text-[var(--color-brown)]">{post.title}</span>
-      </nav>
+      <article className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-10 lg:px-8">
+        <BlogBreadcrumb
+          items={[
+            { label: "Página inicial", href: "/" },
+            { label: "Blog", href: "/blog" },
+            ...(post.category
+              ? [{ label: post.category.name, href: `/blog/categoria/${post.category.slug}` }]
+              : []),
+            { label: post.title },
+          ]}
+        />
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <article className="mx-auto w-full max-w-[680px]">
-          <Link
-            href="/blog"
-            className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-cta)] transition hover:text-[var(--color-cta-hover)]"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Voltar para o blog
-          </Link>
+        <div className="mt-6 lg:mt-8">
+          <BlogPostHeader post={post} />
+        </div>
 
-          <header className="mt-6">
-            {post.tags?.[0] && (
-              <span className="rounded-full bg-[var(--color-green)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                {post.tags[0]}
-              </span>
+        <BlogPostHero src={cover} alt={post.title} />
+
+        <div className="mt-10 grid gap-10 lg:mt-12 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0">
+            <BlogMobileToc toc={toc} />
+
+            {post.youtubeUrl && (
+              <BlogYouTubeEmbed url={post.youtubeUrl} title={post.title} className="mt-8 lg:mt-0" />
             )}
-            <h1 className="mt-4 font-display text-[clamp(1.875rem,5vw,2.75rem)] font-semibold leading-tight tracking-tight text-[var(--color-brown)]">
-              {post.title}
-            </h1>
-            <p className="mt-3 text-sm text-[var(--muted-foreground)]">
-              Por {post.author} ·{" "}
-              <time>{formatDate(post.publishedAt)}</time>
-            </p>
-          </header>
 
-          <div className="relative mt-8 aspect-video overflow-hidden rounded-2xl border border-[var(--color-card-border)]">
-            <Image
-              src={post.coverImage}
-              alt={post.title}
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width:1024px) 100vw, 680px"
-            />
-          </div>
+            <BlogArticleContent html={contentWithIds} proseClass={ARTICLE_PROSE_CLASS} />
 
-          <div
-            className="mt-10 max-w-none text-[var(--foreground)]/85 [&_a]:text-[var(--color-cta)] [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-[var(--color-price)] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-[var(--color-brown)] [&_h3]:mt-6 [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-[var(--color-brown)] [&_img]:rounded-xl [&_li]:my-1 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-4 [&_p]:leading-relaxed [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6"
-            dangerouslySetInnerHTML={{ __html: post.content }}
-          />
-        </article>
-
-        <aside className="space-y-8 lg:sticky lg:top-24 lg:self-start">
-          {recent.length > 0 && (
-            <div className="rounded-2xl border border-[var(--color-card-border)] bg-white p-5 shadow-sm">
-              <h2 className="font-display text-lg font-semibold text-[var(--color-brown)]">
-                Posts recentes
-              </h2>
-              <ul className="mt-4 space-y-4">
-                {recent.map((p) => (
-                  <li key={p.id}>
-                    <Link href={`/blog/${p.slug}`} className="group flex gap-3">
-                      <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg">
-                        <Image
-                          src={p.coverImage}
-                          alt={p.title}
-                          fill
-                          className="object-cover"
-                          sizes="56px"
-                          loading="lazy"
-                        />
-                      </span>
-                      <span>
-                        <span className="line-clamp-2 text-sm font-medium text-[var(--color-brown)] transition group-hover:text-[var(--color-cta)]">
-                          {p.title}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-[var(--muted-foreground)]">
-                          {formatDate(p.publishedAt)}
-                        </span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {tags.length > 0 && (
-            <div className="rounded-2xl border border-[var(--color-card-border)] bg-white p-5 shadow-sm">
-              <h2 className="font-display text-lg font-semibold text-[var(--color-brown)]">
-                Categorias
-              </h2>
-              <div className="mt-4 flex flex-wrap gap-2">
+            {tags.length > 0 && (
+              <div className="mt-12 flex flex-wrap items-center gap-2 border-t border-[var(--color-card-border)] pt-8">
+                <span className="label-caps mr-1">Tags</span>
                 {tags.map((tag) => (
-                  <span
+                  <Link
                     key={tag}
-                    className="rounded-full bg-[var(--secondary)] px-3 py-1 text-xs font-medium text-[var(--color-brown)]"
+                    href={`/blog/busca?q=${encodeURIComponent(tag)}`}
+                    className="rounded-full bg-[var(--secondary)] px-3 py-1 text-xs font-medium text-[var(--color-brown)] transition hover:bg-[var(--color-price)]/20"
                   >
                     {tag}
-                  </span>
+                  </Link>
                 ))}
               </div>
+            )}
+
+            <div className="mt-8 rounded-2xl border border-[var(--color-card-border)] bg-white p-5 shadow-sm sm:p-6">
+              <BlogShareButtons url={shareUrl} title={post.title} />
             </div>
-          )}
-        </aside>
-      </div>
-    </div>
+
+            <BlogCommentsSection postId={post.id} comments={comments} />
+          </div>
+
+          <BlogPostSidebar categories={categories} toc={toc} relatedPosts={relatedPosts} />
+        </div>
+
+        <BlogRelatedPosts posts={relatedPosts} />
+      </article>
+    </>
   );
 }

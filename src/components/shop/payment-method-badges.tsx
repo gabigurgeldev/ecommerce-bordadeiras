@@ -20,9 +20,11 @@ type PaymentMethodBadgesProps = {
 function BadgeIcon({
   method,
   size,
+  onDark = false,
 }: {
   method: PaymentMethod;
   size: "sm" | "md" | "lg";
+  onDark?: boolean;
 }) {
   const { Icon, label, brandColor } = method;
   const dim =
@@ -31,7 +33,8 @@ function BadgeIcon({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-lg bg-white/95 shadow-sm ring-1 ring-black/5",
+        "inline-flex shrink-0 items-center justify-center rounded-lg bg-white/95 shadow-sm",
+        onDark ? "ring-1 ring-white/20" : "ring-1 ring-black/5",
         size === "lg" ? "h-14 w-14" : size === "md" ? "h-11 w-11" : "h-9 w-9",
       )}
       aria-label={label}
@@ -99,25 +102,23 @@ export function PaymentMethodBadges({
     return (
       <div
         className={cn(
-          "border-t border-white/10 px-4 py-6 sm:px-6 lg:px-8",
+          "border-t border-white/10 bg-black/10 px-4 py-7 sm:px-6 lg:px-8",
           className,
         )}
       >
         <div className="mx-auto max-w-7xl">
-          <p className="text-sm font-semibold text-[var(--footer-fg)]">
-            Formas de pagamento
-          </p>
-          <p className="mt-1 text-xs text-[var(--footer-fg-muted)]/90">
+          <p className="footer-label">Formas de pagamento</p>
+          <p className="mt-3 text-xs text-[var(--footer-fg-muted)]/90 sm:text-sm">
             Pix, cartões e boleto — processado com segurança
           </p>
           <ul
-            className="mt-4 flex flex-wrap gap-2.5 sm:gap-3"
+            className="mt-4 flex flex-wrap justify-center gap-2.5 sm:justify-start sm:gap-3"
             role="list"
             aria-label="Bandeiras e métodos aceitos"
           >
             {list.map((method) => (
               <li key={method.id} role="listitem">
-                <BadgeIcon method={method} size="md" />
+                <BadgeIcon method={method} size="md" onDark />
               </li>
             ))}
           </ul>

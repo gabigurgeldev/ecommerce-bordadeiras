@@ -12,7 +12,8 @@ import { siteConfig } from "@/lib/site";
 import type { Category } from "@/lib/types/catalog";
 import { MobileNavSheet } from "@/components/layout/mobile-nav-sheet";
 import { cn } from "@/lib/utils";
-import { Menu, Phone, Search, ShoppingBag, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Menu, Phone, Search, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -59,6 +60,9 @@ export function Header({
   const [scrolled, setScrolled] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
+
+  const overlayOpen = open || cartOpen || mobileSearchOpen;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -72,6 +76,15 @@ export function Header({
     setMobileSearchOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [overlayOpen]);
+
   return (
     <header className="relative z-50 overflow-visible">
       {/* Utility bar — scrolls away */}
@@ -82,11 +95,11 @@ export function Header({
           color: utilitySettings.textColor,
         }}
       >
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:text-sm lg:px-8">
-          <p className="min-w-0 truncate sm:max-w-[55%]">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 overflow-x-auto px-4 py-2 text-xs [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-4 sm:px-6 sm:text-sm lg:px-8 [&::-webkit-scrollbar]:hidden">
+          <p className="min-w-0 shrink-0 truncate sm:max-w-[55%]">
             <UtilityMessage settings={utilitySettings} />
           </p>
-          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end sm:gap-4">
+          <div className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap sm:gap-4">
             <a
               href={`https://wa.me/${siteConfig.contact.whatsapp}`}
               className="font-medium opacity-90 hover:opacity-100 hover:underline"
@@ -118,21 +131,21 @@ export function Header({
       {/* Sticky: main + category nav */}
       <div
         className={cn(
-          "sticky top-0 z-50 overflow-visible bg-[var(--color-header-bg)] transition-shadow",
-          scrolled && "shadow-md",
+          "sticky top-0 z-50 overflow-visible bg-[var(--color-header-bg)] pt-[env(safe-area-inset-top)] transition-shadow duration-300",
+          scrolled ? "shadow-md shadow-[var(--color-brown)]/8" : "shadow-none",
         )}
       >
         <div className="overflow-visible border-b border-[var(--color-card-border)] bg-[var(--color-header-bg)]">
-          <div className="mx-auto max-w-7xl px-4 py-3.5 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-3 lg:gap-6">
-              <Logo variant="compact" className="shrink-0 sm:hidden" />
+          <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+            <div className="flex min-w-0 items-center gap-1 sm:gap-3 lg:gap-6">
+              <Logo variant="compact" className="min-w-0 sm:hidden" />
               <Logo variant="full" className="hidden shrink-0 sm:flex" />
 
               <div className="hidden min-w-0 flex-1 lg:block">
                 <StoreSearchForm categories={categories} />
               </div>
 
-              <div className="ml-auto flex items-center gap-1 sm:gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -146,7 +159,7 @@ export function Header({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="hidden text-[var(--color-brown)] sm:inline-flex"
+                  className="hidden text-[var(--color-brown)] sm:inline-flex lg:hidden"
                   asChild
                 >
                   <a
@@ -168,34 +181,58 @@ export function Header({
                   <ShoppingBag className="h-5 w-5" />
                   <CartBadge />
                 </Button>
-                <AccountMenu className="hidden sm:block" />
+                <AccountMenu className="hidden sm:inline-flex" />
                 <Button
                   variant="ghost"
                   size="icon"
                   className="text-[var(--color-brown)] lg:hidden"
-                  onClick={() => setOpen((v) => !v)}
+                  onClick={() => setOpen(true)}
                   aria-label="Menu"
                   aria-expanded={open}
                 >
-                  {open ? (
-                    <X className="h-5 w-5" />
-                  ) : (
-                    <Menu className="h-5 w-5" />
-                  )}
+                  <Menu className="h-5 w-5" />
                 </Button>
               </div>
             </div>
-
-            {mobileSearchOpen && (
-              <div className="mt-3 lg:hidden">
-                <StoreSearchForm categories={categories} />
-              </div>
-            )}
           </div>
         </div>
 
-        <CategoryNavBar previews={categoryPreviews} />
+        <CategoryNavBar previews={categoryPreviews} mobileNavOpen={open} />
       </div>
+
+      <AnimatePresence initial={false}>
+        {mobileSearchOpen ? (
+          <>
+            <motion.button
+              key="search-backdrop"
+              type="button"
+              initial={reduceMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              className="fixed inset-0 z-[100] bg-black/60 lg:hidden motion-reduce:transition-none"
+              aria-label="Fechar busca"
+              onClick={() => setMobileSearchOpen(false)}
+            />
+            <motion.div
+              key="search-panel"
+              initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed inset-x-0 top-0 z-[101] border-b border-[var(--color-card-border)] bg-[var(--color-header-bg)] px-4 pb-4 pt-[env(safe-area-inset-top)] shadow-md lg:hidden"
+            >
+              <div className="mx-auto max-w-7xl pt-3">
+                <StoreSearchForm
+                  categories={categories}
+                  variant="panel"
+                  onNavigate={() => setMobileSearchOpen(false)}
+                />
+              </div>
+            </motion.div>
+          </>
+        ) : null}
+      </AnimatePresence>
 
       <MobileNavSheet
         open={open}

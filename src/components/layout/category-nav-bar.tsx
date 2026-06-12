@@ -16,10 +16,6 @@ export type CategoryPreview = {
 const HOVER_CLOSE_DELAY_MS = 200;
 const HOVER_MQ = "(hover: hover) and (pointer: fine)";
 
-function canUseHover() {
-  return typeof window !== "undefined" && window.matchMedia(HOVER_MQ).matches;
-}
-
 function ProductTextLinks({
   products,
   categoryHref,
@@ -84,7 +80,7 @@ function HoverMegamenuPanel({
       animate={{ opacity: 1, y: 0 }}
       exit={animateIn ? { opacity: 0, y: -6 } : undefined}
       transition={{ duration: 0.15, ease: "easeOut" }}
-      className="absolute inset-x-0 top-full z-[100] border-b border-[var(--color-card-border)] bg-white shadow-lg"
+      className="absolute inset-x-0 top-full z-[90] border-b border-[var(--color-card-border)] bg-white shadow-lg shadow-[var(--color-brown)]/5"
     >
       <div className="relative mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <AnimatePresence mode="sync" initial={false}>
@@ -134,8 +130,8 @@ function MobileMegamenuPanel({
       initial={animateIn ? { height: 0, opacity: 0 } : false}
       animate={{ height: "auto", opacity: 1 }}
       exit={animateIn ? { height: 0, opacity: 0 } : undefined}
-      transition={{ duration: 0.15, ease: "easeOut" }}
-      className="overflow-hidden border-t border-[var(--color-card-border)] bg-white"
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      className="overflow-hidden border-y border-[var(--color-card-border)] bg-white shadow-md"
     >
       <div className="px-4 py-4 sm:px-6">
         <ProductTextLinks
@@ -155,7 +151,13 @@ function MobileMegamenuPanel({
   );
 }
 
-export function CategoryNavBar({ previews }: { previews: CategoryPreview[] }) {
+export function CategoryNavBar({
+  previews,
+  mobileNavOpen = false,
+}: {
+  previews: CategoryPreview[];
+  mobileNavOpen?: boolean;
+}) {
   const pathname = usePathname();
   const prefersReducedMotion = useReducedMotion();
   const [hoverCapable, setHoverCapable] = useState(
@@ -197,12 +199,12 @@ export function CategoryNavBar({ previews }: { previews: CategoryPreview[] }) {
 
   const openCategory = useCallback(
     (slug: string) => {
-      if (!canUseHover()) return;
+      if (!hoverCapable) return;
       clearCloseTimer();
       setMobileOpenSlug(null);
       setActiveSlug(slug);
     },
-    [clearCloseTimer],
+    [clearCloseTimer, hoverCapable],
   );
 
   const closeDesktop = useCallback(() => {
@@ -232,6 +234,13 @@ export function CategoryNavBar({ previews }: { previews: CategoryPreview[] }) {
   }, [pathname]);
 
   useEffect(() => {
+    if (mobileNavOpen) {
+      setMobileOpenSlug(null);
+      setActiveSlug(null);
+    }
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         closeDesktop();
@@ -250,7 +259,7 @@ export function CategoryNavBar({ previews }: { previews: CategoryPreview[] }) {
 
   return (
     <nav
-      className="relative z-[60] border-b border-[var(--color-card-border)] bg-[var(--color-header-bg)]"
+      className="relative z-[55] border-b border-[var(--color-card-border)] bg-[var(--color-header-bg)]"
       aria-label="Categorias"
     >
       <div
@@ -258,17 +267,20 @@ export function CategoryNavBar({ previews }: { previews: CategoryPreview[] }) {
         className="relative"
         onMouseLeave={hoverCapable ? scheduleClose : undefined}
       >
-        <div className="mx-auto min-w-0 max-w-7xl px-4 sm:px-6 lg:px-8">
-          <ul className="flex min-w-0 items-stretch gap-0 overflow-x-auto overscroll-x-contain scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <li className="shrink-0">
+        <div className="fade-edges-x mx-auto min-w-0 max-w-7xl px-4 pr-6 sm:px-6 lg:px-8">
+          <ul className="flex min-w-0 snap-x snap-mandatory items-stretch gap-0 overflow-x-auto overscroll-x-contain scroll-smooth whitespace-nowrap scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <li className="relative shrink-0 snap-start">
               <Link
                 href="/loja"
                 className={cn(
-                  "inline-flex items-center px-4 py-3 text-sm font-semibold text-[var(--color-brown)] transition hover:bg-[var(--secondary)]",
+                  "relative inline-flex items-center whitespace-nowrap px-3 py-3 text-sm font-semibold text-[var(--color-brown)] transition hover:bg-[var(--secondary)] sm:px-4",
                   pathname === "/loja" && "bg-[var(--secondary)]",
                 )}
               >
                 Todos
+                {pathname === "/loja" ? (
+                  <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[var(--color-cta)]" />
+                ) : null}
               </Link>
             </li>
             {previews.map((preview) => {
@@ -276,31 +288,42 @@ export function CategoryNavBar({ previews }: { previews: CategoryPreview[] }) {
               const href = `/loja/categoria/${category.slug}`;
               const isActive =
                 pathname === href || pathname.startsWith(`${href}/`);
-              const desktopOpen = activeSlug === category.slug;
+              const desktopOpen = hoverCapable && activeSlug === category.slug;
               const mobileOpen = mobileOpenSlug === category.slug;
 
               return (
-                <li key={category.id} className="relative shrink-0">
+                <li key={category.id} className="relative shrink-0 snap-start">
                   <div
                     className="flex items-stretch"
-                    onMouseEnter={() => openCategory(category.slug)}
+                    onMouseEnter={
+                      hoverCapable
+                        ? () => openCategory(category.slug)
+                        : undefined
+                    }
                   >
                     <Link
                       href={href}
                       className={cn(
-                        "inline-flex items-center px-4 py-3 text-sm font-medium text-[var(--color-brown)] transition hover:bg-[var(--secondary)]",
+                        "relative inline-flex items-center whitespace-nowrap px-3 py-3 text-sm font-medium text-[var(--color-brown)] transition hover:bg-[var(--secondary)] sm:px-4",
                         (isActive || desktopOpen) &&
                           "bg-[var(--secondary)] font-semibold",
                       )}
                     >
                       {category.name}
+                      {isActive || desktopOpen ? (
+                        <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[var(--color-cta)] transition-all duration-200" />
+                      ) : null}
                     </Link>
                     <button
                       type="button"
-                      className="inline-flex items-center px-1.5 text-[var(--color-brown-muted)] transition hover:bg-[var(--secondary)] hover:text-[var(--color-brown)] lg:px-2"
+                      className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center px-1 text-[var(--color-brown-muted)] transition hover:bg-[var(--secondary)] hover:text-[var(--color-brown)] sm:px-1.5 lg:px-2"
                       aria-expanded={desktopOpen || mobileOpen}
                       aria-label={`Ver produtos de ${category.name}`}
-                      onFocus={() => openCategory(category.slug)}
+                      onFocus={
+                        hoverCapable
+                          ? () => openCategory(category.slug)
+                          : undefined
+                      }
                       onClick={() => {
                         setActiveSlug(null);
                         setMobileOpenSlug((s) =>
@@ -310,7 +333,7 @@ export function CategoryNavBar({ previews }: { previews: CategoryPreview[] }) {
                     >
                       <ChevronDown
                         className={cn(
-                          "h-4 w-4 shrink-0 transition-transform duration-150",
+                          "h-4 w-4 shrink-0 transition-transform duration-200",
                           (desktopOpen || mobileOpen) && "rotate-180",
                         )}
                       />
@@ -323,7 +346,7 @@ export function CategoryNavBar({ previews }: { previews: CategoryPreview[] }) {
         </div>
 
         <AnimatePresence>
-          {activePreview && (
+          {activePreview && hoverCapable && (
             <HoverMegamenuPanel
               preview={activePreview}
               onClose={closeDesktop}

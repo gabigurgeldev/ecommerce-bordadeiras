@@ -1,7 +1,13 @@
+import { OrderConfirmDeliveryButton } from "@/components/account/order-confirm-delivery-button";
+import { OrderDetailHeader } from "@/components/account/order-detail-header";
+import { OrderItemsCard } from "@/components/account/order-items-card";
+import { OrderPaymentCard } from "@/components/account/order-payment-card";
+import { OrderPendingPoller } from "@/components/account/order-pending-poller";
+import { OrderShippingCard } from "@/components/account/order-shipping-card";
+import { OrderSummaryCard } from "@/components/account/order-summary-card";
 import { OrderTracking } from "@/components/account/order-tracking";
 import { fetchUserOrder } from "@/actions/orders";
 import { PendingCheckoutBanner } from "@/components/checkout/pending-checkout-banner";
-import { formatCurrency, formatDate } from "@/lib/format";
 import { getPendingCheckoutOrderForUser } from "@/lib/data/pending-order";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { getSessionUser } from "@/lib/auth/session";
@@ -11,8 +17,9 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
+  const order = await fetchUserOrder(id);
   return buildMetadata({
-    title: `Pedido ${id.slice(-8)}`,
+    title: order ? `Pedido ${order.orderNumber}` : `Pedido ${id.slice(-8)}`,
     path: `/conta/pedidos/${id}`,
     noIndex: true,
   });
@@ -23,7 +30,6 @@ export default async function ContaPedidoDetailPage({ params }: Props) {
   const order = await fetchUserOrder(id);
   if (!order) notFound();
 
-  const addr = order.shippingAddress;
   const sessionUser = await getSessionUser();
   const pendingResume =
     order.status === "PENDING" && sessionUser?.id
@@ -31,22 +37,25 @@ export default async function ContaPedidoDetailPage({ params }: Props) {
       : null;
 
   return (
-    <div className="space-y-8">
-      {pendingResume && <PendingCheckoutBanner order={pendingResume} />}
+    <div className="space-y-6">
+      <OrderDetailHeader
+        orderNumber={order.orderNumber}
+        createdAt={order.createdAt}
+        status={order.status}
+      />
 
-      <div>
-        <h2 className="font-display text-xl font-semibold text-[var(--color-brown)]">
-          Pedido #{order.id.slice(-8).toUpperCase()}
-        </h2>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          {formatDate(order.createdAt)}
-        </p>
-      </div>
+      {pendingResume ? <PendingCheckoutBanner order={pendingResume} /> : null}
+
+      {order.status === "PENDING" ? (
+        <OrderPendingPoller orderId={order.id} />
+      ) : null}
 
       <OrderTracking
         status={order.status}
         trackingCode={order.trackingCode}
         carrier={order.carrier}
+        shippingServiceName={order.shippingServiceName}
+        createdAt={order.createdAt}
         paidAt={order.paidAt}
         processingAt={order.processingAt}
         shippedAt={order.shippedAt}
@@ -54,48 +63,28 @@ export default async function ContaPedidoDetailPage({ params }: Props) {
         cancelledAt={order.cancelledAt}
       />
 
-      {addr && (
-        <div className="rounded-2xl border border-[var(--color-card-border)] p-4">
-          <h3 className="text-sm font-semibold text-[var(--color-brown)]">
-            Endereço de entrega
-          </h3>
-          <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-            {String(addr.street ?? "")}, {String(addr.number ?? "")}
-            {addr.complement ? ` — ${String(addr.complement)}` : ""}
-            <br />
-            {String(addr.neighborhood ?? "")}, {String(addr.city ?? "")} —{" "}
-            {String(addr.state ?? "")}
-            <br />
-            CEP {String(addr.cep ?? addr.zipCode ?? "")}
-          </p>
-        </div>
-      )}
+      <OrderConfirmDeliveryButton
+        orderId={order.id}
+        status={order.status}
+      />
 
-      <ul className="divide-y divide-[var(--color-card-border)] rounded-2xl border border-[var(--color-card-border)]">
-        {order.items.map((item) => (
-          <li
-            key={item.id}
-            className="flex justify-between gap-4 px-4 py-3 text-sm"
-          >
-            <span>
-              {item.name} × {item.quantity}
-            </span>
-            <span>{formatCurrency(item.priceCents * item.quantity)}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="space-y-1 text-right text-sm">
-        <p className="text-[var(--muted-foreground)]">
-          Subtotal: {formatCurrency(order.subtotalCents)}
-        </p>
-        <p className="text-[var(--muted-foreground)]">
-          Frete: {formatCurrency(order.shippingCents)}
-        </p>
-        <p className="text-lg font-semibold text-[var(--color-brown)]">
-          Total: {formatCurrency(order.totalCents)}
-        </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <OrderPaymentCard payments={order.payments} />
+        <OrderSummaryCard
+          subtotalCents={order.subtotalCents}
+          discountCents={order.discountCents}
+          couponCode={order.couponCode}
+          shippingCents={order.shippingCents}
+          shippingServiceName={order.shippingServiceName}
+          totalCents={order.totalCents}
+        />
       </div>
+
+      <OrderItemsCard items={order.items} />
+
+      {order.shippingAddress ? (
+        <OrderShippingCard address={order.shippingAddress} />
+      ) : null}
     </div>
   );
 }

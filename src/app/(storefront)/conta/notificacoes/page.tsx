@@ -1,3 +1,4 @@
+import { AccountSectionHeader } from "@/components/account/account-section-header";
 import { NotificationsForm } from "@/components/account/notifications-form";
 import { fetchNotificationPrefs } from "@/actions/account/notifications";
 import { buildMetadata } from "@/lib/seo/metadata";
@@ -12,13 +13,11 @@ export default async function ContaNotificacoesPage() {
   const prefs = await fetchNotificationPrefs();
 
   return (
-    <div>
-      <h2 className="font-display text-xl font-semibold text-[var(--color-brown)]">
-        Preferências de notificação
-      </h2>
-      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-        Escolha como deseja receber atualizações da sua conta.
-      </p>
+    <div className="space-y-6">
+      <AccountSectionHeader
+        title="Preferências de notificação"
+        description="Escolha como deseja receber atualizações da sua conta."
+      />
       <NotificationsForm initialPrefs={prefs} />
     </div>
   );

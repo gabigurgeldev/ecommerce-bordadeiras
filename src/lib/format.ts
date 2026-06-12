@@ -32,3 +32,49 @@ export function formatOrderStatus(status: string): string {
   };
   return map[status] ?? status;
 }
+
+export function formatPaymentMethod(method: string | null | undefined): string {
+  const map: Record<string, string> = {
+    PIX: "Pix",
+    CREDIT_CARD: "Cartão de crédito",
+    BOLETO: "Boleto",
+  };
+  if (!method) return "—";
+  return map[method] ?? method;
+}
+
+export function formatPaymentStatus(status: string | null | undefined): string {
+  const map: Record<string, string> = {
+    PENDING: "Pendente",
+    APPROVED: "Aprovado",
+    REJECTED: "Rejeitado",
+    REFUNDED: "Reembolsado",
+    CANCELLED: "Cancelado",
+  };
+  if (!status) return "—";
+  return map[status] ?? status;
+}
+
+export function getOrderNextStep(status: string): string {
+  const map: Record<string, string> = {
+    PENDING: "Finalize o pagamento para confirmar seu pedido",
+    PAID: "Aguarde — estamos preparando seu pedido",
+    PROCESSING: "Seu pedido será enviado em breve",
+    SHIPPED: "Rastreie sua entrega com o código abaixo",
+    DELIVERED: "Pedido entregue com sucesso",
+    CANCELLED: "Este pedido foi cancelado",
+  };
+  return map[status] ?? "Acompanhe as atualizações do pedido";
+}
+
+export function getOrderStatusDescription(status: string): string {
+  const map: Record<string, string> = {
+    PENDING: "Aguardando confirmação do pagamento",
+    PAID: "Pagamento confirmado — preparando seu pedido",
+    PROCESSING: "Seu pedido está sendo separado",
+    SHIPPED: "Pedido enviado — acompanhe a entrega",
+    DELIVERED: "Pedido entregue",
+    CANCELLED: "Pedido cancelado",
+  };
+  return map[status] ?? formatOrderStatus(status);
+}

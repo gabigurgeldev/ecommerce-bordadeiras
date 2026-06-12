@@ -9,6 +9,10 @@ export const adminRouteTitles: Record<string, string> = {
   "/admin/clientes": "Clientes",
   "/admin/blog": "Blog",
   "/admin/blog/novo": "Novo post",
+  "/admin/blog/posts": "Posts",
+  "/admin/blog/posts/create": "Novo post",
+  "/admin/blog/categorias": "Categorias",
+  "/admin/blog/comentarios": "Comentários",
   "/admin/cupons": "Cupons",
   "/admin/cupons/novo": "Novo cupom",
   "/admin/configuracoes": "Configurações",
@@ -36,7 +40,12 @@ export function getAdminBreadcrumbs(pathname: string): { label: string; href?: s
     } else if (segments[i] !== "novo") {
       const parent = segments[i - 1];
       crumbs.push({
-        label: parent === "cupons" ? "Editar cupom" : "Detalhe",
+        label:
+          parent === "cupons"
+            ? "Editar cupom"
+            : parent === "posts"
+              ? "Editar post"
+              : "Detalhe",
         href: isLast ? undefined : acc,
       });
     }
