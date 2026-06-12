@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminActor } from "@/lib/admin-auth";
 import {
   getWhatsappQr,
+  getWhatsappLiveStatus,
   logoutWhatsapp,
   reconnectWhatsapp,
   checkWhatsappServiceHealth,
@@ -87,7 +88,30 @@ export async function GET(
     }
   }
 
-  if (segment === "qr" || segment === "status") {
+  if (segment === "status") {
+    try {
+      const data = await getWhatsappLiveStatus();
+      return NextResponse.json({ ...data, serviceReachable: true });
+    } catch (err) {
+      const message =
+        err instanceof WhatsappServiceError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "WhatsApp error";
+
+      return NextResponse.json({
+        status: "disconnected",
+        qr: undefined,
+        stale: true,
+        serviceReachable: false,
+        serviceError: message,
+        serviceUrl: getWhatsappServiceBaseUrl(),
+      });
+    }
+  }
+
+  if (segment === "qr") {
     try {
       const data = await getWhatsappQr();
       return NextResponse.json({ ...data, serviceReachable: true });

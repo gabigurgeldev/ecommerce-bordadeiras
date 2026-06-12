@@ -4,10 +4,17 @@ import {
   reconnect,
   logoutSession,
   getQrPayload,
+  getSessionSnapshot,
   sendAdminMessage,
   getConnectionStatus,
   sendMessageToPhone,
 } from "./baileys.js";
+import {
+  bindOutboundQueue,
+  getOutboundQueueSize,
+  sendAdminWithQueue,
+  sendPhoneWithQueue,
+} from "./message-queue.js";
 import {
   getActiveRecipients,
   getSupabaseConfigStatus,
@@ -38,6 +45,7 @@ app.get("/health", async (_req, res) => {
     ok: true,
     connected: status === "connected",
     activeRecipients: recipients.length,
+    pendingMessages: getOutboundQueueSize(),
     supabaseConfigured: supabase.configured,
     ...(supabase.missing.length > 0 ? { supabaseMissing: supabase.missing } : {}),
   });
@@ -171,6 +179,33 @@ function isConnectionError(message: string) {
   return message.startsWith("NOT_CONNECTED:");
 }
 
+async function deliverCustomerMessage(
+  phone: string,
+  text: string,
+  notifyEvent: string,
+  options?: { queueOnFailure?: boolean },
+): Promise<{ sent: boolean; queued?: boolean; error?: string }> {
+  try {
+    const result = await sendPhoneWithQueue(sendMessageToPhone, phone, text, {
+      queueOnFailure: options?.queueOnFailure,
+      queueLabel: `customer:${notifyEvent}`,
+    });
+    if (result.queued) {
+      appendLog({
+        level: "warn",
+        category: "notify",
+        message: `Cliente enfileirado — ${notifyEvent}`,
+        meta: { queueId: result.queueId ?? null },
+      });
+      return { sent: false, queued: true };
+    }
+    return { sent: true };
+  } catch (err) {
+    const message = errorMessage(err);
+    return { sent: false, error: message };
+  }
+}
+
 type AdminNotifyOutcome = {
   adminNotified: boolean;
   adminRecipientsSent: number;
@@ -180,24 +215,50 @@ type AdminNotifyOutcome = {
 async function deliverAdminMessage(
   text: string,
   notifyEvent?: string,
-): Promise<AdminNotifyOutcome> {
+  options?: { queueOnFailure?: boolean },
+): Promise<AdminNotifyOutcome & { queued?: boolean }> {
   try {
-    const result = await sendAdminMessage(text);
+    const queuedResult = await sendAdminWithQueue(sendAdminMessage, text, {
+      queueOnFailure: options?.queueOnFailure,
+      queueLabel: notifyEvent ? `admin:${notifyEvent}` : "admin",
+    });
+
+    if (queuedResult.queued) {
+      if (notifyEvent) {
+        appendLog({
+          level: "warn",
+          category: "notify",
+          message: `Alerta admin enfileirado — ${notifyEvent}`,
+          meta: { queueId: queuedResult.queueId ?? null },
+        });
+      }
+      return {
+        adminNotified: false,
+        adminRecipientsSent: 0,
+        adminWarning: "WhatsApp desconectado — mensagem enfileirada para reenvio",
+        queued: true,
+      };
+    }
+
+    const sendResult = queuedResult.result as { sent: number; skipped: number } | undefined;
     if (notifyEvent) {
       appendLog({
         level: "success",
         category: "notify",
         message: `Alerta admin enviado — ${notifyEvent}`,
-        meta: { recipientsSent: result.sent, skipped: result.skipped },
+        meta: {
+          recipientsSent: sendResult?.sent ?? 0,
+          skipped: sendResult?.skipped ?? 0,
+        },
       });
     }
     return {
       adminNotified: true,
-      adminRecipientsSent: result.sent,
+      adminRecipientsSent: sendResult?.sent ?? 0,
     };
   } catch (err) {
     const message = errorMessage(err);
-    if (isConnectionError(message)) {
+    if (isConnectionError(message) && !options?.queueOnFailure) {
       if (notifyEvent) {
         appendLog({
           level: "error",
@@ -226,7 +287,7 @@ async function deliverAdminMessage(
 }
 
 app.get("/session/status", (_req, res) => {
-  res.json(getConnectionStatus());
+  res.json(getSessionSnapshot());
 });
 
 app.get("/session/qr", async (_req, res) => {
@@ -470,6 +531,7 @@ app.post("/notify/new-order", async (req, res) => {
     adminOutcome = await deliverAdminMessage(
       formatTemplate(adminTemplate, vars),
       "new-order",
+      { queueOnFailure: true },
     );
   } catch (err) {
     res.status(500).json({ error: errorMessage(err), adminNotified: false });
@@ -483,14 +545,33 @@ app.post("/notify/new-order", async (req, res) => {
         "CUSTOMER",
         `🛒 *Pedido Recebido!*\n\nOlá {{customerName}}!\n\nRecebemos seu pedido #{{orderId}} no valor de {{amount}}.\n\n⏳ Estamos aguardando a confirmação do pagamento.`
       );
-      await sendMessageToPhone(customerPhone, formatTemplate(customerTemplate, vars));
-      customerNotified = true;
-      appendLog({
-        level: "success",
-        category: "notify",
-        message: "Cliente notificado — new-order",
-        meta: { orderId: formatOrderId(orderId) },
-      });
+      const customerOutcome = await deliverCustomerMessage(
+        customerPhone,
+        formatTemplate(customerTemplate, vars),
+        "new-order",
+        { queueOnFailure: true },
+      );
+      customerNotified = customerOutcome.sent;
+      if (customerOutcome.queued) {
+        customerError = "enfileirado para reenvio";
+      } else if (customerOutcome.error) {
+        customerError = customerOutcome.error;
+      }
+      if (customerNotified) {
+        appendLog({
+          level: "success",
+          category: "notify",
+          message: "Cliente notificado — new-order",
+          meta: { orderId: formatOrderId(orderId) },
+        });
+      } else if (!customerOutcome.queued) {
+        appendLog({
+          level: "warn",
+          category: "notify",
+          message: "Falha ao notificar cliente — new-order",
+          meta: { orderId: formatOrderId(orderId), error: customerError ?? null },
+        });
+      }
     } catch (err) {
       customerError = errorMessage(err);
       appendLog({
@@ -546,6 +627,7 @@ app.post("/notify/payment-approved", async (req, res) => {
     adminOutcome = await deliverAdminMessage(
       formatTemplate(adminTemplate, vars),
       "payment-approved",
+      { queueOnFailure: true },
     );
   } catch (err) {
     res.status(500).json({ error: errorMessage(err), adminNotified: false });
@@ -559,14 +641,33 @@ app.post("/notify/payment-approved", async (req, res) => {
         "CUSTOMER",
         `✅ *Pagamento Aprovado!*\n\nOlá {{customerName}}!\n\nSeu pagamento do pedido #{{orderId}} no valor de {{amount}} foi aprovado.\n\n🧵 Agora vamos começar a preparar seu pedido!`
       );
-      await sendMessageToPhone(customerPhone, formatTemplate(customerTemplate, vars));
-      customerNotified = true;
-      appendLog({
-        level: "success",
-        category: "notify",
-        message: "Cliente notificado — payment-approved",
-        meta: { orderId: formatOrderId(orderId) },
-      });
+      const customerOutcome = await deliverCustomerMessage(
+        customerPhone,
+        formatTemplate(customerTemplate, vars),
+        "payment-approved",
+        { queueOnFailure: true },
+      );
+      customerNotified = customerOutcome.sent;
+      if (customerOutcome.queued) {
+        customerError = "enfileirado para reenvio";
+      } else if (customerOutcome.error) {
+        customerError = customerOutcome.error;
+      }
+      if (customerNotified) {
+        appendLog({
+          level: "success",
+          category: "notify",
+          message: "Cliente notificado — payment-approved",
+          meta: { orderId: formatOrderId(orderId) },
+        });
+      } else if (!customerOutcome.queued) {
+        appendLog({
+          level: "warn",
+          category: "notify",
+          message: "Falha ao notificar cliente — payment-approved",
+          meta: { orderId: formatOrderId(orderId), error: customerError ?? null },
+        });
+      }
     } catch (err) {
       customerError = errorMessage(err);
       appendLog({
@@ -611,14 +712,20 @@ app.post("/notify/order-processing", async (req, res) => {
     return;
   }
 
-  try {
-    const vars = buildNotifyVariables({ orderId, customerName, storeName, orderDate });
-    const template = await getOrFallbackTemplate(
-      "ORDER_PROCESSING",
-      "CUSTOMER",
-      `🧵 *Pedido em Preparação!*\n\nOlá {{customerName}}!\n\nSeu pedido #{{orderId}} está sendo preparado com muito carinho.`
-    );
-    await sendMessageToPhone(customerPhone, formatTemplate(template, vars));
+  const vars = buildNotifyVariables({ orderId, customerName, storeName, orderDate });
+  const template = await getOrFallbackTemplate(
+    "ORDER_PROCESSING",
+    "CUSTOMER",
+    `🧵 *Pedido em Preparação!*\n\nOlá {{customerName}}!\n\nSeu pedido #{{orderId}} está sendo preparado com muito carinho.`
+  );
+  const customerOutcome = await deliverCustomerMessage(
+    customerPhone,
+    formatTemplate(template, vars),
+    "order-processing",
+    { queueOnFailure: true },
+  );
+
+  if (customerOutcome.sent) {
     appendLog({
       level: "success",
       category: "notify",
@@ -626,15 +733,21 @@ app.post("/notify/order-processing", async (req, res) => {
       meta: { orderId: formatOrderId(orderId) },
     });
     res.json({ ok: true, notified: true });
-  } catch (err) {
-    appendLog({
-      level: "error",
-      category: "notify",
-      message: "notify/order-processing falhou",
-      meta: { orderId: formatOrderId(orderId), error: errorMessage(err) },
-    });
-    res.status(500).json({ error: errorMessage(err), notified: false });
+    return;
   }
+
+  if (customerOutcome.queued) {
+    res.json({ ok: true, notified: false, queued: true });
+    return;
+  }
+
+  appendLog({
+    level: "error",
+    category: "notify",
+    message: "notify/order-processing falhou",
+    meta: { orderId: formatOrderId(orderId), error: customerOutcome.error ?? null },
+  });
+  res.status(500).json({ error: customerOutcome.error ?? "send failed", notified: false });
 });
 
 app.post("/notify/order-shipped", async (req, res) => {
@@ -680,6 +793,7 @@ app.post("/notify/order-shipped", async (req, res) => {
     adminOutcome = await deliverAdminMessage(
       formatTemplate(adminTemplate, vars),
       "order-shipped",
+      { queueOnFailure: true },
     );
   } catch (err) {
     res.status(500).json({ error: errorMessage(err), adminNotified: false });
@@ -693,14 +807,33 @@ app.post("/notify/order-shipped", async (req, res) => {
         "CUSTOMER",
         `📦 *Pedido Enviado!*\n\nOlá {{customerName}}!\n\nSeu pedido #{{orderId}} foi enviado!\n\n🚚 Código de rastreio: {{trackingCode}}`
       );
-      await sendMessageToPhone(customerPhone, formatTemplate(customerTemplate, vars));
-      customerNotified = true;
-      appendLog({
-        level: "success",
-        category: "notify",
-        message: "Cliente notificado — order-shipped",
-        meta: { orderId: formatOrderId(orderId) },
-      });
+      const customerOutcome = await deliverCustomerMessage(
+        customerPhone,
+        formatTemplate(customerTemplate, vars),
+        "order-shipped",
+        { queueOnFailure: true },
+      );
+      customerNotified = customerOutcome.sent;
+      if (customerOutcome.queued) {
+        customerError = "enfileirado para reenvio";
+      } else if (customerOutcome.error) {
+        customerError = customerOutcome.error;
+      }
+      if (customerNotified) {
+        appendLog({
+          level: "success",
+          category: "notify",
+          message: "Cliente notificado — order-shipped",
+          meta: { orderId: formatOrderId(orderId) },
+        });
+      } else if (!customerOutcome.queued) {
+        appendLog({
+          level: "warn",
+          category: "notify",
+          message: "Falha ao notificar cliente — order-shipped",
+          meta: { orderId: formatOrderId(orderId), error: customerError ?? null },
+        });
+      }
     } catch (err) {
       customerError = errorMessage(err);
       appendLog({
@@ -745,14 +878,20 @@ app.post("/notify/order-delivered", async (req, res) => {
     return;
   }
 
-  try {
-    const vars = buildNotifyVariables({ orderId, customerName, storeName, orderDate });
-    const template = await getOrFallbackTemplate(
-      "ORDER_DELIVERED",
-      "CUSTOMER",
-      `🎉 *Pedido Entregue!*\n\nOlá {{customerName}}!\n\nSeu pedido #{{orderId}} foi entregue!\n\nEsperamos que você ame seus produtos. 💜`
-    );
-    await sendMessageToPhone(customerPhone, formatTemplate(template, vars));
+  const vars = buildNotifyVariables({ orderId, customerName, storeName, orderDate });
+  const template = await getOrFallbackTemplate(
+    "ORDER_DELIVERED",
+    "CUSTOMER",
+    `🎉 *Pedido Entregue!*\n\nOlá {{customerName}}!\n\nSeu pedido #{{orderId}} foi entregue!\n\nEsperamos que você ame seus produtos. 💜`
+  );
+  const customerOutcome = await deliverCustomerMessage(
+    customerPhone,
+    formatTemplate(template, vars),
+    "order-delivered",
+    { queueOnFailure: true },
+  );
+
+  if (customerOutcome.sent) {
     appendLog({
       level: "success",
       category: "notify",
@@ -760,15 +899,21 @@ app.post("/notify/order-delivered", async (req, res) => {
       meta: { orderId: formatOrderId(orderId) },
     });
     res.json({ ok: true, notified: true });
-  } catch (err) {
-    appendLog({
-      level: "error",
-      category: "notify",
-      message: "notify/order-delivered falhou",
-      meta: { orderId: formatOrderId(orderId), error: errorMessage(err) },
-    });
-    res.status(500).json({ error: errorMessage(err), notified: false });
+    return;
   }
+
+  if (customerOutcome.queued) {
+    res.json({ ok: true, notified: false, queued: true });
+    return;
+  }
+
+  appendLog({
+    level: "error",
+    category: "notify",
+    message: "notify/order-delivered falhou",
+    meta: { orderId: formatOrderId(orderId), error: customerOutcome.error ?? null },
+  });
+  res.status(500).json({ error: customerOutcome.error ?? "send failed", notified: false });
 });
 
 app.post("/notify/order-cancelled", async (req, res) => {
@@ -807,6 +952,7 @@ app.post("/notify/order-cancelled", async (req, res) => {
     adminOutcome = await deliverAdminMessage(
       formatTemplate(adminTemplate, vars),
       "order-cancelled",
+      { queueOnFailure: true },
     );
   } catch (err) {
     res.status(500).json({ error: errorMessage(err), adminNotified: false });
@@ -820,14 +966,33 @@ app.post("/notify/order-cancelled", async (req, res) => {
         "CUSTOMER",
         `❌ *Pedido Cancelado*\n\nOlá {{customerName}}.\n\nInfelizmente seu pedido #{{orderId}} foi cancelado.`
       );
-      await sendMessageToPhone(customerPhone, formatTemplate(customerTemplate, vars));
-      customerNotified = true;
-      appendLog({
-        level: "success",
-        category: "notify",
-        message: "Cliente notificado — order-cancelled",
-        meta: { orderId: formatOrderId(orderId) },
-      });
+      const customerOutcome = await deliverCustomerMessage(
+        customerPhone,
+        formatTemplate(customerTemplate, vars),
+        "order-cancelled",
+        { queueOnFailure: true },
+      );
+      customerNotified = customerOutcome.sent;
+      if (customerOutcome.queued) {
+        customerError = "enfileirado para reenvio";
+      } else if (customerOutcome.error) {
+        customerError = customerOutcome.error;
+      }
+      if (customerNotified) {
+        appendLog({
+          level: "success",
+          category: "notify",
+          message: "Cliente notificado — order-cancelled",
+          meta: { orderId: formatOrderId(orderId) },
+        });
+      } else if (!customerOutcome.queued) {
+        appendLog({
+          level: "warn",
+          category: "notify",
+          message: "Falha ao notificar cliente — order-cancelled",
+          meta: { orderId: formatOrderId(orderId), error: customerError ?? null },
+        });
+      }
     } catch (err) {
       customerError = errorMessage(err);
       appendLog({
@@ -848,6 +1013,12 @@ app.post("/notify/order-cancelled", async (req, res) => {
 });
 
 app.listen(PORT, () => {
+  bindOutboundQueue({
+    sendAdmin: sendAdminMessage,
+    sendPhone: sendMessageToPhone,
+    getConnectionStatus,
+  });
+
   appendLog({
     level: "info",
     category: "system",

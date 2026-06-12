@@ -3,6 +3,7 @@ import { clearServerCartForUser } from "@/lib/data/cart";
 import { deductOrderStock } from "@/lib/data/deduct-order-stock";
 import { incrementCouponUsageOnPaymentApproved } from "@/lib/payments/coupon-on-payment";
 import { onOrderPaid } from "@/lib/hooks/order-paid";
+import { scheduleBackground } from "@/lib/schedule-background";
 import type { PaymentMethod } from "@/lib/types/database";
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
 
@@ -42,7 +43,7 @@ export async function finalizeApprovedOrder(
   await incrementCouponUsageOnPaymentApproved(orderId);
 
   if (!wasAlreadyPaid) {
-    void onOrderPaid(orderId, localPaymentId);
+    scheduleBackground(() => onOrderPaid(orderId, localPaymentId), "onOrderPaid");
   }
 
   revalidatePath("/admin");

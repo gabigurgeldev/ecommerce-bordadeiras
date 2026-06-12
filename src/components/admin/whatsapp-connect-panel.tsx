@@ -27,14 +27,28 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
   const statusRef = useRef(initialStatus);
   const serviceReachableRef = useRef<boolean | undefined>(undefined);
 
-  const fetchQr = useCallback(async () => {
+  const fetchSession = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/whatsapp/qr", { cache: "no-store" });
+      const res = await fetch("/api/admin/whatsapp/status", { cache: "no-store" });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? "Falha ao buscar status");
       }
-      const data = (await res.json()) as SessionState;
+      let data = (await res.json()) as SessionState;
+
+      if (
+        data.serviceReachable !== false &&
+        (data.status === "qr" || data.status === "disconnected" || data.status === "connecting")
+      ) {
+        const qrRes = await fetch("/api/admin/whatsapp/qr", { cache: "no-store" });
+        if (qrRes.ok) {
+          const qrData = (await qrRes.json()) as SessionState;
+          data = { ...data, ...qrData, serviceReachable: data.serviceReachable };
+        }
+      } else if (data.status === "connected") {
+        data = { ...data, qr: undefined };
+      }
+
       statusRef.current = data.status;
       serviceReachableRef.current = data.serviceReachable;
       setSession(data);
@@ -53,17 +67,18 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
   }, []);
 
   useEffect(() => {
-    void fetchQr();
+    void fetchSession();
     const interval = setInterval(() => {
       const shouldPoll =
         serviceReachableRef.current === false ||
-        POLL_STATUSES.has(statusRef.current);
+        POLL_STATUSES.has(statusRef.current) ||
+        statusRef.current === "connected";
       if (shouldPoll) {
-        void fetchQr();
+        void fetchSession();
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [fetchQr]);
+  }, [fetchSession]);
 
   async function handleReconnect() {
     setLoading(true);
@@ -72,7 +87,7 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(body?.error ?? "Erro ao reconectar");
       toast.success("Reconectando…");
-      await fetchQr();
+      await fetchSession();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível reconectar");
     } finally {
@@ -87,7 +102,7 @@ export function WhatsappConnectPanel({ initialStatus }: { initialStatus: string 
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(body?.error ?? "Erro ao desconectar");
       toast.success("Sessão encerrada. Escaneie o novo QR.");
-      await fetchQr();
+      await fetchSession();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível desconectar");
     } finally {

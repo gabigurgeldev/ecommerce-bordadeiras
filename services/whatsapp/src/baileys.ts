@@ -17,6 +17,7 @@ import P from "pino";
 import QRCode from "qrcode";
 import { clearSession, getActiveRecipients, saveSession } from "./db.js";
 import { appendLog, maskPhone } from "./log-bus.js";
+import { flushOutboundQueue } from "./message-queue.js";
 
 const logger = P({ level: "warn" });
 const SESSION_ID = "default";
@@ -136,8 +137,17 @@ function clearReconnectTimer() {
   }
 }
 
+function teardownSocket(socket: WASocket | null) {
+  if (!socket) return;
+  try {
+    socket.end(undefined);
+  } catch {
+    /* socket may already be closed */
+  }
+}
+
 function scheduleReconnect(delayMs: number) {
-  clearReconnectTimer();
+  if (startPromise || reconnectTimer) return;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     void startBaileys().catch((err) => {
@@ -203,6 +213,8 @@ async function persistAuthState(creds: object, keys: object, status: string, qr?
 export async function startBaileys(): Promise<WASocket> {
   if (sock) return sock;
   if (startPromise) return startPromise;
+
+  clearReconnectTimer();
 
   startPromise = (async () => {
     connectionStatus = "connecting";
@@ -307,6 +319,7 @@ export async function startBaileys(): Promise<WASocket> {
           category: "connection",
           message: "WhatsApp conectado",
         });
+        void flushOutboundQueue();
       }
 
       if (connection === "close") {
@@ -316,7 +329,9 @@ export async function startBaileys(): Promise<WASocket> {
         connectionStatus = "disconnected";
         currentQr = null;
         await persistAuthState(state.creds as object, {}, connectionStatus, null);
+        const closedSock = sock;
         sock = null;
+        teardownSocket(closedSock);
 
         if (code === DisconnectReason.loggedOut) {
           appendLog({
@@ -364,10 +379,9 @@ export async function startBaileys(): Promise<WASocket> {
 export async function reconnect(): Promise<void> {
   appendLog({ level: "info", category: "session", message: "Reconexão solicitada" });
   clearReconnectTimer();
-  if (sock) {
-    sock.end(undefined);
-    sock = null;
-  }
+  const existing = sock;
+  sock = null;
+  teardownSocket(existing);
   startPromise = null;
   connectionStatus = "reconnecting";
   void startBaileys().catch((err) => {
@@ -383,14 +397,15 @@ export async function reconnect(): Promise<void> {
 export async function logoutSession(): Promise<void> {
   appendLog({ level: "info", category: "session", message: "Logout solicitado" });
   clearReconnectTimer();
-  if (sock) {
+  const existing = sock;
+  sock = null;
+  if (existing) {
     try {
-      await sock.logout();
+      await existing.logout();
     } catch {
       /* session may already be invalid */
     }
-    sock.end(undefined);
-    sock = null;
+    teardownSocket(existing);
   }
   startPromise = null;
 
@@ -511,17 +526,14 @@ export async function sendMessageToPhone(phone: string, text: string): Promise<v
 }
 
 export async function getQrPayload() {
-  if (!sock && (connectionStatus === "disconnected" || connectionStatus === "reconnecting")) {
-    void startBaileys().catch((err) => {
-      appendLog({
-        level: "error",
-        category: "connection",
-        message: "Falha ao iniciar lazy start",
-        meta: { error: err instanceof Error ? err.message : String(err) },
-      });
-    });
-  }
+  return {
+    status: connectionStatus,
+    qr: connectionStatus === "qr" ? (currentQr ?? undefined) : undefined,
+  };
+}
 
+/** Read-only status — does not start or restart the Baileys connection. */
+export function getSessionSnapshot() {
   return {
     status: connectionStatus,
     qr: connectionStatus === "qr" ? (currentQr ?? undefined) : undefined,

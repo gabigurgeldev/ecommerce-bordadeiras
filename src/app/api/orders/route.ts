@@ -6,6 +6,7 @@ import { createOrderWithItems } from "@/lib/data/order-create";
 import { sanitizeEmail, sanitizeText } from "@/lib/sanitize";
 import { jsonError, parseBody } from "@/lib/api-utils";
 import { onNewOrder } from "@/lib/hooks/order-notifications";
+import { scheduleBackground } from "@/lib/schedule-background";
 import { generateOrderNumber } from "@/lib/order-utils";
 
 const itemSchema = z.object({
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       })),
     });
 
-    void onNewOrder(String(order.id));
+    scheduleBackground(() => onNewOrder(String(order.id)), "onNewOrder");
 
     return NextResponse.json({ order }, { status: 201 });
   } catch (e) {

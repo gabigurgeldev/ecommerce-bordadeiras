@@ -16,6 +16,7 @@ import {
   type PendingCheckoutResume,
 } from "@/lib/data/pending-order";
 import { onNewOrder } from "@/lib/hooks/order-notifications";
+import { scheduleBackground } from "@/lib/schedule-background";
 import { generateOrderNumber } from "@/lib/order-utils";
 import { formatSupabaseError } from "@/lib/supabase/error-message";
 import {
@@ -177,7 +178,7 @@ export async function createOrderDraft(input: CheckoutInput) {
     await clearServerCartForUser(sessionUser.id);
 
     if (!reused) {
-      void onNewOrder(String(order.id));
+      scheduleBackground(() => onNewOrder(String(order.id)), "onNewOrder");
     }
 
     return {
