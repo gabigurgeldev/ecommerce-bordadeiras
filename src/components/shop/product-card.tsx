@@ -46,7 +46,7 @@ function ProductCardContent({
           </h3>
         </Link>
         <div>
-          <p className="text-lg font-bold tracking-tight text-[var(--color-price)] sm:text-xl">
+          <p className="text-lg font-bold tracking-tight tabular-nums text-[var(--color-price)] sm:text-xl">
             {formatCurrency(product.priceCents)}
           </p>
           <p className="text-[11px] text-[var(--muted-foreground)] sm:text-xs">

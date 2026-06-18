@@ -57,10 +57,10 @@ export function Logo({ variant = "full", className, href = "/" }: LogoProps) {
           alt={brandAssets.alt}
           width={sizes.icon.w}
           height={sizes.icon.h}
-          className="h-9 w-9 shrink-0 object-contain"
+          className="h-11 w-11 shrink-0 object-contain"
           priority
         />
-        <span className="truncate font-display text-sm font-semibold text-[var(--color-brown)] max-w-[120px] min-[375px]:max-w-[9rem]">
+        <span className="min-w-0 truncate font-display text-base font-semibold text-[var(--color-brown)]">
           {siteConfig.name}
         </span>
       </Link>

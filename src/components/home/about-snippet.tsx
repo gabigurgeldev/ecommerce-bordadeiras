@@ -49,13 +49,13 @@ export function AboutSnippet() {
             delicadeza do trabalho feito à mão.
           </p>
 
-          <dl className="mt-7 grid max-w-lg grid-cols-3 gap-3 sm:gap-5">
+          <dl className="mt-7 grid max-w-lg grid-cols-3 gap-2.5 sm:gap-5">
             {stats.map((stat) => (
               <div
                 key={stat.label}
                 className="rounded-xl border border-[var(--color-card-border)] bg-white/70 p-3 text-center sm:p-4"
               >
-                <dt className="font-display text-2xl font-semibold text-[var(--color-price)] sm:text-3xl">
+                <dt className="font-display text-xl font-semibold text-[var(--color-price)] sm:text-3xl">
                   <CountUp
                     to={stat.to}
                     prefix={stat.prefix}

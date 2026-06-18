@@ -37,7 +37,7 @@ export function TrustBar({ items }: { items: TrustBarItem[] }) {
             return (
               <li
                 key={item.id}
-                className="flex min-w-[78%] snap-start sm:min-w-0"
+                className="flex min-w-[82%] snap-start sm:min-w-0"
               >
                 {item.link ? (
                   <Link

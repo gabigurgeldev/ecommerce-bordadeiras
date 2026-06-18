@@ -96,7 +96,7 @@ export function Header({
         }}
       >
         <div className="mx-auto flex max-w-7xl items-center gap-3 overflow-x-auto px-4 py-2 text-xs [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-4 sm:px-6 sm:text-sm lg:px-8 [&::-webkit-scrollbar]:hidden">
-          <p className="min-w-0 shrink-0 truncate sm:max-w-[55%]">
+          <p className="min-w-0 truncate max-w-[60%] sm:max-w-[55%]">
             <UtilityMessage settings={utilitySettings} />
           </p>
           <div className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap sm:gap-4">
@@ -137,7 +137,7 @@ export function Header({
       >
         <div className="overflow-visible border-b border-[var(--color-card-border)] bg-[var(--color-header-bg)]">
           <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-            <div className="flex min-w-0 items-center gap-1 sm:gap-3 lg:gap-6">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3 lg:gap-6">
               <Logo variant="compact" className="min-w-0 sm:hidden" />
               <Logo variant="full" className="hidden shrink-0 sm:flex" />
 

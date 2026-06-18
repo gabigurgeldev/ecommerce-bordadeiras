@@ -10,8 +10,8 @@ export const siteConfig = {
   locale: "pt_BR",
   contact: {
     email: "contato@bordadeiras.com.br",
-    phone: "+55 11 99999-0000",
-    whatsapp: "5511999990000",
+    phone: "+55 94 99901-2596",
+    whatsapp: "5594999012596",
     address: "São Paulo, SP — Brasil",
   },
   social: {
