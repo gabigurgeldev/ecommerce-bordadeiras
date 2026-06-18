@@ -11,3 +11,9 @@ services/whatsapp/data
 prisma/seed.bundle.cjs
 coverage
 .turbo
+
+# Editor / IDE e assets locais (nunca commitar)
+.cursor
+.trae
+.vscode
+.idea
