@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { siteConfig } from "@/lib/site";
 
+const defaultShareImage = `${siteConfig.url}/brand/og-whatsapp.png`;
+
 type PageMeta = {
   title: string;
   description?: string;
@@ -27,7 +29,7 @@ export function buildMetadata({
   rssPath,
 }: PageMeta): Metadata {
   const url = `${siteConfig.url}${path}`;
-  const ogImage = image ?? `${siteConfig.url}/brand/logo.png`;
+  const ogImage = image ?? defaultShareImage;
 
   return {
     title: `${title} | ${siteConfig.name}`,
