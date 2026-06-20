@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-auth";
 import { jsonError } from "@/lib/api-utils";
 import { deleteBlogComment } from "@/lib/blog/blog-comment-service";
+import { validateMutationRequest } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   if (!(await requireAdminApi())) return jsonError("Acesso negado", 403);
 
   const { id } = await params;

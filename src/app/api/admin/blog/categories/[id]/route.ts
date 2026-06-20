@@ -8,6 +8,7 @@ import {
 } from "@/lib/blog/blog-category-service";
 import { jsonOk, serializeBlogData } from "@/lib/blog/api-helpers";
 import { blogCategoryInputSchema } from "@/lib/validations/blog";
+import { validateMutationRequest } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,10 @@ export async function GET(_request: Request, { params }: Params) {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   if (!(await requireAdminApi())) return jsonError("Acesso negado", 403);
 
   const { id } = await params;
@@ -44,7 +49,11 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: Params) {
+export async function DELETE(request: Request, { params }: Params) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   if (!(await requireAdminApi())) return jsonError("Acesso negado", 403);
 
   const { id } = await params;

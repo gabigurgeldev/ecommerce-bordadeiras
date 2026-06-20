@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { jsonError } from "@/lib/api-utils";
+import { validateMutationRequest } from "@/lib/csrf";
 import { getPaymentById } from "@/lib/mercadopago";
 import { syncMpPaymentStatus } from "@/lib/payments/persist-mp-payment";
 import { getDb, TABLES } from "@/lib/supabase/db";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   const sessionUser = await getSessionUser();
   if (!sessionUser?.id) return jsonError("Unauthorized", 401);
 
@@ -50,9 +55,6 @@ export async function GET(
     });
   } catch (e) {
     console.error("[payments/status]", e);
-    return jsonError(
-      e instanceof Error ? e.message : "Falha ao consultar pagamento",
-      422,
-    );
+    return jsonError("Falha ao consultar pagamento", 422);
   }
 }

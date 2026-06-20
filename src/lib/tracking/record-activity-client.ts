@@ -1,5 +1,7 @@
 import type { CustomerActivityType } from "@/lib/types/database";
 
+const ACTIVITY_CONSENT_STORAGE_KEY = "bordadeiras:behavioral-analytics-consent";
+
 type ActivityPayload = {
   type: CustomerActivityType;
   path?: string | null;
@@ -10,6 +12,33 @@ type ActivityPayload = {
 
 let queue: ActivityPayload[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let behavioralAnalyticsConsent: boolean | null = null;
+
+function readStoredConsent(): boolean {
+  if (typeof window === "undefined") return false;
+  const stored = window.localStorage.getItem(ACTIVITY_CONSENT_STORAGE_KEY);
+  return stored === "true";
+}
+
+function hasBehavioralAnalyticsConsent(): boolean {
+  return behavioralAnalyticsConsent ?? readStoredConsent();
+}
+
+export function configureActivityConsent(consented: boolean): void {
+  behavioralAnalyticsConsent = consented;
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    ACTIVITY_CONSENT_STORAGE_KEY,
+    consented ? "true" : "false",
+  );
+  if (!consented) {
+    queue = [];
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+  }
+}
 
 function scheduleFlush() {
   if (flushTimer) return;
@@ -39,6 +68,7 @@ async function flushQueue() {
 
 export function recordActivityClient(payload: ActivityPayload): void {
   if (typeof window === "undefined") return;
+  if (!hasBehavioralAnalyticsConsent()) return;
   queue.push(payload);
   scheduleFlush();
 }

@@ -3,10 +3,15 @@ import { jsonError, parseBody } from "@/lib/api-utils";
 import { reorderBlogCategories } from "@/lib/blog/blog-category-service";
 import { jsonOk } from "@/lib/blog/api-helpers";
 import { blogCategoryReorderSchema } from "@/lib/validations/blog";
+import { validateMutationRequest } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   if (!(await requireAdminApi())) return jsonError("Acesso negado", 403);
 
   let body: unknown;

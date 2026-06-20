@@ -40,6 +40,41 @@ if (!url || !key) {
   process.exit(1);
 }
 
+function stripEnvValue(value) {
+  return (value ?? "").trim().replace(/^["']|["']$/g, "");
+}
+
+function isValidAdminEmail(email) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+  return ![
+    "admin@bordadeiras.com.br",
+    "admin@example.com",
+    "admin@seudominio.com.br",
+  ].includes(email);
+}
+
+function isWeakAdminPassword(password) {
+  const normalized = password.toLowerCase();
+  const commonPasswords = new Set([
+    "admin@123456",
+    "admin123456",
+    "password",
+    "minioadmin",
+    "12345678",
+  ]);
+
+  return (
+    password.length < 12 ||
+    commonPasswords.has(normalized) ||
+    normalized.includes("altere") ||
+    normalized.includes("change") ||
+    !/[A-Z]/.test(password) ||
+    !/[a-z]/.test(password) ||
+    !/[0-9]/.test(password) ||
+    !/[^A-Za-z0-9]/.test(password)
+  );
+}
+
 const db = createClient(url, key, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -235,10 +270,14 @@ async function upsertProducts() {
 }
 
 async function upsertAdmin() {
-  const email = (process.env.ADMIN_EMAIL ?? "admin@bordadeiras.com.br")
-    .trim()
-    .toLowerCase();
-  const password = process.env.ADMIN_PASSWORD ?? "Admin@123456";
+  const email = stripEnvValue(process.env.ADMIN_EMAIL).toLowerCase();
+  const password = stripEnvValue(process.env.ADMIN_PASSWORD);
+  if (!isValidAdminEmail(email) || isWeakAdminPassword(password)) {
+    throw new Error(
+      "ADMIN_EMAIL e ADMIN_PASSWORD fortes sao obrigatorios para criar o admin."
+    );
+  }
+
   const hash = await bcrypt.hash(password, 12);
   const { error } = await db.from("User").upsert(
     {

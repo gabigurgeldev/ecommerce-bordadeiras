@@ -37,13 +37,39 @@ const required = [
   "NEXT_PUBLIC_APP_URL",
 ];
 
-const placeholders = /^(COLE_AQUI|SENHA|ALTERE|)$/i;
+const placeholders = /^(COLE_AQUI|SENHA|ALTERE|CHANGE|TODO|TBD|<.+>|\[.+\]|\.\.\.|)$/i;
+
+function isPlaceholder(value) {
+  return placeholders.test(value) || value.includes("COLE_AQUI");
+}
 
 let ok = true;
 for (const key of required) {
   const v = process.env[key]?.trim() ?? "";
-  if (!v || placeholders.test(v) || v.includes("COLE_AQUI")) {
+  if (!v || isPlaceholder(v)) {
     console.error(`[env:check] Falta ou placeholder: ${key}`);
+    ok = false;
+  }
+}
+
+if (process.env.NODE_ENV === "production") {
+  const productionRequired = [
+    "ADMIN_EMAIL",
+    "ADMIN_PASSWORD",
+    "WHATSAPP_SERVICE_SECRET",
+  ];
+
+  for (const key of productionRequired) {
+    const v = process.env[key]?.trim() ?? "";
+    if (!v || isPlaceholder(v)) {
+      console.error(`[env:check] Producao exige valor real: ${key}`);
+      ok = false;
+    }
+  }
+
+  const whatsappSecret = process.env.WHATSAPP_SERVICE_SECRET?.trim() ?? "";
+  if (whatsappSecret && whatsappSecret.length < 32) {
+    console.error("[env:check] WHATSAPP_SERVICE_SECRET deve ter 32+ caracteres");
     ok = false;
   }
 }

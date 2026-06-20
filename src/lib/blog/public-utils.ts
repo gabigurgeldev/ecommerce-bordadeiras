@@ -1,4 +1,5 @@
 import { extractYouTubeVideoId, getYouTubeThumbnailUrl } from "@/lib/blog/youtube-service";
+import { escapeHtml, sanitizeBlogHtml } from "@/lib/sanitize";
 import { siteConfig } from "@/lib/site";
 import type { BlogPostWithRelations } from "@/lib/types/database";
 
@@ -91,7 +92,7 @@ export function injectHeadingIds(html: string): string {
     const text = String(inner).replace(/<[^>]+>/g, "").trim();
     const id = slugifyHeading(text);
     if (!id) return `<h${level}${attrs}>${inner}</h${level}>`;
-    if (String(attrs).includes('id="')) return `<h${level}${attrs}>${inner}</h${level}>`;
+    if (/\sid\s*=/i.test(String(attrs))) return `<h${level}${attrs}>${inner}</h${level}>`;
     return `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
   });
 }
@@ -102,15 +103,26 @@ export function addLazyLoadingToContentImages(html: string): string {
 }
 
 export function prepareArticleHtml(html: string): string {
-  return addLazyLoadingToContentImages(injectHeadingIds(html));
+  return addLazyLoadingToContentImages(injectHeadingIds(sanitizeBlogHtml(html)));
 }
 
 export function highlightSearchTerms(text: string, query: string): string {
   const q = query.trim();
-  if (!q || q.length < 2) return text;
+  if (!q || q.length < 2) return escapeHtml(text);
   const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(`(${escaped})`, "gi");
-  return text.replace(regex, "<mark class=\"rounded bg-[var(--color-price)]/25 px-0.5\">$1</mark>");
+  let result = "";
+  let lastIndex = 0;
+
+  text.replace(regex, (match, _term, offset: number) => {
+    result += escapeHtml(text.slice(lastIndex, offset));
+    result += `<mark class="rounded bg-[var(--color-price)]/25 px-0.5">${escapeHtml(match)}</mark>`;
+    lastIndex = offset + match.length;
+    return match;
+  });
+
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
 }
 
 export function buildShareUrls(url: string, title: string) {

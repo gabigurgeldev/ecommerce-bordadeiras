@@ -7,6 +7,11 @@ import { scheduleBackground } from "@/lib/schedule-background";
 import type { PaymentMethod } from "@/lib/types/database";
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
 
+function raiseSupabaseError(error: unknown, fallback: string): never {
+  if (error instanceof Error) throw error;
+  throw new Error(fallback);
+}
+
 export function mapMpStatusToDb(status: string): string {
   if (status === "approved") return "APPROVED";
   if (status === "rejected" || status === "cancelled") return "REJECTED";
@@ -20,20 +25,30 @@ export async function finalizeApprovedOrder(
   const db = getDb();
   const now = new Date().toISOString();
 
-  const { data: order } = await db
+  const { data: order, error: orderLookupError } = await db
     .from(TABLES.Order)
     .select("userId, status")
     .eq("id", orderId)
     .maybeSingle();
+  if (orderLookupError) raiseSupabaseError(orderLookupError, "Order lookup failed");
+  if (!order) throw new Error(`Order ${orderId} not found`);
 
-  const wasAlreadyPaid = order != null && String(order.status) === "PAID";
-
-  if (order && !wasAlreadyPaid) {
-    await db
-      .from(TABLES.Order)
-      .update({ status: "PAID", paidAt: now, updatedAt: now })
-      .eq("id", orderId);
+  if (String(order.status) === "PAID") {
+    revalidatePath("/admin");
+    revalidatePath("/conta/pedidos");
+    revalidatePath(`/conta/pedidos/${orderId}`);
+    return;
   }
+
+  const { data: paidOrder, error: paidOrderError } = await db
+    .from(TABLES.Order)
+    .update({ status: "PAID", paidAt: now, updatedAt: now })
+    .eq("id", orderId)
+    .neq("status", "PAID")
+    .select("userId, status")
+    .maybeSingle();
+  if (paidOrderError) raiseSupabaseError(paidOrderError, "Order paid update failed");
+  if (!paidOrder) return;
 
   if (order?.userId) {
     await clearServerCartForUser(String(order.userId));
@@ -42,9 +57,7 @@ export async function finalizeApprovedOrder(
   await deductOrderStock(orderId);
   await incrementCouponUsageOnPaymentApproved(orderId);
 
-  if (!wasAlreadyPaid) {
-    scheduleBackground(() => onOrderPaid(orderId, localPaymentId), "onOrderPaid");
-  }
+  scheduleBackground(() => onOrderPaid(orderId, localPaymentId), "onOrderPaid");
 
   revalidatePath("/admin");
   revalidatePath("/conta/pedidos");
@@ -72,7 +85,7 @@ export async function persistMpPayment(input: {
   const dbStatus = mapMpStatusToDb(input.status);
   const mpId = String(input.mpPaymentId);
 
-  const { data: existing } = await db
+  const { data: existing, error: existingError } = await db
     .from(TABLES.Payment)
     .select("id, status, mercadoPagoId")
     .eq("orderId", input.orderId)
@@ -80,9 +93,10 @@ export async function persistMpPayment(input: {
     .order("createdAt", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (existingError) raiseSupabaseError(existingError, "Payment lookup failed");
 
   if (existing) {
-    await db
+    const { error: updateError } = await db
       .from(TABLES.Payment)
       .update({
         mercadoPagoId: mpId,
@@ -91,6 +105,7 @@ export async function persistMpPayment(input: {
         updatedAt: now,
       })
       .eq("id", existing.id);
+    if (updateError) raiseSupabaseError(updateError, "Payment update failed");
 
     await markOrderPaidIfApproved(
       input.orderId,
@@ -102,7 +117,7 @@ export async function persistMpPayment(input: {
   }
 
   const localId = newId();
-  await db.from(TABLES.Payment).insert({
+  const { error: insertError } = await db.from(TABLES.Payment).insert({
     id: localId,
     orderId: input.orderId,
     method: input.method,
@@ -113,6 +128,7 @@ export async function persistMpPayment(input: {
     createdAt: now,
     updatedAt: now,
   });
+  if (insertError) raiseSupabaseError(insertError, "Payment insert failed");
 
   await markOrderPaidIfApproved(input.orderId, localId, input.status);
 
@@ -128,17 +144,19 @@ export async function syncMpPaymentStatus(input: {
   const now = new Date().toISOString();
   const dbStatus = mapMpStatusToDb(input.status);
 
-  const { data: payment } = await db
+  const { data: payment, error: paymentLookupError } = await db
     .from(TABLES.Payment)
     .select("id, status")
     .eq("mercadoPagoId", String(input.mpPaymentId))
     .maybeSingle();
+  if (paymentLookupError) raiseSupabaseError(paymentLookupError, "Payment lookup failed");
 
   if (payment && String(payment.status) !== dbStatus) {
-    await db
+    const { error: updateError } = await db
       .from(TABLES.Payment)
       .update({ status: dbStatus, updatedAt: now })
       .eq("id", payment.id);
+    if (updateError) raiseSupabaseError(updateError, "Payment status update failed");
   }
 
   if (input.status === "approved" && payment?.id) {

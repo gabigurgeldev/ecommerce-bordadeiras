@@ -26,10 +26,9 @@ Crie os serviços abaixo (Docker Compose ou apps individuais).
 ### Supabase (PostgreSQL)
 
 - Self-hosted: [https://supabase.bordadeiras.cloud](https://supabase.bordadeiras.cloud)
-- Variáveis na app: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-- URI: Studio → **Database** → Connection string
-- Exemplo: `postgresql://postgres:PASS@supabase.bordadeiras.cloud:5432/postgres`
-- Migrations Supabase: `supabase/migrations/` ou `npx prisma migrate deploy` na app
+- Variáveis na app: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- Não cole `DATABASE_URL` em ambientes persistentes da app/WhatsApp. Use URI direta do Postgres apenas em job operacional one-off, se uma ferramenta legada exigir.
+- Migrations Supabase: SQL versionado em `supabase/migrations/`
 
 ### Redis 7
 
@@ -47,7 +46,7 @@ Crie os serviços abaixo (Docker Compose ou apps individuais).
 
 - Build: repositório Git, Dockerfile `services/whatsapp/Dockerfile`
 - Porta: `4001`
-- Env: `DATABASE_URL`, `WHATSAPP_SERVICE_SECRET`
+- Env: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WHATSAPP_SERVICE_SECRET`
 - Volume: `/app/data/auth` (sessão Baileys)
 
 ### App Next.js
@@ -61,11 +60,8 @@ Crie os serviços abaixo (Docker Compose ou apps individuais).
 
 | Variável | Exemplo |
 |----------|---------|
-| `DATABASE_URL` | `postgresql://postgres:***@supabase.bordadeiras.cloud:5432/postgres` |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://supabase.bordadeiras.cloud` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Studio → Settings → API (server-only) |
-| `AUTH_SECRET` | string aleatória 32+ chars |
-| `AUTH_URL` | `https://loja.seudominio.com` |
 | `NEXT_PUBLIC_APP_URL` | idem |
 | Mercado Pago | Admin → Configurações (Postgres) |
 | `WHATSAPP_SERVICE_URL` | `http://whatsapp-service:4001` |
@@ -127,7 +123,7 @@ npx --yes prisma@6 migrate deploy
 
 | Problema | Ação |
 |----------|------|
-| 502 na app | Ver logs do container; `DATABASE_URL` correto |
+| 502 na app | Ver logs do container; conferir `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` |
 | Webhook MP 401 | Conferir webhook secret em Admin → Configurações |
 | WhatsApp desconecta | `POST /api/admin/whatsapp/reconnect` |
 | E-mail não envia | Testar SMTP; settings `mail.*` no banco |

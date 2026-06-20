@@ -17,6 +17,16 @@ services:
     image: redis:7-alpine
     container_name: bordadeiras-redis
     command: redis-server --appendonly yes
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    mem_limit: 256m
+    cpus: "0.50"
+    pids_limit: 100
     volumes:
       - redis_data:/data
     networks:
@@ -33,9 +43,18 @@ services:
     image: minio/minio:latest
     container_name: bordadeiras-minio
     command: server /data --console-address ":9001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    mem_limit: 768m
+    cpus: "1.00"
+    pids_limit: 200
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Defina S3_ACCESS_KEY no .env de producao}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Defina S3_SECRET_KEY no .env de producao}
     volumes:
       - minio_data:/data
     networks:
@@ -51,14 +70,26 @@ services:
       context: .
       dockerfile: services/whatsapp/Dockerfile
     container_name: bordadeiras-whatsapp
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    mem_limit: 512m
+    cpus: "0.75"
+    pids_limit: 200
     env_file:
       - .env
     environment:
       PORT: "4001"
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-      SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      WHATSAPP_SERVICE_SECRET: ${WHATSAPP_SERVICE_SECRET}
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Defina NEXT_PUBLIC_SUPABASE_URL no .env}
+      SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Defina NEXT_PUBLIC_SUPABASE_URL no .env}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Defina SUPABASE_SERVICE_ROLE_KEY no .env}
+      WHATSAPP_SERVICE_SECRET: ${WHATSAPP_SERVICE_SECRET:?Defina WHATSAPP_SERVICE_SECRET forte no .env}
     volumes:
       - whatsapp_auth:/app/data/auth
     networks:
@@ -83,6 +114,18 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: bordadeiras-app
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+      - /app/.next/cache:size=256m,uid=1001,gid=1001,mode=0770
+    mem_limit: 1g
+    cpus: "1.00"
+    pids_limit: 300
     env_file:
       - .env
     environment:

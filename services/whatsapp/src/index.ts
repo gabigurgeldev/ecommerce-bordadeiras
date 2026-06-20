@@ -34,8 +34,28 @@ const app = express();
 app.use(express.json());
 
 const PORT = Number(process.env.PORT ?? 4001);
-const SECRET = process.env.WHATSAPP_SERVICE_SECRET ?? "";
+const NODE_ENV = (process.env.NODE_ENV ?? "development").trim().toLowerCase();
+const IS_DEVELOPMENT = NODE_ENV === "development";
+const SECRET = (process.env.WHATSAPP_SERVICE_SECRET ?? "").trim();
 const DEFAULT_STORE_NAME = process.env.STORE_NAME ?? "Bordadeiras";
+
+function isWeakServiceSecret(secret: string) {
+  const normalized = secret.toLowerCase();
+  return (
+    secret.length < 32 ||
+    normalized.includes("altere") ||
+    normalized.includes("change") ||
+    normalized.includes("secret-compartilhado") ||
+    normalized === "password" ||
+    normalized === "minioadmin"
+  );
+}
+
+if (!IS_DEVELOPMENT && (!SECRET || isWeakServiceSecret(SECRET))) {
+  throw new Error(
+    "WHATSAPP_SERVICE_SECRET must be set to a strong secret (32+ chars) outside development."
+  );
+}
 
 app.get("/health", async (_req, res) => {
   const { status } = getConnectionStatus();
@@ -56,7 +76,7 @@ function authMiddleware(
   res: express.Response,
   next: express.NextFunction
 ) {
-  if (!SECRET) return next();
+  if (!SECRET && IS_DEVELOPMENT) return next();
   const header = req.headers.authorization;
   if (header !== `Bearer ${SECRET}`) {
     res.status(401).json({ error: "Unauthorized" });

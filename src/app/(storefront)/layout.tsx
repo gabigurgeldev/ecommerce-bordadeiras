@@ -2,6 +2,7 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { StorefrontTheme } from "@/components/providers/storefront-theme";
 import { CustomerActivityTracker } from "@/components/tracking/customer-activity-tracker";
+import { fetchNotificationPrefs } from "@/actions/account/notifications";
 import { JsonLdScript } from "@/components/seo/json-ld-script";
 import { getCategories } from "@/lib/data/categories";
 import { isDatabaseAvailable } from "@/lib/data/db-available";
@@ -18,9 +19,10 @@ export default async function StorefrontLayout({
 }) {
   await isDatabaseAvailable();
 
-  const [categories, utilitySettings] = await Promise.all([
+  const [categories, utilitySettings, notificationPrefs] = await Promise.all([
     getCategories(),
     getStorefrontUtilitySettings(),
+    fetchNotificationPrefs(),
   ]);
 
   const categoryPreviews = await Promise.all(
@@ -35,7 +37,9 @@ export default async function StorefrontLayout({
   return (
     <StorefrontTheme>
       <div className="light flex min-h-full min-w-0 flex-col bg-[var(--color-bg)] text-[var(--foreground)]">
-        <CustomerActivityTracker />
+        <CustomerActivityTracker
+          behavioralAnalyticsConsent={notificationPrefs.behavioralAnalytics}
+        />
         <JsonLdScript data={organizationJsonLd()} />
         <Header
           categories={categories}

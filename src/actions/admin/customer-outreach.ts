@@ -4,7 +4,6 @@ import { resolveWhatsappConnectionStatus } from "@/lib/whatsapp-client";
 import { getWhatsappTemplate } from "@/actions/admin/whatsapp-templates";
 import type { AdminCustomerInsights } from "@/lib/data/admin-customer-insights";
 import { getAdminCustomerInsights } from "@/lib/data/admin-customer-insights";
-import { getActivityLabel, formatActivityDetail } from "@/lib/activity-labels";
 import { getOpenRouterConfig } from "@/lib/openrouter-config";
 import { callOpenRouterPrompt, OpenRouterError } from "@/lib/openrouter/client";
 import {
@@ -16,6 +15,14 @@ import {
   customerOutreachAiInputSchema,
   customerOutreachAiOutputSchema,
 } from "@/lib/validations/customer-outreach";
+import {
+  canUseWhatsappOutreach,
+  describeWhatsappOutreachRequirement,
+  getUserNotificationPrefs,
+  maskPhoneForAudit,
+  resolveOutreachPurpose,
+  type NotificationPrefs,
+} from "@/lib/privacy/consent";
 import {
   buildWhatsAppDeepLink,
   formatCurrencyBRL,
@@ -121,6 +128,15 @@ export async function sendCustomerOutreach(
     const insights = await getAdminCustomerInsights(parsed.data.userId);
     if (!insights) return { success: false, error: "Cliente não encontrado" };
 
+    const outreachPurpose = resolveOutreachPurpose(parsed.data.templateKey);
+    const prefs = await getUserNotificationPrefs(parsed.data.userId);
+    if (!canUseWhatsappOutreach(prefs, outreachPurpose)) {
+      return {
+        success: false,
+        error: describeWhatsappOutreachRequirement(outreachPurpose),
+      };
+    }
+
     const phoneRaw =
       parsed.data.phone?.trim() || insights.resolvedPhone || "";
     const phone = normalizeBrazilPhone(phoneRaw);
@@ -203,7 +219,8 @@ export async function sendCustomerOutreach(
           outreach: true,
           mode: parsed.data.mode,
           templateKey: parsed.data.templateKey ?? null,
-          phone,
+          purpose: outreachPurpose,
+          phoneMasked: maskPhoneForAudit(phone),
         },
       });
 
@@ -232,6 +249,9 @@ export async function getOutreachPreview(
   return withAdminRead(async () => {
     const insights = await getAdminCustomerInsights(userId);
     if (!insights) return null;
+    const prefs = await getUserNotificationPrefs(userId);
+    const purpose = resolveOutreachPurpose(templateKey);
+    if (!canUseWhatsappOutreach(prefs, purpose)) return null;
     const tpl = await getWhatsappTemplate(templateKey);
     if (!tpl) return null;
     const variables = {
@@ -245,25 +265,32 @@ export async function getOutreachPreview(
   });
 }
 
-function buildCustomerContextForAi(insights: AdminCustomerInsights): string {
-  const customerName =
-    insights.profile.name?.trim() || insights.profile.email.split("@")[0];
-  const siteUrl = siteConfig.url.replace(/\/$/, "");
+function firstNameOnly(name: string | null, email: string): string {
+  const source = name?.trim() || email.split("@")[0] || "cliente";
+  return source.split(/\s+/)[0]?.slice(0, 40) || "cliente";
+}
+
+function buildCustomerContextForAi(
+  insights: AdminCustomerInsights,
+  prefs: NotificationPrefs,
+): string {
+  const customerName = firstNameOnly(insights.profile.name, insights.profile.email);
 
   let opportunityDetails = "";
   const pending = insights.opportunities.pendingPaymentOrders[0];
   if (pending) {
     const items = pending.items
+      .slice(0, 3)
       .map((i) => `${i.name} × ${i.quantity}`)
       .join(", ");
     opportunityDetails = [
       "Pedidos pendentes de pagamento:",
-      `- Pedido #${pending.id.slice(-8).toUpperCase()}: ${formatCurrencyBRL(pending.totalCents)}`,
+      `- Valor pendente: ${formatCurrencyBRL(pending.totalCents)}`,
       `  Itens: ${items}`,
-      `  Link checkout: ${siteUrl}/checkout?order=${pending.id}`,
     ].join("\n");
   } else if (insights.opportunities.activeCart.length > 0) {
     const lines = insights.opportunities.activeCart
+      .slice(0, 3)
       .map((l) => `- ${l.name} × ${l.quantity} (${formatCurrencyBRL(l.priceCents * l.quantity)})`)
       .join("\n");
     opportunityDetails = [
@@ -294,43 +321,28 @@ function buildCustomerContextForAi(insights: AdminCustomerInsights): string {
       ? [
           "Produtos de interesse:",
           ...insights.interests.topProducts
-            .slice(0, 5)
+            .slice(0, 3)
             .map((p) => `- ${p.name} (${p.source === "cart" ? "na sacola" : "comprou"})`),
         ].join("\n")
       : "";
 
   const recentViews =
-    insights.interests.recentProductViews.length > 0
+    prefs.behavioralAnalytics && insights.interests.recentProductViews.length > 0
       ? [
-          "Visualizações recentes:",
+          "Visualizações recentes consentidas:",
           ...insights.interests.recentProductViews
-            .slice(0, 5)
+            .slice(0, 3)
             .map((v) => `- ${v.productName}`),
         ].join("\n")
       : "";
 
-  const recentActivity =
-    insights.activity.length > 0
-      ? [
-          "Atividade recente:",
-          ...insights.activity.slice(0, 5).map((a) => {
-            const label = getActivityLabel(a.type);
-            const detail = formatActivityDetail(
-              a.type,
-              a.path,
-              a.productName,
-              a.metadata,
-            );
-            return `- ${label}: ${detail}`;
-          }),
-        ].join("\n")
-      : "";
+  const recentActivity = prefs.behavioralAnalytics
+    ? `Sinais comportamentais consentidos: ${insights.activity.length} eventos recentes resumidos.`
+    : "";
 
   return buildCustomerContextBlock({
     storeName: siteConfig.name,
     customerName,
-    email: insights.profile.email,
-    phone: insights.resolvedPhone,
     primaryOpportunity: insights.opportunities.primaryOpportunity,
     opportunityDetails,
     statsSummary,
@@ -355,12 +367,32 @@ export async function generateCustomerOutreachMessage(
       return { success: false, error: "Cliente não encontrado" };
     }
 
+    const prefs = await getUserNotificationPrefs(parsed.data.userId);
+    const aiPurpose =
+      insights.opportunities.primaryOpportunity === "pending_payment"
+        ? "pending_payment"
+        : insights.opportunities.primaryOpportunity === "abandoned_cart"
+          ? "abandoned_cart"
+          : "marketing";
+    if (!canUseWhatsappOutreach(prefs, aiPurpose)) {
+      return {
+        success: false,
+        error: describeWhatsappOutreachRequirement(aiPurpose),
+      };
+    }
+    if (!prefs.aiPersonalization) {
+      return {
+        success: false,
+        error: "Cliente não autorizou personalização com IA.",
+      };
+    }
+
     const config = await getOpenRouterConfig();
     if (!config) {
       return { success: false, error: NOT_CONFIGURED };
     }
 
-    const customerContext = buildCustomerContextForAi(insights);
+    const customerContext = buildCustomerContextForAi(insights, prefs);
     const { system, user } = buildCustomerOutreachPrompt(
       parsed.data.mode,
       customerContext,

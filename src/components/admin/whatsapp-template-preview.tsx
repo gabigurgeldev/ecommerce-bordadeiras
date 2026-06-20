@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Smartphone, MessageCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { escapeHtml } from "@/lib/sanitize";
 import type { WhatsappTemplateRecipientType } from "@/lib/types/database";
 
 interface TemplateVariable {
@@ -32,14 +33,18 @@ const SAMPLE_DATA: Record<string, string> = {
   "{{message}}": "Temos novidades que combinam com o seu perfil!",
 };
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function formatTemplate(template: string, variables: Record<string, string>): string {
-  let result = template;
+  let result = escapeHtml(template);
   for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(key.replace(/[{}]/g, "\\$&"), "g"), value);
+    result = result.replace(new RegExp(escapeRegExp(escapeHtml(key)), "g"), escapeHtml(value));
   }
   // Highlight any remaining unfilled variables
   result = result.replace(/\{\{(\w+)\}\}/g, '<span class="text-amber-500">{{$1}}</span>');
-  return result;
+  return result.replace(/\n/g, "<br/>");
 }
 
 export function WhatsappTemplatePreview({
@@ -100,7 +105,7 @@ export function WhatsappTemplatePreview({
                 <div className="bg-[#DCF8C6] rounded-lg rounded-tr-sm px-3 py-2 max-w-[85%] shadow-sm">
                   <div
                     className="text-sm text-gray-800 whitespace-pre-wrap break-words"
-                    dangerouslySetInnerHTML={{ __html: formattedMessage.replace(/\n/g, "<br/>") }}
+                    dangerouslySetInnerHTML={{ __html: formattedMessage }}
                   />
                   <div className="flex items-center justify-end gap-1 mt-1">
                     <span className="text-[10px] text-gray-500">10:30</span>

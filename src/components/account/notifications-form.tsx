@@ -6,28 +6,52 @@ import {
 } from "@/actions/account/notifications";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Bell, Mail, Package, Tag } from "lucide-react";
-import { useState } from "react";
+import { configureActivityConsent } from "@/lib/tracking/record-activity-client";
+import { BarChart3, Bell, Bot, Mail, MessageCircle, Package, Tag } from "lucide-react";
+import { type ComponentType, type FormEvent, useState } from "react";
 import { toast } from "sonner";
 
-const prefItems = [
+const prefItems: {
+  key: keyof Omit<NotificationPrefs, "consentUpdatedAt">;
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+}[] = [
   {
-    key: "orderUpdates" as const,
+    key: "orderUpdates",
     icon: Package,
     title: "Atualizações de pedidos",
-    description: "Status, envio e entrega",
+    description: "Status, pagamento, envio e entrega",
   },
   {
-    key: "promotions" as const,
+    key: "promotions",
     icon: Tag,
     title: "Promoções e novidades",
-    description: "Ofertas e lançamentos",
+    description: "Ofertas, lançamentos e recuperação de sacola",
   },
   {
-    key: "email" as const,
+    key: "email",
     icon: Mail,
     title: "Notificações por e-mail",
     description: "Receber avisos no e-mail cadastrado",
+  },
+  {
+    key: "whatsapp",
+    icon: MessageCircle,
+    title: "Contato por WhatsApp",
+    description: "Receber mensagens conforme as finalidades autorizadas",
+  },
+  {
+    key: "behavioralAnalytics",
+    icon: BarChart3,
+    title: "Analytics e personalização comportamental",
+    description: "Permitir registro de navegação, busca e produtos vistos",
+  },
+  {
+    key: "aiPersonalization",
+    icon: Bot,
+    title: "Personalização com IA",
+    description: "Permitir uso de perfil resumido para sugerir mensagens personalizadas",
   },
 ];
 
@@ -39,7 +63,7 @@ export function NotificationsForm({
   const [prefs, setPrefs] = useState(initialPrefs);
   const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     const result = await updateNotificationPrefs(prefs);
@@ -48,6 +72,7 @@ export function NotificationsForm({
       toast.error(result.error);
       return;
     }
+    configureActivityConsent(prefs.behavioralAnalytics);
     toast.success("Preferências salvas");
   }
 
@@ -90,6 +115,11 @@ export function NotificationsForm({
         </Button>
         <Bell className="h-4 w-4 text-[var(--muted-foreground)]" aria-hidden />
       </div>
+      <p className="text-xs text-[var(--muted-foreground)]">
+        Você pode alterar estes consentimentos a qualquer momento. Contatos de
+        marketing por WhatsApp exigem autorização para promoções e para o canal
+        WhatsApp.
+      </p>
     </form>
   );
 }

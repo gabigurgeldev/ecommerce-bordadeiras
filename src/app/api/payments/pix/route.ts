@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { jsonError, parseBody } from "@/lib/api-utils";
+import { validateMutationRequest } from "@/lib/csrf";
 import { createPixPayment } from "@/lib/mercadopago";
 import { guardCheckoutPayment } from "@/lib/payments/checkout-payment-guard";
 import { persistMpPayment } from "@/lib/payments/persist-mp-payment";
@@ -17,6 +18,10 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   const sessionUser = await getSessionUser();
   if (!sessionUser?.id) return jsonError("Unauthorized", 401);
 
@@ -77,8 +82,7 @@ export async function POST(request: Request) {
       ticketUrl: pix.ticketUrl,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Falha ao gerar PIX";
-    console.error("[payments/pix]", message, e);
-    return jsonError(message, 422);
+    console.error("[payments/pix]", e);
+    return jsonError("Falha ao gerar PIX", 422);
   }
 }

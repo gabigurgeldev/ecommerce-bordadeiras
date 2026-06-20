@@ -2,13 +2,18 @@ import { requireAdminApi } from "@/lib/admin-auth";
 import { jsonError } from "@/lib/api-utils";
 import { duplicateBlogPost } from "@/lib/blog/blog-post-service";
 import { jsonOk } from "@/lib/blog/api-helpers";
+import { validateMutationRequest } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   const actor = await requireAdminApi();
   if (!actor) return jsonError("Acesso negado", 403);
 

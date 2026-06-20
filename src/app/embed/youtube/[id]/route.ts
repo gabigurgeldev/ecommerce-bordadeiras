@@ -1,15 +1,16 @@
+import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 
 const YOUTUBE_ID = /^[a-zA-Z0-9_-]{11}$/;
 
-function embedHtml(iframeSrc: string, title: string): string {
+function embedHtml(iframeSrc: string, title: string, nonce: string): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${title}</title>
-  <style>
+  <style nonce="${nonce}">
     html, body { margin: 0; height: 100%; background: #000; }
     iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
   </style>
@@ -26,12 +27,14 @@ function embedHtml(iframeSrc: string, title: string): string {
 </html>`;
 }
 
-const embedResponseHeaders = {
-  "Content-Type": "text/html; charset=utf-8",
-  "X-Frame-Options": "SAMEORIGIN",
-  "Content-Security-Policy":
-    "default-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://*.google.com; style-src 'unsafe-inline';",
-};
+function embedResponseHeaders(nonce: string) {
+  return {
+    "Content-Type": "text/html; charset=utf-8",
+    "X-Frame-Options": "SAMEORIGIN",
+    "Content-Security-Policy":
+      `default-src 'none'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://*.google.com; style-src 'nonce-${nonce}';`,
+  };
+}
 
 export async function GET(
   request: Request,
@@ -54,9 +57,10 @@ export async function GET(
   if (autoplay) params.set("autoplay", "1");
 
   const iframeSrc = `https://www.youtube.com/embed/${id}?${params.toString()}`;
+  const nonce = randomBytes(16).toString("base64");
 
-  return new NextResponse(embedHtml(iframeSrc, "Vídeo do produto"), {
+  return new NextResponse(embedHtml(iframeSrc, "Vídeo do produto", nonce), {
     status: 200,
-    headers: embedResponseHeaders,
+    headers: embedResponseHeaders(nonce),
   });
 }

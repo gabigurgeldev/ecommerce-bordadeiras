@@ -5,6 +5,7 @@ import { addYouTubeMedia } from "@/lib/blog/blog-media-service";
 import { validateYouTubeUrl } from "@/lib/blog/youtube-service";
 import { blogYoutubeUrlSchema } from "@/lib/validations/blog";
 import { jsonOk } from "@/lib/blog/api-helpers";
+import { validateMutationRequest } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   if (!(await requireAdminApi())) return jsonError("Acesso negado", 403);
 
   let body: unknown;

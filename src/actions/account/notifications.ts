@@ -3,28 +3,27 @@
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { getDb, TABLES } from "@/lib/supabase/db";
+import {
+  DEFAULT_NOTIFICATION_PREFS,
+  normalizeNotificationPrefs,
+  type NotificationPrefs,
+} from "@/lib/privacy/consent";
 
-export type NotificationPrefs = {
-  orderUpdates: boolean;
-  promotions: boolean;
-  email: boolean;
-};
+export type { NotificationPrefs } from "@/lib/privacy/consent";
 
 const prefsSchema = z.object({
   orderUpdates: z.boolean(),
   promotions: z.boolean(),
   email: z.boolean(),
+  whatsapp: z.boolean(),
+  behavioralAnalytics: z.boolean(),
+  aiPersonalization: z.boolean(),
+  consentUpdatedAt: z.string().nullable().optional(),
 });
-
-const DEFAULT_PREFS: NotificationPrefs = {
-  orderUpdates: true,
-  promotions: false,
-  email: true,
-};
 
 export async function fetchNotificationPrefs(): Promise<NotificationPrefs> {
   const user = await getSessionUser();
-  if (!user?.id) return DEFAULT_PREFS;
+  if (!user?.id) return DEFAULT_NOTIFICATION_PREFS;
 
   const db = getDb();
   const { data } = await db
@@ -34,10 +33,7 @@ export async function fetchNotificationPrefs(): Promise<NotificationPrefs> {
     .maybeSingle();
 
   const prefs = data?.notificationPrefs;
-  if (prefs && typeof prefs === "object") {
-    return { ...DEFAULT_PREFS, ...(prefs as NotificationPrefs) };
-  }
-  return DEFAULT_PREFS;
+  return normalizeNotificationPrefs(prefs);
 }
 
 export async function updateNotificationPrefs(
@@ -53,7 +49,10 @@ export async function updateNotificationPrefs(
   const { error } = await db
     .from(TABLES.User)
     .update({
-      notificationPrefs: parsed.data,
+      notificationPrefs: {
+        ...parsed.data,
+        consentUpdatedAt: new Date().toISOString(),
+      },
       updatedAt: new Date().toISOString(),
     })
     .eq("id", user.id);

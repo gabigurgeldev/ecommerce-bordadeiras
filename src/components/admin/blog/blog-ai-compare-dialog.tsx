@@ -9,6 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { sanitizeBlogHtml } from "@/lib/sanitize";
+import { useMemo } from "react";
 
 export function BlogAiCompareDialog({
   open,
@@ -33,6 +35,11 @@ export function BlogAiCompareDialog({
   onAcceptAndEdit: () => void;
   onReject: () => void;
 }) {
+  const safeAfterHtml = useMemo(
+    () => (afterIsHtml && after ? sanitizeBlogHtml(after) : ""),
+    [after, afterIsHtml],
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
@@ -58,7 +65,7 @@ export function BlogAiCompareDialog({
                 {afterIsHtml && after ? (
                   <div
                     className="prose prose-sm max-w-none dark:prose-invert"
-                    dangerouslySetInnerHTML={{ __html: after }}
+                    dangerouslySetInnerHTML={{ __html: safeAfterHtml }}
                   />
                 ) : (
                   <p className="whitespace-pre-wrap text-sm">{after || "—"}</p>

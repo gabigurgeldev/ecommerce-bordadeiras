@@ -95,6 +95,7 @@ export type User = {
   passwordHash: string | null;
   phone: string | null;
   role: Role;
+  notificationPrefs: JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -4,6 +4,7 @@ import { jsonError, parseBody } from "@/lib/api-utils";
 import { listBlogPosts, createBlogPost } from "@/lib/blog/blog-post-service";
 import { jsonOk, searchParamsToObject, serializeBlogData } from "@/lib/blog/api-helpers";
 import { blogListQuerySchema, blogPostInputSchema } from "@/lib/validations/blog";
+import { validateMutationRequest } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   const actor = await requireAdminApi();
   if (!actor) return jsonError("Acesso negado", 403);
 

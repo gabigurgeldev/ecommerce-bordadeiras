@@ -4,18 +4,12 @@ import { mapBlogMediaRow } from "@/lib/blog/mappers";
 import { emptyToNull } from "@/lib/blog/utils";
 import { BlogMediaType } from "@/lib/types/database";
 import type { BlogMediaInput } from "@/lib/validations/blog";
-import { STORAGE_BUCKETS, getPublicUrl, uploadFile } from "@/lib/storage";
+import { STORAGE_BUCKETS, uploadFile } from "@/lib/storage";
 import { validateYouTubeUrl, extractYouTubeVideoId } from "@/lib/blog/youtube-service";
-import { optimizeBlogImage } from "@/lib/blog/image-optimize";
 import { getBlogPostById } from "@/lib/blog/blog-post-service";
+import { prepareImageUpload } from "@/lib/image-upload-security";
 
 const MAX_BYTES = 8 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
 
 function buildBlogImageKey(postId: string, filename: string): string {
   const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -76,35 +70,26 @@ export async function uploadBlogImage(params: {
   const post = await getBlogPostById(params.postId);
   if (!post) throw new Error("Post não encontrado");
 
-  if (!ALLOWED_TYPES.has(params.file.type)) {
-    throw new Error("Tipo de imagem não suportado");
-  }
   if (params.file.size > MAX_BYTES) {
     throw new Error("Arquivo muito grande (máx. 8 MB)");
   }
 
   const bucket = STORAGE_BUCKETS.productImages;
   const rawBuffer = Buffer.from(await params.file.arrayBuffer());
-  const isGif = params.file.type === "image/gif";
+  const prepared = await prepareImageUpload({
+    buffer: rawBuffer,
+    declaredType: params.file.type,
+    filename: params.file.name,
+    reencode: true,
+  });
 
-  let uploadBuffer: Buffer = rawBuffer;
-  let contentType = params.file.type;
-  let filename = params.file.name;
-
-  if (!isGif) {
-    const optimized = await optimizeBlogImage(rawBuffer);
-    uploadBuffer = optimized.buffer;
-    contentType = optimized.contentType;
-    filename = params.file.name.replace(/\.[^.]+$/i, "") + ".webp";
-  }
-
-  const path = buildBlogImageKey(params.postId, filename);
+  const path = buildBlogImageKey(params.postId, prepared.filename);
 
   const publicUrl = await uploadFile({
     bucket,
     path,
-    body: uploadBuffer,
-    contentType,
+    body: prepared.buffer,
+    contentType: prepared.contentType,
   });
 
   const { id } = await createBlogMedia({

@@ -32,3 +32,20 @@ export async function cacheSet(
   if (!client) return;
   await client.set(`cache:${key}`, value, "EX", ttlSeconds);
 }
+
+export async function cacheSetIfAbsent(
+  key: string,
+  value: string,
+  ttlSeconds = 3600,
+): Promise<boolean> {
+  const client = getRedis();
+  if (!client) return true;
+  const result = await client.set(`cache:${key}`, value, "EX", ttlSeconds, "NX");
+  return result === "OK";
+}
+
+export async function cacheDelete(key: string): Promise<void> {
+  const client = getRedis();
+  if (!client) return;
+  await client.del(`cache:${key}`);
+}

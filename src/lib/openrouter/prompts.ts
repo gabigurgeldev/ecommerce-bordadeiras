@@ -60,7 +60,8 @@ Escreva em português do Brasil, tom acolhedor, direto e natural — como uma co
 Responda SOMENTE com um objeto JSON válido: { "message": "..." }.
 A mensagem deve ter no máximo 1200 caracteres, texto plano (sem markdown, HTML ou emojis em excesso).
 Não invente preços, promoções, links ou informações que não estejam no contexto do cliente.
-Use o primeiro nome do cliente quando disponível.`;
+Use somente o primeiro nome do cliente quando disponível.
+Não solicite nem mencione e-mail, telefone, CPF, endereço, identificadores internos ou atividade bruta.`;
 
 const OPPORTUNITY_LABELS: Record<string, string> = {
   pending_payment: "Cobrar pagamento de pedido pendente",
@@ -96,8 +97,6 @@ Retorne JSON: { "message": "texto da mensagem pronta para WhatsApp" }`,
 export function buildCustomerContextBlock(context: {
   storeName: string;
   customerName: string;
-  email: string;
-  phone: string | null;
   primaryOpportunity: string;
   opportunityDetails: string;
   statsSummary: string;
@@ -108,8 +107,6 @@ export function buildCustomerContextBlock(context: {
   return [
     `Loja: ${context.storeName}`,
     `Cliente: ${context.customerName}`,
-    `Email: ${context.email}`,
-    context.phone ? `Telefone: ${context.phone}` : null,
     `Oportunidade principal: ${OPPORTUNITY_LABELS[context.primaryOpportunity] ?? context.primaryOpportunity}`,
     context.opportunityDetails,
     context.statsSummary,

@@ -583,7 +583,12 @@ async function mpFetch<T>(
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(err || `Mercado Pago API error ${res.status}`);
+    console.error("[mercadopago] API request failed", {
+      path,
+      status: res.status,
+      body: err,
+    });
+    throw new Error("Falha ao consultar Mercado Pago");
   }
   return res.json() as Promise<T>;
 }
@@ -662,6 +667,12 @@ export async function verifyWebhookSignature(
   const hash = parts.v1;
   if (!ts || !hash) return false;
 
+  const timestamp = Number(ts);
+  if (!Number.isFinite(timestamp)) return false;
+  const timestampMs = timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp;
+  const maxSkewMs = 5 * 60 * 1000;
+  if (Math.abs(Date.now() - timestampMs) > maxSkewMs) return false;
+
   const dataId =
     headers.get("x-resource-id") ??
     (() => {
@@ -680,8 +691,11 @@ export async function verifyWebhookSignature(
     .digest("hex");
 
   try {
-    return timingSafeEqual(Buffer.from(hash), Buffer.from(computed));
+    const received = Buffer.from(hash, "hex");
+    const expected = Buffer.from(computed, "hex");
+    if (received.length !== expected.length) return false;
+    return timingSafeEqual(received, expected);
   } catch {
-    return hash === computed;
+    return false;
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { jsonError, parseBody } from "@/lib/api-utils";
+import { validateMutationRequest } from "@/lib/csrf";
 import { createBoletoPayment } from "@/lib/mercadopago";
 import { guardCheckoutPayment } from "@/lib/payments/checkout-payment-guard";
 import { persistMpPayment } from "@/lib/payments/persist-mp-payment";
@@ -17,6 +18,10 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   const sessionUser = await getSessionUser();
   if (!sessionUser?.id) return jsonError("Unauthorized", 401);
 
@@ -75,9 +80,6 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     console.error("[payments/boleto]", e);
-    return jsonError(
-      e instanceof Error ? e.message : "Falha ao gerar boleto",
-      422,
-    );
+    return jsonError("Falha ao gerar boleto", 422);
   }
 }

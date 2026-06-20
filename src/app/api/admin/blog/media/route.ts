@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-auth";
 import { jsonError, parseBody } from "@/lib/api-utils";
 import { createBlogMedia, uploadBlogImage } from "@/lib/blog/blog-media-service";
-import { jsonOk } from "@/lib/blog/api-helpers";
 import { blogMediaInputSchema } from "@/lib/validations/blog";
+import { validateMutationRequest } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   const actor = await requireAdminApi();
   if (!actor) return jsonError("Acesso negado", 403);
 

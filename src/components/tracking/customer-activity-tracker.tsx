@@ -1,6 +1,9 @@
 "use client";
 
-import { recordActivityClient } from "@/lib/tracking/record-activity-client";
+import {
+  configureActivityConsent,
+  recordActivityClient,
+} from "@/lib/tracking/record-activity-client";
 import { CustomerActivityType } from "@/lib/types/database";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -12,12 +15,19 @@ function shouldTrackPath(path: string): boolean {
   return !IGNORED_PREFIXES.some((p) => path.startsWith(p));
 }
 
-export function CustomerActivityTracker() {
+export function CustomerActivityTracker({
+  behavioralAnalyticsConsent,
+}: {
+  behavioralAnalyticsConsent: boolean;
+}) {
   const pathname = usePathname();
   const lastTracked = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  configureActivityConsent(behavioralAnalyticsConsent);
+
   useEffect(() => {
+    if (!behavioralAnalyticsConsent) return;
     if (!pathname || !shouldTrackPath(pathname)) return;
     if (lastTracked.current === pathname) return;
 
@@ -33,7 +43,7 @@ export function CustomerActivityTracker() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [pathname]);
+  }, [behavioralAnalyticsConsent, pathname]);
 
   return null;
 }

@@ -1,12 +1,12 @@
 # Desenvolvimento local — publica portas no host. Em VPS use docker-compose.prod.yml
-# Banco: Supabase self-hosted (DATABASE_URL no .env) — https://supabase.bordadeiras.cloud
+# Banco/API: Supabase self-hosted via NEXT_PUBLIC_SUPABASE_URL + service role — https://supabase.bordadeiras.cloud
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     env_file: .env
     depends_on:
       redis:
@@ -20,7 +20,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -29,11 +29,11 @@ services:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Defina S3_ACCESS_KEY no .env local}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Defina S3_SECRET_KEY no .env local}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
     restart: unless-stopped
@@ -43,7 +43,7 @@ services:
       context: .
       dockerfile: services/whatsapp/Dockerfile
     ports:
-      - "4001:4001"
+      - "127.0.0.1:4001:4001"
     env_file: .env
     volumes:
       - whatsapp_auth:/app/data/auth

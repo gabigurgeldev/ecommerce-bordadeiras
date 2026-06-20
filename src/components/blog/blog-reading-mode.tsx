@@ -1,8 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { sanitizeBlogHtml } from "@/lib/sanitize";
 import { BookOpen, Minimize2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 const comfortProseClass =
   "mx-auto max-w-[42rem] text-lg leading-[1.85] [&_h2]:text-[1.625rem] [&_h3]:text-[1.375rem] [&_li]:text-lg [&_p]:text-lg [&_p]:leading-[1.85]";
@@ -15,6 +16,7 @@ export function BlogArticleContent({
   proseClass: string;
 }) {
   const [comfort, setComfort] = useState(false);
+  const safeHtml = useMemo(() => sanitizeBlogHtml(html), [html]);
 
   return (
     <div className="mt-8 lg:mt-10">
@@ -58,7 +60,7 @@ export function BlogArticleContent({
           proseClass,
           comfort && comfortProseClass,
         )}
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: safeHtml }}
       />
     </div>
   );

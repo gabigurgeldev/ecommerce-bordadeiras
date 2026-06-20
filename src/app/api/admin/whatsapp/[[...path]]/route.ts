@@ -13,6 +13,7 @@ import {
 import { jsonError } from "@/lib/api-utils";
 import { WhatsappServiceError } from "@/lib/whatsapp-fetch";
 import { getWhatsappServiceBaseUrl } from "@/lib/whatsapp-service-url";
+import { validateMutationRequest } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -138,9 +139,13 @@ export async function GET(
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ path?: string[] }> },
 ) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   if (!(await requireAdminApi())) return jsonError("Forbidden", 403);
 
   const { path = [] } = await params;

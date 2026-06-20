@@ -11,11 +11,12 @@ Passo a passo completo em português: **[docs/GETTING_STARTED.md](docs/GETTING_S
 Guia Hostinger + EasyPanel + Docker: **[docs/VPS_SETUP.md](docs/VPS_SETUP.md)** · variáveis: **[docs/ENV_REFERENCE.md](docs/ENV_REFERENCE.md)** · `env.production.example` · `docker-compose.prod.yml`.
 
 ```bash
-cp env.example .env
-# Edite DATABASE_URL e AUTH_SECRET
+cp env.example .env.local
+# Edite NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+# SUPABASE_SERVICE_ROLE_KEY, ADMIN_EMAIL e ADMIN_PASSWORD
 
 npm install
-npm run db:push
+npm run env:check
 npm run db:seed
 npm run dev
 ```
@@ -33,16 +34,17 @@ Abra [http://localhost:3000](http://localhost:3000).
 
 ### 1. Configure connection
 
-Copy `env.example` to `.env` and set:
+Copy `env.example` to `.env.local` and set:
 
 ```env
-DATABASE_URL="postgresql://postgres:PASSWORD@supabase.bordadeiras.cloud:5432/postgres"
 NEXT_PUBLIC_SUPABASE_URL=https://supabase.bordadeiras.cloud
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+ADMIN_EMAIL=<email_admin_real>
+ADMIN_PASSWORD=<gere_senha_forte_12_chars_min>
 ```
 
-Connection string: Supabase Studio → **Database** → Connection string (URI). Ver também [docs/MIGRACAO_SUPABASE.md](docs/MIGRACAO_SUPABASE.md).
+Supabase keys: Studio → **Settings** → **API**. Ver também [docs/EASYPANEL_ENV.md](docs/EASYPANEL_ENV.md).
 
 ### 2. Apply schema
 
@@ -69,7 +71,7 @@ npm run db:seed
 
 Seed creates:
 
-- Admin user (`ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`, defaults in `env.example`)
+- Admin user (`ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env.local`; use real values before seeding)
 - Categories, products with `ProductImage` rows, coupon, blog posts, email templates, settings
 
 ### 4. Inspect data
@@ -111,9 +113,6 @@ prisma/
 - **UI:** shadcn-style primitives under `src/components/ui`
 - **Auth middleware:** `/admin/*` (admin), `/conta` e `/pedidos` (usuário logado); checkout permite visitante nas etapas seguintes
 
-## Default admin (after seed)
+## Admin inicial (after seed)
 
-- Email: `admin@bordadeiras.com.br`
-- Password: `Admin@123456`
-
-Change via `ADMIN_EMAIL` and `ADMIN_PASSWORD` before seeding.
+The seed uses `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Define strong, real values before running it; the repository must not document or rely on a shared default admin.

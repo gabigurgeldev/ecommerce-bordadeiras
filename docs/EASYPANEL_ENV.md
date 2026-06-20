@@ -33,7 +33,7 @@ REDIS_URL=redis://redis:6379
 WHATSAPP_SERVICE_URL=http://whatsapp-service:4001
 WHATSAPP_SERVICE_SECRET=MESMO_SECRET_NOS_DOIS_SERVICOS
 
-ADMIN_EMAIL=admin@bordadeiras.com.br
+ADMIN_EMAIL=admin@SEUDOMINIO.com.br
 ADMIN_PASSWORD=senha-forte-do-admin
 ```
 
@@ -72,7 +72,9 @@ UPSTASH_REDIS_REST_TOKEN=
 
 ### Não usar mais na app
 
-- `MYSQL_*`, `S3_*`, `AUTH_SECRET`, `AUTH_URL` (NextAuth removido)
+- `MYSQL_*`, `S3_*`, `AUTH_SECRET`, `AUTH_URL`, `DATABASE_URL`
+
+Use `DATABASE_URL` apenas em uma execução operacional isolada se alguma ferramenta legada precisar da URI direta do Postgres; não deixe essa variável salva na app ou no WhatsApp.
 
 Mercado Pago continua em **Admin → Configurações** (banco).
 

@@ -2,10 +2,19 @@ import { NextResponse } from "next/server";
 import { getDb, TABLES } from "@/lib/supabase/db";
 import { parseProductRow } from "@/lib/data/mappers";
 
+function sanitizePostgrestSearchTerm(term: string): string {
+  return term
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const q = searchParams.get("q")?.trim() || "";
+    const q = sanitizePostgrestSearchTerm(searchParams.get("q") ?? "");
     const category = searchParams.get("category") || "";
     const minPrice = searchParams.get("minPrice");
     const maxPrice = searchParams.get("maxPrice");

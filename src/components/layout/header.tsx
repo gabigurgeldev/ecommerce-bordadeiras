@@ -8,6 +8,7 @@ import { SearchCommandDialog } from "@/components/shop/search-command-dialog";
 import { StoreSearchForm } from "@/components/shop/store-search-form";
 import { Button } from "@/components/ui/button";
 import type { StorefrontUtilitySettings } from "@/lib/data/storefront-settings";
+import { sanitizeUrl, sanitizeUtilityHtml } from "@/lib/sanitize";
 import { siteConfig } from "@/lib/site";
 import type { Category } from "@/lib/types/catalog";
 import { MobileNavSheet } from "@/components/layout/mobile-nav-sheet";
@@ -25,16 +26,16 @@ function UtilityMessage({
 }: {
   settings: StorefrontUtilitySettings;
 }) {
-  const content = settings.message.includes("<") ? (
-    <span dangerouslySetInnerHTML={{ __html: settings.message }} />
-  ) : (
-    <span>{settings.message}</span>
+  const safeMessage = sanitizeUtilityHtml(settings.message);
+  const safeLink = sanitizeUrl(settings.link);
+  const content = (
+    <span dangerouslySetInnerHTML={{ __html: safeMessage }} />
   );
 
-  if (settings.link) {
+  if (safeLink) {
     return (
       <a
-        href={settings.link}
+        href={safeLink}
         className="font-medium underline-offset-2 hover:underline"
         style={{ color: "inherit" }}
       >

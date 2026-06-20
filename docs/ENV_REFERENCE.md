@@ -8,11 +8,8 @@ Lista completa para desenvolvimento (`env.example`) e produção (`env.productio
 | `DOMAIN` | Domínio base (metadado) | `bordadeiras.com.br` | Seu registrador DNS |
 | `NEXT_PUBLIC_APP_URL` | URL pública da loja (links, MP) | `https://loja.bordadeiras.com.br` | DNS + EasyPanel |
 | `NEXT_PUBLIC_SITE_URL` | URL canônica do site | Idem `NEXT_PUBLIC_APP_URL` | Mesmo |
-| `AUTH_URL` | URL base NextAuth | Idem loja | Mesmo |
-| `AUTH_SECRET` | Segredo de sessão JWT/cookies | string 32+ chars | `openssl rand -base64 32` |
-| `ADMIN_EMAIL` | E-mail do admin (seed + fallback) | `admin@bordadeiras.com.br` | Você define |
+| `ADMIN_EMAIL` | E-mail do admin criado pelo seed | `admin@seudominio.com.br` | Você define |
 | `ADMIN_PASSWORD` | Senha inicial do admin no seed | senha forte | Você define **antes** do seed |
-| `DATABASE_URL` | Conexão Prisma PostgreSQL | `postgresql://postgres:***@supabase.bordadeiras.cloud:5432/postgres` | Supabase Studio → Database → URI |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL da API Supabase (client) | `https://supabase.bordadeiras.cloud` | Studio → Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave anon/publicável | `eyJ...` | Studio → Settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave server-only (uploads Storage) | `eyJ...` | Studio → Settings → API |
@@ -33,6 +30,12 @@ Lista completa para desenvolvimento (`env.example`) e produção (`env.productio
 | `GOOGLE_CLIENT_ID` | OAuth Google (opcional) | `....apps.googleusercontent.com` | Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | OAuth Google (opcional) | *** | Google Cloud Console |
 
+## Variáveis legadas/removidas
+
+Não configure na app ou no `whatsapp-service`: `AUTH_SECRET`, `AUTH_URL`, `MYSQL_*` ou `DATABASE_URL`. A app usa Supabase (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) e Mercado Pago permanece no painel Admin.
+
+Se uma rotina operacional legada exigir uma URI PostgreSQL direta, forneça-a apenas no job one-off/local necessário, sem colar em ambientes persistentes do EasyPanel.
+
 ## Configurações no Postgres (não usar env)
 
 | Chave `Setting` | Uso |
@@ -43,12 +46,6 @@ Lista completa para desenvolvimento (`env.example`) e produção (`env.productio
 | Tabela `WhatsappRecipient` | Números que **recebem** alertas (admin → WhatsApp) |
 
 Configure em **Admin → Configurações** (MP) e **Admin → WhatsApp** (destinatários + QR do emissor).
-
-## Aliases e inconsistências
-
-| Arquivo | Nome usado | Código real |
-|---------|------------|-------------|
-| `env.example` | `WHATSAPP_SERVICE_URL=...3001` | Container usa porta **4001** |
 
 ## Hostnames Docker (`docker-compose.prod.yml`)
 
@@ -65,6 +62,6 @@ Rede: `bordadeiras_internal`.
 | Destino | Variáveis |
 |---------|-----------|
 | **App Next.js** | Seção A+C em `env.production.example` |
-| **whatsapp-service** | `DATABASE_URL`, `WHATSAPP_*`, `PORT` |
-| **Supabase (externo)** | `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET_*` |
+| **whatsapp-service** | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WHATSAPP_SERVICE_SECRET`, `PORT` |
+| **Supabase (externo)** | `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET_*` |
 | **Somente seed** | `ADMIN_EMAIL`, `ADMIN_PASSWORD` |

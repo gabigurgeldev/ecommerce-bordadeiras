@@ -4,10 +4,15 @@ import { enhanceBlogText } from "@/lib/blog/ai-text-enhancer-service";
 import { OpenRouterError } from "@/lib/openrouter/client";
 import { blogAiEnhanceSchema } from "@/lib/validations/blog";
 import { jsonOk } from "@/lib/blog/api-helpers";
+import { validateMutationRequest } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (!(await validateMutationRequest(request))) {
+    return jsonError("Invalid request origin", 403);
+  }
+
   if (!(await requireAdminApi())) return jsonError("Acesso negado", 403);
 
   let body: unknown;

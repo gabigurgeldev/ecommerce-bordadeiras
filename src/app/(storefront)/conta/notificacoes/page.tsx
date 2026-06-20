@@ -15,8 +15,8 @@ export default async function ContaNotificacoesPage() {
   return (
     <div className="space-y-6">
       <AccountSectionHeader
-        title="Preferências de notificação"
-        description="Escolha como deseja receber atualizações da sua conta."
+        title="Preferências e consentimentos"
+        description="Escolha canais de contato e finalidades de personalização da sua conta."
       />
       <NotificationsForm initialPrefs={prefs} />
     </div>

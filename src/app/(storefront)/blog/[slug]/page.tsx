@@ -65,8 +65,8 @@ export default async function BlogPostPage({ params }: Props) {
   const { post } = data;
   const cover = getPostCoverImage(post);
   const tags = getPostTags(post);
-  const toc = extractHeadingsFromHtml(post.content);
   const contentWithIds = prepareArticleHtml(post.content);
+  const toc = extractHeadingsFromHtml(contentWithIds);
   const shareUrl = getPostShareUrl(slug);
 
   const breadcrumbItems = [
