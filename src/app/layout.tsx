@@ -50,8 +50,11 @@ export const metadata: Metadata = {
   description:
     "Máquinas de bordado, linhas, acessórios e conteúdo para quem vive o bordado computadorizado.",
   icons: {
-    icon: [{ url: "/brand/logo-icon.png", type: "image/png" }],
-    shortcut: [{ url: "/brand/logo-icon.png", type: "image/png" }],
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/brand/logo-icon.png", type: "image/png" },
+    ],
+    shortcut: [{ url: "/favicon.ico", sizes: "any" }],
     apple: [{ url: "/brand/logo-icon.png", type: "image/png" }],
   },
 };
