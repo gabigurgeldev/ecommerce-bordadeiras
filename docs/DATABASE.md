@@ -4,7 +4,7 @@ This project no longer uses Prisma. All server-side data access goes through `@s
 
 ## Environment
 
-- `NEXT_PUBLIC_SUPABASE_URL`
+- `aEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 

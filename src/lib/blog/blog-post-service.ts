@@ -18,6 +18,10 @@ import { slugify } from "@/lib/utils";
 
 export const BLOG_CACHE_TAG = "blog-posts";
 
+/** Lightweight select for list/dashboard — avoids heavy embeds across many rows. */
+const LIST_SELECT = "*, BlogCategory(*), BlogPostTag(*, BlogTag(*))";
+
+/** Full select for single-post detail (edit screens). */
 const POST_SELECT =
   "*, BlogCategory(*), BlogPostTag(*, BlogTag(*)), BlogMedia(*), BlogComment(*), BlogPostVersion(*)";
 
@@ -139,7 +143,7 @@ export async function listBlogPosts(
 
   const listParams = { ...params, categoryId };
 
-  let query = db.from(TABLES.BlogPost).select(POST_SELECT, { count: "exact" });
+  let query = db.from(TABLES.BlogPost).select(LIST_SELECT, { count: "exact" });
   query = applyPostListFilters(query, listParams);
 
   if (params.tagId) {

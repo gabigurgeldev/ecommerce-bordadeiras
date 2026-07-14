@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   BarChart3,
   Eye,
@@ -43,6 +44,17 @@ function formatChartDate(iso: string) {
   return `${d}/${m}`;
 }
 
+function ChartMount({ children, heightClass = "h-[220px]" }: { children: React.ReactNode; heightClass?: string }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted) {
+    return <div className={`${heightClass} w-full animate-pulse rounded-md bg-muted/40`} aria-hidden />;
+  }
+  return <div className={`${heightClass} w-full`}>{children}</div>;
+}
+
 export function BlogDashboardView({
   stats,
   posts,
@@ -54,12 +66,28 @@ export function BlogDashboardView({
   pendingComments: BlogCommentRow[];
   chartData: Array<{ date: string; count: number; views: number }>;
 }) {
+  const safeStats: BlogStats = {
+    posts: {
+      total: stats?.posts?.total ?? 0,
+      published: stats?.posts?.published ?? 0,
+      draft: stats?.posts?.draft ?? 0,
+      archived: stats?.posts?.archived ?? 0,
+      scheduled: stats?.posts?.scheduled ?? 0,
+      totalViews: stats?.posts?.totalViews ?? 0,
+    },
+    comments: {
+      pending: stats?.comments?.pending ?? 0,
+      approved: stats?.comments?.approved ?? 0,
+    },
+    categories: Array.isArray(stats?.categories) ? stats.categories : [],
+  };
+
   const topPosts = [...posts].sort((a, b) => b.views - a.views).slice(0, 5);
   const recentPosts = [...posts]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
 
-  const pieData = stats.categories
+  const pieData = safeStats.categories
     .filter((c) => c.postsCount > 0)
     .slice(0, 5)
     .map((c) => ({ name: c.name, value: c.postsCount }));
@@ -69,34 +97,34 @@ export function BlogDashboardView({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <AdminStatsCard
           label="Total de posts"
-          value={String(stats.posts.total)}
+          value={String(safeStats.posts.total)}
           icon={FileText}
           href="/admin/blog/posts"
           highlight
         />
         <AdminStatsCard
           label="Publicados"
-          value={String(stats.posts.published)}
+          value={String(safeStats.posts.published)}
           icon={BarChart3}
           href="/admin/blog/posts"
         />
         <AdminStatsCard
           label="Rascunhos"
-          value={String(stats.posts.draft)}
+          value={String(safeStats.posts.draft)}
           icon={Pencil}
           href="/admin/blog/posts"
         />
         <AdminStatsCard
           label="Visualizações"
-          value={stats.posts.totalViews.toLocaleString("pt-BR")}
+          value={safeStats.posts.totalViews.toLocaleString("pt-BR")}
           icon={Eye}
         />
         <AdminStatsCard
           label="Comentários pendentes"
-          value={String(stats.comments.pending)}
+          value={String(safeStats.comments.pending)}
           icon={MessageSquare}
           href="/admin/blog/comentarios"
-          highlight={stats.comments.pending > 0}
+          highlight={safeStats.comments.pending > 0}
         />
       </div>
 
@@ -112,7 +140,7 @@ export function BlogDashboardView({
                 Sem publicações no período.
               </div>
             ) : (
-              <div className="h-[220px] w-full">
+              <ChartMount>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -144,7 +172,7 @@ export function BlogDashboardView({
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-              </div>
+              </ChartMount>
             )}
           </CardContent>
         </Card>
@@ -155,7 +183,7 @@ export function BlogDashboardView({
             <CardDescription>Distribuição por dia (posts atualizados)</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[220px] w-full">
+            <ChartMount>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -186,7 +214,7 @@ export function BlogDashboardView({
                   />
                 </AreaChart>
               </ResponsiveContainer>
-            </div>
+            </ChartMount>
           </CardContent>
         </Card>
       </div>
@@ -239,7 +267,7 @@ export function BlogDashboardView({
                 Sem dados.
               </div>
             ) : (
-              <div className="h-[200px]">
+              <ChartMount heightClass="h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -259,7 +287,7 @@ export function BlogDashboardView({
                     <Tooltip formatter={(v: number, name: string) => [v, name]} />
                   </PieChart>
                 </ResponsiveContainer>
-              </div>
+              </ChartMount>
             )}
             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
               {pieData.map((d, i) => (

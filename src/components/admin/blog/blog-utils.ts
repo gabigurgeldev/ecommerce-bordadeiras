@@ -128,6 +128,7 @@ export function aggregateByDate(
     map.set(key, { count: 0, views: 0 });
   }
   for (const item of items) {
+    if (!item.date) continue;
     const key = item.date.slice(0, 10);
     const entry = map.get(key);
     if (entry) {
