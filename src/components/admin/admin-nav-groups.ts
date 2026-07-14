@@ -11,6 +11,7 @@ import {
   ScrollText,
   Image,
   ShieldCheck,
+  Video,
   type LucideIcon,
 } from "lucide-react";
 
@@ -59,7 +60,10 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     id: "conteudo",
     label: "Conteúdo",
-    items: [{ href: "/admin/blog", label: "Blog", icon: FileText }],
+    items: [
+      { href: "/admin/blog", label: "Blog", icon: FileText },
+      { href: "/admin/videos", label: "Vídeos", icon: Video },
+    ],
   },
   {
     id: "sistema",

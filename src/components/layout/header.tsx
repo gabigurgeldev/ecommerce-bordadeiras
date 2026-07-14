@@ -116,6 +116,12 @@ export function Header({
               Sobre
             </Link>
             <Link
+              href="/videos"
+              className="opacity-90 hover:opacity-100 hover:underline"
+            >
+              Vídeos
+            </Link>
+            <Link
               href="/blog"
               className="opacity-90 hover:opacity-100 hover:underline"
             >

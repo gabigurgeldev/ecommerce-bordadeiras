@@ -113,6 +113,25 @@ export const trustBarItemSchema = z.object({
   active: z.boolean().default(true),
 });
 
+export const videoSchema = z.object({
+  title: z.string().min(2, "Título obrigatório"),
+  description: z
+    .string()
+    .max(500, "Descrição deve ter no máximo 500 caracteres")
+    .optional()
+    .or(z.literal("")),
+  url: z
+    .string()
+    .min(1, "URL do vídeo é obrigatória")
+    .url("Informe uma URL válida")
+    .refine(
+      (val) => /^https:\/\//i.test(val),
+      "Use uma URL https:// (YouTube, Vimeo ou embed)",
+    ),
+  sortOrder: z.coerce.number().int().default(0),
+  active: z.boolean().default(true),
+});
+
 export const orderUpdateSchema = z.object({
   status: z.nativeEnum(OrderStatus),
   trackingCode: z.string().optional().nullable(),

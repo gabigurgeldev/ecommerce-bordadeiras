@@ -33,6 +33,7 @@ export const TABLES = {
   Setting: "Setting",
   StorefrontBanner: "StorefrontBanner",
   StorefrontTrustItem: "StorefrontTrustItem",
+  StorefrontVideo: "StorefrontVideo",
   WhatsappRecipient: "WhatsappRecipient",
   WhatsappSession: "WhatsappSession",
   WhatsappTemplate: "WhatsappTemplate",

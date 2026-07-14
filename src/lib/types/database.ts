@@ -402,6 +402,17 @@ export type TrustItem = {
   updatedAt: Date;
 };
 
+export type StorefrontVideo = {
+  id: string;
+  title: string;
+  description: string | null;
+  url: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export const BlogPostStatus = {
   DRAFT: "DRAFT",
   PUBLISHED: "PUBLISHED",

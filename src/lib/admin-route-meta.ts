@@ -13,6 +13,7 @@ export const adminRouteTitles: Record<string, string> = {
   "/admin/blog/posts/create": "Novo post",
   "/admin/blog/categorias": "Categorias",
   "/admin/blog/comentarios": "Comentários",
+  "/admin/videos": "Vídeos",
   "/admin/cupons": "Cupons",
   "/admin/cupons/novo": "Novo cupom",
   "/admin/configuracoes": "Configurações",

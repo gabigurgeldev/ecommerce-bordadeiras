@@ -14,6 +14,7 @@ import {
   MessageCircle,
   ShoppingBag,
   Store,
+  Video,
 } from "lucide-react";
 import Link from "next/link";
 import { FaWhatsapp } from "react-icons/fa";
@@ -22,6 +23,7 @@ const navIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   "/": LayoutGrid,
   "/loja": Store,
   "/blog": BookOpen,
+  "/videos": Video,
   "/sobre": Info,
   "/contato": MessageCircle,
 };
@@ -101,6 +103,7 @@ export function MobileNavSheet({
   const mainLinks = [
     { href: "/loja", label: "Loja", icon: Store },
     { href: "/blog", label: "Blog", icon: BookOpen },
+    { href: "/videos", label: "Vídeos", icon: Video },
     { href: "/sobre", label: "Sobre", icon: Info },
   ];
 
