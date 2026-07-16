@@ -8,6 +8,7 @@ import { getActiveBanners } from "@/lib/data/banners";
 import { getActiveTrustItems } from "@/lib/data/trust-bar";
 import { getCategories } from "@/lib/data/categories";
 import { getFeaturedProducts } from "@/lib/data/products";
+import { getHomeSettings } from "@/lib/data/home-settings";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata = buildMetadata({
@@ -16,18 +17,21 @@ export const metadata = buildMetadata({
 });
 
 export default async function HomePage() {
-  const [categories, featured, banners, trustItems] = await Promise.all([
+  const [categories, featured, banners, trustItems, homeSettings] = await Promise.all([
     getCategories(),
     getFeaturedProducts(),
     getActiveBanners(),
     getActiveTrustItems(),
+    getHomeSettings(),
   ]);
 
   return (
     <>
       <Hero banners={banners} />
       <TrustBar items={trustItems} />
-      <CategoriesSection categories={categories} />
+      {homeSettings.showCategoriesSection ? (
+        <CategoriesSection categories={categories} />
+      ) : null}
       <FeaturedProducts products={featured} />
       <Benefits />
       <AboutSnippet />

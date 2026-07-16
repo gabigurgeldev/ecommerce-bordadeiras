@@ -9,8 +9,6 @@ import {
   type NotificationPrefs,
 } from "@/lib/privacy/consent";
 
-export type { NotificationPrefs } from "@/lib/privacy/consent";
-
 const prefsSchema = z.object({
   orderUpdates: z.boolean(),
   promotions: z.boolean(),

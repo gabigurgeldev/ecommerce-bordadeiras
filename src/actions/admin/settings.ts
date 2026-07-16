@@ -5,6 +5,7 @@ import {
   verifyAccessTokenMatchesSandbox,
 } from "@/lib/mercadopago-credentials";
 import { getStorefrontUtilitySettings } from "@/lib/data/storefront-settings";
+import { getHomeSettings } from "@/lib/data/home-settings";
 import {
   getShippingSettings as loadShippingSettings,
   saveShippingSettings as persistShippingSettings,
@@ -36,6 +37,7 @@ import {
   shippingSettingsFormSchema,
   smtpSettingsSchema,
   storefrontUtilitySettingsSchema,
+  homeSettingsSchema,
   DEFAULT_OPENROUTER_MODEL,
 } from "@/lib/validations/admin";
 import { revalidatePath } from "next/cache";
@@ -285,6 +287,26 @@ export async function saveStorefrontUtilitySettings(data: unknown): Promise<Acti
       action: "SETTINGS_CHANGE",
       entity: "StorefrontUtility",
     });
+    revalidateAdmin(["/admin/configuracoes"]);
+    revalidatePath("/", "layout");
+    return { success: true };
+  });
+}
+
+export async function getHomeSettingsForAdmin() {
+  return withAdminRead(() => getHomeSettings());
+}
+
+export async function saveHomeSettings(data: unknown): Promise<ActionResult> {
+  return withAdmin(async (actor) => {
+    const parsed = homeSettingsSchema.safeParse(data);
+    if (!parsed.success) return { success: false, error: "Dados inválidos" };
+
+    await setSettings({
+      [SETTING_KEYS.home.showCategoriesSection]: String(parsed.data.showCategoriesSection),
+    });
+
+    await auditMutation(actor, { action: "SETTINGS_CHANGE", entity: "Home" });
     revalidateAdmin(["/admin/configuracoes"]);
     revalidatePath("/", "layout");
     return { success: true };

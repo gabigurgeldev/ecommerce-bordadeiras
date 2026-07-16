@@ -6,12 +6,13 @@ import {
   getSmtpSettings,
   getStorefrontUtilitySettingsForAdmin,
   getWhatsappStatus,
+  getHomeSettingsForAdmin,
 } from "@/actions/admin/settings";
 import { PageHeader } from "@/components/admin/page-header";
 import { SettingsTabs } from "@/components/admin/settings-forms";
 
 export default async function AdminSettingsPage() {
-  const [mercadoPago, smtp, whatsapp, storefrontUtility, openRouter, shipping, melhorEnvio] =
+  const [mercadoPago, smtp, whatsapp, storefrontUtility, openRouter, shipping, melhorEnvio, home] =
     await Promise.all([
     getMercadoPagoSettings(),
     getSmtpSettings(),
@@ -20,6 +21,7 @@ export default async function AdminSettingsPage() {
     getOpenRouterSettings(),
     getShippingSettings(),
     getMelhorEnvioSettingsForAdmin(),
+    getHomeSettingsForAdmin(),
   ]);
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -39,6 +41,7 @@ export default async function AdminSettingsPage() {
         openRouter={openRouter}
         shipping={shipping}
         melhorEnvio={melhorEnvio}
+        home={home}
         webhookUrl={webhookUrl}
       />
     </div>

@@ -25,6 +25,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { StorefrontUtilitySettings } from "@/lib/data/storefront-settings";
+import type { HomeSettings } from "@/lib/data/home-settings";
 import {
   mercadoPagoSettingsSchema,
   melhorEnvioSettingsFormSchema,
@@ -32,6 +33,7 @@ import {
   shippingSettingsFormSchema,
   smtpSettingsSchema,
   storefrontUtilitySettingsSchema,
+  homeSettingsSchema,
 } from "@/lib/validations/admin";
 import {
   disconnectMelhorEnvioSettings,
@@ -43,6 +45,7 @@ import {
   saveShippingSettings,
   saveSmtpSettings,
   saveStorefrontUtilitySettings,
+  saveHomeSettings,
   sendSmtpTest,
 } from "@/actions/admin/settings";
 import type { InstallmentResult } from "@/lib/mercadopago-installments";
@@ -92,6 +95,7 @@ type UtilityValues = z.infer<typeof storefrontUtilitySettingsSchema>;
 type OpenRouterValues = z.infer<typeof openRouterSettingsSchema>;
 type OpenRouterFormValues = OpenRouterValues & { hasApiKey?: boolean };
 type ShippingValues = z.infer<typeof shippingSettingsFormSchema>;
+type HomeValues = z.infer<typeof homeSettingsSchema>;
 type MelhorEnvioValues = z.infer<typeof melhorEnvioSettingsFormSchema>;
 type MelhorEnvioAdminState = MelhorEnvioValues & {
   hasSandboxToken?: boolean;
@@ -311,6 +315,7 @@ export function SettingsTabs({
   openRouter,
   shipping,
   melhorEnvio,
+  home,
   webhookUrl,
 }: {
   mercadoPago: MpFormValues;
@@ -320,6 +325,7 @@ export function SettingsTabs({
   openRouter: OpenRouterFormValues;
   shipping: ShippingValues;
   melhorEnvio: MelhorEnvioAdminState;
+  home: HomeSettings;
   webhookUrl: string;
 }) {
   const [installmentResults, setInstallmentResults] = useState<InstallmentResult[]>([]);
@@ -373,6 +379,11 @@ export function SettingsTabs({
     },
   });
 
+  const homeForm = useForm<HomeValues>({
+    resolver: zodResolver(homeSettingsSchema),
+    defaultValues: { showCategoriesSection: home.showCategoriesSection },
+  });
+
   const whatsappStatusLabel =
     whatsapp.status === "connected" ? "Conectado" : whatsapp.status;
 
@@ -396,6 +407,9 @@ export function SettingsTabs({
         </TabsTrigger>
         <TabsTrigger value="shipping" className="justify-start data-[state=active]:bg-background">
           Frete e Envio
+        </TabsTrigger>
+        <TabsTrigger value="home" className="justify-start data-[state=active]:bg-background">
+          Home
         </TabsTrigger>
       </TabsList>
 
@@ -1552,6 +1566,46 @@ export function SettingsTabs({
                 </div>
               </CardContent>
             </Card>
+          </SettingsPanel>
+        </TabsContent>
+
+        <TabsContent value="home" className="mt-0">
+          <SettingsPanel
+            title="Home"
+            description="Controle a exibição de sessões da página inicial da loja."
+          >
+            <form
+              className="max-w-2xl space-y-4"
+              onSubmit={homeForm.handleSubmit(async (data) => {
+                const res = await saveHomeSettings(data);
+                if (res.success) toast.success("Configuração da Home salva");
+                else toast.error(res.error);
+              })}
+            >
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 transition-all hover:border-primary/40">
+                <div>
+                  <p className="text-sm font-medium">Exibir sessão de categorias na home</p>
+                  <p className="text-xs text-muted-foreground">
+                    Mostra o bloco &quot;Categorias da loja&quot; / &quot;Máquinas, linhas e
+                    acessórios&quot; na página inicial. Não afeta a exibição das categorias no
+                    catálogo/loja, controlada pelo campo &quot;Ativa&quot; de cada categoria em
+                    Admin → Categorias.
+                  </p>
+                </div>
+                <Switch
+                  checked={homeForm.watch("showCategoriesSection")}
+                  onCheckedChange={(checked) =>
+                    homeForm.setValue("showCategoriesSection", checked, {
+                      shouldValidate: true,
+                    })
+                  }
+                />
+              </label>
+
+              <FormActions>
+                <Button type="submit">Salvar</Button>
+              </FormActions>
+            </form>
           </SettingsPanel>
         </TabsContent>
       </div>

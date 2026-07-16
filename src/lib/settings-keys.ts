@@ -49,6 +49,9 @@ export const SETTING_KEYS = {
     productionAccessToken: "melhorenvio.production.accessToken",
     productionExpiresAt: "melhorenvio.production.expiresAt",
   },
+  home: {
+    showCategoriesSection: "home.showCategoriesSection",
+  },
 } as const;
 
 export type SettingKey =
@@ -58,4 +61,5 @@ export type SettingKey =
   | (typeof SETTING_KEYS.openRouter)[keyof typeof SETTING_KEYS.openRouter]
   | (typeof SETTING_KEYS.checkout)[keyof typeof SETTING_KEYS.checkout]
   | (typeof SETTING_KEYS.shipping)[keyof typeof SETTING_KEYS.shipping]
-  | (typeof SETTING_KEYS.melhorEnvio)[keyof typeof SETTING_KEYS.melhorEnvio];
+  | (typeof SETTING_KEYS.melhorEnvio)[keyof typeof SETTING_KEYS.melhorEnvio]
+  | (typeof SETTING_KEYS.home)[keyof typeof SETTING_KEYS.home];

@@ -26,6 +26,7 @@ export async function JsonLdScript({ data }: { data: Record<string, unknown> }) 
     <script
       nonce={nonce}
       type="application/ld+json"
+      suppressHydrationWarning
       dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
     />
   );

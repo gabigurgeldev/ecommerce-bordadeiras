@@ -245,6 +245,10 @@ export const storefrontUtilitySettingsSchema = z.object({
   link: z.string().url().optional().or(z.literal("")),
 });
 
+export const homeSettingsSchema = z.object({
+  showCategoriesSection: z.boolean(),
+});
+
 export const openRouterSettingsSchema = z.object({
   apiKey: z.string().optional(),
   defaultModel: z.string().min(1).optional(),
