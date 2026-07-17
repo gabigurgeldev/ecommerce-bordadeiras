@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  updateNotificationPrefs,
-  type NotificationPrefs,
-} from "@/actions/account/notifications";
+import { updateNotificationPrefs } from "@/actions/account/notifications";
+import type { NotificationPrefs } from "@/lib/privacy/consent";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { configureActivityConsent } from "@/lib/tracking/record-activity-client";
