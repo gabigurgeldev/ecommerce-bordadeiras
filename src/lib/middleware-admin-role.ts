@@ -8,10 +8,10 @@ export async function resolveAppRoleForEmail(
   email: string,
   jwtRole: Role,
 ): Promise<Role> {
-  const admin = createAdminClient();
-  if (!admin) return jwtRole;
-
   try {
+    const admin = createAdminClient();
+    if (!admin) return jwtRole;
+
     const { data, error } = await admin
       .from(TABLES_USER)
       .select("role")
