@@ -35,6 +35,10 @@ RUN apk add --no-cache openssl \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# node-file-trace misses sharp's native libvips shared library in standalone output —
+# copy the fully installed package (correct musl binary) from the deps stage instead.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/sharp ./node_modules/sharp
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@img ./node_modules/@img
 COPY --chmod=755 scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 COPY --chmod=755 scripts/easypanel-db-recovery.sh ./scripts/easypanel-db-recovery.sh
 
