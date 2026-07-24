@@ -27,8 +27,10 @@ export function buildBlogMetaTags(post: BlogPostWithRelations) {
       description,
       url,
       type: "article" as const,
-      publishedTime: post.publishedAt?.toISOString(),
-      modifiedTime: post.updatedAt.toISOString(),
+      // publishedAt/updatedAt podem chegar como string quando o post volta do
+      // unstable_cache (JSON serializa os Date). Normaliza antes de formatar.
+      publishedTime: post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined,
+      modifiedTime: post.updatedAt ? new Date(post.updatedAt).toISOString() : undefined,
       images: image ? [{ url: image }] : [],
     },
     twitter: {
