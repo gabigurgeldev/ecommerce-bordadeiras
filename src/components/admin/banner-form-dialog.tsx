@@ -130,8 +130,10 @@ export function BannerFormDialog({
         handleOpenChange(false);
         router.refresh();
       } else {
-        toast.error(res.error);
+        toast.error(res.error || "Erro ao salvar banner");
       }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar banner");
     } finally {
       setSubmitting(false);
     }

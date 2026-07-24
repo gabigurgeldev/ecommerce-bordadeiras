@@ -1,18 +1,33 @@
 import type { NextConfig } from "next";
 
+// Host self-hosted do Supabase Storage. Fallback fixo porque os remotePatterns
+// do next/image são assados no build; se NEXT_PUBLIC_SUPABASE_URL não chegar como
+// build arg (EasyPanel injeta env só em runtime), o host ficaria de fora e o
+// next/image lançaria exceção ao renderizar imagens do storage.
+const FALLBACK_SUPABASE_HOST = "supabase.bordadeiras.cloud";
+
 function imageRemotePatterns() {
   const patterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
     { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
     { protocol: "https", hostname: "img.youtube.com", pathname: "/**" },
     { protocol: "http", hostname: "localhost", pathname: "/**" },
     { protocol: "http", hostname: "127.0.0.1", pathname: "/**" },
+    {
+      protocol: "https",
+      hostname: FALLBACK_SUPABASE_HOST,
+      pathname: "/storage/v1/object/public/**",
+    },
   ];
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (supabaseUrl) {
     try {
       const { protocol, hostname } = new URL(supabaseUrl);
-      if (hostname && (protocol === "http:" || protocol === "https:")) {
+      if (
+        hostname &&
+        hostname !== FALLBACK_SUPABASE_HOST &&
+        (protocol === "http:" || protocol === "https:")
+      ) {
         patterns.push({
           protocol: protocol.replace(":", "") as "http" | "https",
           hostname,
