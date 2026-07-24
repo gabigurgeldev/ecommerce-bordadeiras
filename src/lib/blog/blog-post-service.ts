@@ -25,6 +25,14 @@ const LIST_SELECT = "*, BlogCategory(*), BlogPostTag(*, BlogTag(*))";
 const POST_SELECT =
   "*, BlogCategory(*), BlogPostTag(*, BlogTag(*)), BlogMedia(*), BlogComment(*), BlogPostVersion(*)";
 
+/**
+ * Select para a página pública do post. Não embute BlogMedia/BlogComment/
+ * BlogPostVersion — a página pública busca comentários à parte e não usa
+ * media/versões, e esses embeds pesados quebram o render se o PostgREST não
+ * resolver a relação em produção.
+ */
+const PUBLIC_POST_SELECT = "*, BlogCategory(*), BlogPostTag(*, BlogTag(*))";
+
 function resolveStatus(input: BlogPostInput): BlogPostStatus {
   if (input.status) return input.status;
   if (input.published === true) return BlogPostStatus.PUBLISHED;
@@ -183,7 +191,7 @@ export async function getBlogPostById(id: string, options?: { includeDeleted?: b
 export async function getBlogPostBySlugPublic(slug: string) {
   const { data, error } = await getDb()
     .from(TABLES.BlogPost)
-    .select(POST_SELECT)
+    .select(PUBLIC_POST_SELECT)
     .eq("slug", slug)
     .eq("status", BlogPostStatus.PUBLISHED)
     .is("deletedAt", null)
