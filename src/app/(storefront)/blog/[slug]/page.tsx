@@ -32,7 +32,10 @@ import { buildMetadata } from "@/lib/seo/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
 export const revalidate = 300;
 
@@ -57,8 +60,26 @@ export async function generateMetadata({ params }: Props) {
   });
 }
 
-export default async function BlogPostPage({ params }: Props) {
+export default async function BlogPostPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const debug = (await searchParams)?.debug === "1";
+  try {
+    return await renderBlogPost(slug);
+  } catch (e) {
+    const err = e as { message?: string; stack?: string; digest?: string };
+    // Deixa passar os erros de controle do Next (notFound/redirect).
+    if (typeof err?.digest === "string" && err.digest.startsWith("NEXT_")) throw e;
+    console.error(`[blog/${slug}] render error`, e);
+    if (!debug) throw e;
+    return (
+      <pre className="mx-auto max-w-4xl overflow-auto whitespace-pre-wrap p-8 text-xs text-red-700">
+        {`DEBUG blog/${slug}\n\nmessage: ${err?.message}\n\ndigest: ${err?.digest}\n\nstack:\n${err?.stack}`}
+      </pre>
+    );
+  }
+}
+
+async function renderBlogPost(slug: string) {
   const data = await getPublicBlogPost(slug);
   if (!data) notFound();
 
