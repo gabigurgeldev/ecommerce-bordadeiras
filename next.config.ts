@@ -63,6 +63,12 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   images: {
+    // O image optimizer (/_next/image) não funciona no runtime standalone do
+    // EasyPanel — retorna 404 para qualquer host remoto, quebrando todas as
+    // imagens e derrubando o server render de <Image priority> (páginas de
+    // artigo). Servir a URL original direto contorna o optimizer defeituoso.
+    // remotePatterns fica como allowlist de fallback caso a otimização volte.
+    unoptimized: true,
     remotePatterns: imageRemotePatterns(),
   },
   async headers() {
