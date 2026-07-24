@@ -3,8 +3,9 @@ import { escapeHtml, sanitizeBlogHtml } from "@/lib/sanitize";
 import { siteConfig } from "@/lib/site";
 import type { BlogPostWithRelations } from "@/lib/types/database";
 
-export const BLOG_PLACEHOLDER_IMAGE =
-  "https://images.unsplash.com/photo-1606771689789-7b41f7d3c7a3?w=800&q=80";
+// Asset local: a URL Unsplash usada antes saiu do ar (404), quebrando a capa
+// de todo post sem coverImage. Placeholder local nunca 404.
+export const BLOG_PLACEHOLDER_IMAGE = "/blog-placeholder.svg";
 
 export type PublicBlogPost = BlogPostWithRelations;
 
