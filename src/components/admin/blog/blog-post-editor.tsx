@@ -96,7 +96,7 @@ function postToState(post: BlogPostRow): EditorState {
     excerpt: post.excerpt ?? "",
     content: post.content,
     coverImage: post.coverImage ?? "",
-    coverAlt: "",
+    coverAlt: post.coverAlt ?? "",
     youtubeUrl: post.youtubeUrl ?? "",
     youtubeAsFeatured: false,
     youtubeAtTop: true,
@@ -185,6 +185,7 @@ export function BlogPostEditor({
       excerpt: state.excerpt.trim() || null,
       content: state.content,
       coverImage: state.coverImage.trim() || null,
+      coverAlt: state.coverAlt.trim() || null,
       youtubeUrl: state.youtubeUrl.trim() || null,
       status: state.status as typeof BlogPostStatus.DRAFT,
       publishedAt: state.status === BlogPostStatus.SCHEDULED && state.publishedAt
@@ -245,6 +246,7 @@ export function BlogPostEditor({
       excerpt: state.excerpt.trim() || null,
       content: state.content,
       coverImage: state.coverImage.trim() || null,
+      coverAlt: state.coverAlt.trim() || null,
       youtubeUrl: state.youtubeUrl.trim() || null,
       status: state.status as typeof BlogPostStatus.DRAFT,
       publishedAt: state.status === BlogPostStatus.SCHEDULED && state.publishedAt

@@ -2,6 +2,7 @@ import { BlogAuthorAvatar } from "@/components/blog/blog-author-avatar";
 import {
   formatReadingTime,
   getAuthorName,
+  getPostCoverAlt,
   getPostCoverImage,
   type PublicBlogPost,
 } from "@/lib/blog/public-utils";
@@ -12,6 +13,7 @@ import Link from "next/link";
 
 export function BlogFeaturedHero({ post }: { post: PublicBlogPost }) {
   const cover = getPostCoverImage(post);
+  const coverAlt = getPostCoverAlt(post);
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-white shadow-sm">
@@ -22,7 +24,7 @@ export function BlogFeaturedHero({ post }: { post: PublicBlogPost }) {
         >
           <Image
             src={cover}
-            alt={post.title}
+            alt={coverAlt}
             fill
             className="object-cover transition duration-700 hover:scale-105"
             sizes="(max-width:1024px) 100vw, 50vw"

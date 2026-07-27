@@ -18,6 +18,12 @@ export function getPostCoverImage(post: Pick<PublicBlogPost, "coverImage" | "you
   return BLOG_PLACEHOLDER_IMAGE;
 }
 
+export function getPostCoverAlt(
+  post: Pick<PublicBlogPost, "coverAlt" | "title">,
+): string {
+  return post.coverAlt?.trim() || post.title;
+}
+
 export function getAuthorName(post: PublicBlogPost): string {
   return post.author?.name?.trim() || "Equipe Bordadeiras";
 }

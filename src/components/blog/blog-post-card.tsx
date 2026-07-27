@@ -3,6 +3,7 @@ import {
   formatReadingTime,
   formatViewCount,
   getAuthorName,
+  getPostCoverAlt,
   getPostCoverImage,
   getPostTags,
   type PublicBlogPost,
@@ -20,6 +21,7 @@ type Props = {
 
 export function BlogPostCard({ post, priority = false, highlightQuery }: Props) {
   const cover = getPostCoverImage(post);
+  const coverAlt = getPostCoverAlt(post);
   const category = post.category;
   const tags = getPostTags(post);
   const title = post.title;
@@ -33,7 +35,7 @@ export function BlogPostCard({ post, priority = false, highlightQuery }: Props) 
       >
         <Image
           src={cover}
-          alt={title}
+          alt={coverAlt}
           fill
           className="object-cover transition duration-500 group-hover:scale-[1.03]"
           sizes="(max-width:768px) 100vw, 33vw"

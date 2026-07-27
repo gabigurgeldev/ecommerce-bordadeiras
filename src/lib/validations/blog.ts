@@ -45,6 +45,7 @@ export const blogPostInputSchema = z.object({
   excerpt: z.string().max(500).optional().nullable(),
   content: z.string().min(10, "Conteúdo deve ter pelo menos 10 caracteres"),
   coverImage: optionalUrl,
+  coverAlt: z.string().max(200).optional().nullable(),
   youtubeUrl: optionalUrl,
   status: blogPostStatusSchema.optional(),
   published: z.boolean().optional(),

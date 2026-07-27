@@ -22,6 +22,7 @@ import { ARTICLE_PROSE_CLASS } from "@/lib/blog/article-prose";
 import {
   extractHeadingsFromHtml,
   getAuthorName,
+  getPostCoverAlt,
   getPostCoverImage,
   getPostShareUrl,
   getPostTags,
@@ -66,6 +67,7 @@ export default async function BlogPostPage({ params }: Props) {
 
   const { post } = data;
   const cover = getPostCoverImage(post);
+  const coverAlt = getPostCoverAlt(post);
   const tags = getPostTags(post);
   const contentWithIds = prepareArticleHtml(post.content);
   const toc = extractHeadingsFromHtml(contentWithIds);
@@ -119,7 +121,7 @@ export default async function BlogPostPage({ params }: Props) {
           <BlogPostHeader post={post} />
         </div>
 
-        <BlogPostHero src={cover} alt={post.title} />
+        <BlogPostHero src={cover} alt={coverAlt} />
 
         <div className="mt-10 grid gap-10 lg:mt-12 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0">

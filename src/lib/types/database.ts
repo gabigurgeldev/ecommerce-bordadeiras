@@ -455,6 +455,8 @@ export type BlogPost = {
   content: string;
   /** Thumbnail / featured image (spec: thumbnail) */
   coverImage: string | null;
+  /** Alt text for coverImage; falls back to the post title when empty */
+  coverAlt: string | null;
   youtubeUrl: string | null;
   /** Legacy boolean — kept in sync with status via DB trigger */
   published: boolean;

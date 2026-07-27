@@ -7,6 +7,7 @@ export type BlogPostRow = {
   excerpt: string | null;
   content: string;
   coverImage: string | null;
+  coverAlt: string | null;
   youtubeUrl: string | null;
   status: string;
   published: boolean;
@@ -49,6 +50,7 @@ export function mapPostRow(post: BlogPostWithRelations | Record<string, unknown>
     excerpt: row.excerpt ?? null,
     content: String(row.content),
     coverImage: row.coverImage ?? null,
+    coverAlt: row.coverAlt ?? null,
     youtubeUrl: row.youtubeUrl ?? null,
     status: String(row.status ?? (row.published ? "PUBLISHED" : "DRAFT")),
     published: Boolean(row.published),
