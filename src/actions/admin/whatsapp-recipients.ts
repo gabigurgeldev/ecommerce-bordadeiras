@@ -3,7 +3,8 @@
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { whatsappRecipientSchema } from "@/lib/validations/admin";
 import { normalizeBrazilPhone } from "@/lib/whatsapp-utils";
-import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin } from "./_helpers";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 function normalizeRecipientPhone(raw: string): string | null {
   return normalizeBrazilPhone(raw);

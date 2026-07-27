@@ -48,10 +48,9 @@ export async function generateMetadata({ params }: Props) {
     path: `/blog/${slug}`,
     image: meta.openGraph.images[0]?.url,
     type: "article",
-    publishedTime: post.publishedAt
-      ? new Date(String(post.publishedAt)).toISOString()
-      : undefined,
-    modifiedTime: new Date(String(post.updatedAt)).toISOString(),
+    // Already normalized (and guarded against invalid dates) by buildBlogMetaTags.
+    publishedTime: meta.openGraph.publishedTime,
+    modifiedTime: meta.openGraph.modifiedTime,
     authors: [authorName],
     rssPath: "/blog/rss.xml",
   });
@@ -59,7 +58,10 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
-  const data = await getPublicBlogPost(slug);
+  const data = await getPublicBlogPost(slug).catch((e) => {
+    console.error("[blog/post]", e);
+    return null;
+  });
   if (!data) notFound();
 
   const { post } = data;

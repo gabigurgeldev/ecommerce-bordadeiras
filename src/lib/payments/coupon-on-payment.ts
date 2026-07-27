@@ -20,21 +20,18 @@ export async function incrementCouponUsageOnPaymentApproved(
   const couponId = order?.couponId ? String(order.couponId) : null;
   if (!couponId) return;
 
-  const { data: coupon, error: couponError } = await db
-    .from(TABLES.Coupon)
-    .select("usedCount")
-    .eq("id", couponId)
-    .maybeSingle();
-  if (couponError) raiseSupabaseError(couponError, "Coupon lookup failed");
-
-  if (!coupon) return;
-
-  const { error: updateError } = await db
-    .from(TABLES.Coupon)
-    .update({
-      usedCount: Number(coupon.usedCount) + 1,
-      updatedAt: new Date().toISOString(),
-    })
-    .eq("id", couponId);
+  // Atomic increment guarded by maxUses (see increment_coupon_usage migration).
+  // A read-modify-write here let concurrent approvals redeem past the limit.
+  const { data: incremented, error: updateError } = await db.rpc(
+    "increment_coupon_usage",
+    { coupon_id: couponId },
+  );
   if (updateError) raiseSupabaseError(updateError, "Coupon usage update failed");
+
+  if (incremented === false) {
+    console.warn("[coupon] usage not incremented (missing or exhausted)", {
+      orderId,
+      couponId,
+    });
+  }
 }

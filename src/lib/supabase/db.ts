@@ -43,6 +43,7 @@ export const TABLES = {
   ProductReview: "ProductReview",
   StockMovement: "StockMovement",
   CustomerActivity: "CustomerActivity",
+  MercadoPagoWebhookEvent: "MercadoPagoWebhookEvent",
 } as const;
 
 /** CUID-like id compatible with existing rows. */
@@ -136,7 +137,9 @@ export async function upsertUserFromAuth(params: {
     ...(params.authUserId ? { authUserId: params.authUserId } : {}),
     ...(params.emailVerified ? { emailVerified: toIso(params.emailVerified) } : {}),
     ...(params.passwordHash ? { passwordHash: params.passwordHash } : {}),
-    role: params.role ?? Role.USER,
+    // Only ever set the role when the caller asked for one: OAuth/magic-link
+    // callbacks upsert without a role, and a default here demoted admins.
+    ...(params.role ? { role: params.role } : {}),
     updatedAt: new Date().toISOString(),
   };
 
@@ -155,6 +158,7 @@ export async function upsertUserFromAuth(params: {
     .from(TABLES.User)
     .insert({
       id: newId(),
+      role: Role.USER,
       ...payload,
       createdAt: new Date().toISOString(),
     })

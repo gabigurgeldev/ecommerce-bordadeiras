@@ -14,7 +14,8 @@ import { ReviewSource, type ProductReview } from "@/lib/types/database";
 import { productReviewsOutputSchema } from "@/lib/validations/ai";
 import { entityIdSchema } from "@/lib/validations/ids";
 import { generateReviewsCountSchema } from "@/lib/validations/reviews";
-import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin } from "./_helpers";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 const NOT_CONFIGURED =
   "Configure a API do OpenRouter em Configurações → Inteligência Artificial";

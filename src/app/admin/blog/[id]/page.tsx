@@ -5,5 +5,5 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const post = await getBlogPost(id);
   if (!post) notFound();
-  redirect(`/admin/blog?edit=${id}`);
+  redirect(`/admin/blog/posts/${id}`);
 }

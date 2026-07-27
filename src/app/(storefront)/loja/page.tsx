@@ -21,6 +21,13 @@ type SearchParams = Promise<{
   inStock?: string;
 }>;
 
+/** A NaN filter reaches PostgREST as `gte.NaN` and empties the whole listing. */
+function parsePriceCents(value?: string): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed * 100 : undefined;
+}
+
 export default async function LojaPage({
   searchParams,
 }: {
@@ -32,12 +39,8 @@ export default async function LojaPage({
       q: params.q,
       sort: (params.sort as "price-asc") ?? "newest",
       categorySlug: params.category,
-      minPriceCents: params.minPrice
-        ? parseInt(params.minPrice, 10) * 100
-        : undefined,
-      maxPriceCents: params.maxPrice
-        ? parseInt(params.maxPrice, 10) * 100
-        : undefined,
+      minPriceCents: parsePriceCents(params.minPrice),
+      maxPriceCents: parsePriceCents(params.maxPrice),
       inStock: params.inStock === "1",
     }),
     getCategories(),

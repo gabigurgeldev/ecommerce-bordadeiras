@@ -31,6 +31,17 @@ export async function resolveCheckoutLineItems(
     return { ok: false, error: "Nenhum item no pedido" };
   }
 
+  // Stock is checked per line, so two lines of the same product/variant would
+  // each pass on their own and oversell. Merge them first.
+  const merged = new Map<string, CheckoutLineInput>();
+  for (const item of items) {
+    const key = `${item.productId}::${item.variantId ?? ""}`;
+    const existing = merged.get(key);
+    if (existing) existing.quantity += item.quantity;
+    else merged.set(key, { ...item });
+  }
+  items = [...merged.values()];
+
   const productIds = [...new Set(items.map((i) => i.productId))];
   const { data: products, error } = await getDb()
     .from(TABLES.Product)

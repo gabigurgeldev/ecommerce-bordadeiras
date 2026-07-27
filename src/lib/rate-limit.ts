@@ -62,6 +62,31 @@ export async function rateLimitWebhook(identifier: string): Promise<RateLimitRes
   return memoryRateLimit(`webhook:${identifier}`, 60, 60_000);
 }
 
+const publicApiLimiter = createUpstashLimiter("public-api", 30, "1 m");
+const paymentLimiter = createUpstashLimiter("payment", 10, "1 m");
+
+/** Public endpoints that hit paid upstreams (Melhor Envio, ViaCEP). */
+export async function rateLimitPublicApi(
+  identifier: string,
+): Promise<RateLimitResult> {
+  if (publicApiLimiter) {
+    const r = await publicApiLimiter.limit(identifier);
+    return { success: r.success, remaining: r.remaining };
+  }
+  return memoryRateLimit(`public-api:${identifier}`, 30, 60_000);
+}
+
+/** Payment creation — keyed by user, so one account can't spam Mercado Pago. */
+export async function rateLimitPayment(
+  identifier: string,
+): Promise<RateLimitResult> {
+  if (paymentLimiter) {
+    const r = await paymentLimiter.limit(identifier);
+    return { success: r.success, remaining: r.remaining };
+  }
+  return memoryRateLimit(`payment:${identifier}`, 10, 60_000);
+}
+
 const blogCommentLimiter = createUpstashLimiter("blog-comment", 5, "10 m");
 const blogViewLimiter = createUpstashLimiter("blog-view", 1, "30 m");
 

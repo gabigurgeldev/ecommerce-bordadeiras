@@ -32,10 +32,20 @@ export function parseBody<T extends z.ZodType>(
   return { success: true, data: parsed.data };
 }
 
+/**
+ * Rightmost x-forwarded-for hop: that one is appended by our own proxy, while
+ * the leftmost entries are attacker-controlled and would let rate limits be
+ * sidestepped with a forged header.
+ */
 export function getClientIp(request: Request): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "unknown"
-  );
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const hops = forwarded
+      .split(",")
+      .map((h) => h.trim())
+      .filter(Boolean);
+    const last = hops.at(-1);
+    if (last) return last;
+  }
+  return request.headers.get("x-real-ip") ?? "unknown";
 }

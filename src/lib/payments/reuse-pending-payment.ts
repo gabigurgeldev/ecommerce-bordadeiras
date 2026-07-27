@@ -26,25 +26,50 @@ function extractPixFromMpPayment(mpPayment: Awaited<ReturnType<typeof getPayment
   };
 }
 
-export async function findReusablePixForOrder(
+/**
+ * A pending order keeps its id while the cart changes, so a stored PENDING
+ * payment may be for a stale (cheaper) total. Reusing it would let the customer
+ * pay the old amount.
+ */
+async function findPendingPaymentForOrder(
   orderId: string,
-): Promise<ReusablePixPayment | null> {
-  const db = getDb();
-  const { data: payment } = await db
+  method: PaymentMethod,
+  expectedAmountCents: number,
+): Promise<string | null> {
+  const { data: payment, error } = await getDb()
     .from(TABLES.Payment)
-    .select("mercadoPagoId, status")
+    .select("mercadoPagoId, amountCents")
     .eq("orderId", orderId)
-    .eq("method", "PIX" as PaymentMethod)
+    .eq("method", method)
     .eq("status", "PENDING")
     .not("mercadoPagoId", "is", null)
     .order("createdAt", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) {
+    console.error("[payments] pending payment lookup failed", error);
+    return null;
+  }
 
   if (!payment?.mercadoPagoId) return null;
+  if (Number(payment.amountCents) !== expectedAmountCents) return null;
+
+  return String(payment.mercadoPagoId);
+}
+
+export async function findReusablePixForOrder(
+  orderId: string,
+  expectedAmountCents: number,
+): Promise<ReusablePixPayment | null> {
+  const mercadoPagoId = await findPendingPaymentForOrder(
+    orderId,
+    "PIX" as PaymentMethod,
+    expectedAmountCents,
+  );
+  if (!mercadoPagoId) return null;
 
   try {
-    const mpPayment = await getPaymentById(String(payment.mercadoPagoId));
+    const mpPayment = await getPaymentById(mercadoPagoId);
     const status = String(mpPayment.status ?? "pending");
     if (status !== "pending") return null;
 
@@ -52,11 +77,13 @@ export async function findReusablePixForOrder(
     if (!pix) return null;
 
     return {
-      paymentId: String(payment.mercadoPagoId),
+      paymentId: mercadoPagoId,
       status,
       ...pix,
     };
-  } catch {
+  } catch (e) {
+    // Mercado Pago unreachable: fall through to creating a fresh payment.
+    console.error("[payments] pix reuse check failed", e);
     return null;
   }
 }
@@ -69,23 +96,17 @@ export type ReusableBoletoPayment = {
 
 export async function findReusableBoletoForOrder(
   orderId: string,
+  expectedAmountCents: number,
 ): Promise<ReusableBoletoPayment | null> {
-  const db = getDb();
-  const { data: payment } = await db
-    .from(TABLES.Payment)
-    .select("mercadoPagoId, status")
-    .eq("orderId", orderId)
-    .eq("method", "BOLETO" as PaymentMethod)
-    .eq("status", "PENDING")
-    .not("mercadoPagoId", "is", null)
-    .order("createdAt", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!payment?.mercadoPagoId) return null;
+  const mercadoPagoId = await findPendingPaymentForOrder(
+    orderId,
+    "BOLETO" as PaymentMethod,
+    expectedAmountCents,
+  );
+  if (!mercadoPagoId) return null;
 
   try {
-    const mpPayment = await getPaymentById(String(payment.mercadoPagoId));
+    const mpPayment = await getPaymentById(mercadoPagoId);
     const status = String(mpPayment.status ?? "pending");
     if (status !== "pending") return null;
 
@@ -94,11 +115,13 @@ export async function findReusableBoletoForOrder(
       | undefined;
 
     return {
-      paymentId: String(payment.mercadoPagoId),
+      paymentId: mercadoPagoId,
       status,
       ticketUrl: txDetails?.external_resource_url,
     };
-  } catch {
+  } catch (e) {
+    // Mercado Pago unreachable: fall through to creating a fresh payment.
+    console.error("[payments] boleto reuse check failed", e);
     return null;
   }
 }

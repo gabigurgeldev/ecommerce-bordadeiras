@@ -51,7 +51,8 @@ import {
   blogSearchQuerySchema,
 } from "@/lib/validations/blog";
 import { OpenRouterError } from "@/lib/openrouter/client";
-import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+import { ActionError, auditMutation, revalidateAdmin } from "./_helpers";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 function serializeDates<T extends Record<string, unknown>>(obj: T): T {
   const out = { ...obj } as Record<string, unknown>;
@@ -73,7 +74,7 @@ function serializeDates<T extends Record<string, unknown>>(obj: T): T {
 export async function adminListBlogPosts(query?: unknown) {
   return withAdminRead(async () => {
     const parsed = blogListQuerySchema.safeParse(query ?? {});
-    if (!parsed.success) throw new Error("Parâmetros inválidos");
+    if (!parsed.success) throw new ActionError("Parâmetros inválidos");
     const result = await listBlogPosts(parsed.data);
     return serializeDates(result as unknown as Record<string, unknown>);
   });
@@ -82,7 +83,7 @@ export async function adminListBlogPosts(query?: unknown) {
 export async function adminGetBlogPost(id: string) {
   return withAdminRead(async () => {
     const post = await getBlogPostById(id);
-    if (!post) throw new Error("Post não encontrado");
+    if (!post) throw new ActionError("Post não encontrado");
     return serializeDates(post as unknown as Record<string, unknown>);
   });
 }
@@ -190,7 +191,7 @@ export async function adminGenerateBlogSeo(data: {
 export async function adminGetBlogPostMeta(id: string) {
   return withAdminRead(async () => {
     const post = await getBlogPostById(id);
-    if (!post) throw new Error("Post não encontrado");
+    if (!post) throw new ActionError("Post não encontrado");
     return buildBlogMetaTags(post);
   });
 }
@@ -293,7 +294,7 @@ export async function adminToggleBlogCategoryActive(
 export async function adminListBlogComments(query?: unknown) {
   return withAdminRead(async () => {
     const parsed = blogCommentListQuerySchema.safeParse(query ?? {});
-    if (!parsed.success) throw new Error("Parâmetros inválidos");
+    if (!parsed.success) throw new ActionError("Parâmetros inválidos");
     const result = await listBlogComments(parsed.data);
     return serializeDates(result as unknown as Record<string, unknown>);
   });
@@ -422,7 +423,7 @@ export async function adminGetBlogStats() {
 export async function adminSearchBlog(query?: unknown) {
   return withAdminRead(async () => {
     const parsed = blogSearchQuerySchema.safeParse(query ?? {});
-    if (!parsed.success) throw new Error("Parâmetros inválidos");
+    if (!parsed.success) throw new ActionError("Parâmetros inválidos");
     const result = await searchBlog(parsed.data);
     return serializeDates(result as unknown as Record<string, unknown>);
   });

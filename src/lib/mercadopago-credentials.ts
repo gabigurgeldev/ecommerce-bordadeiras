@@ -13,15 +13,38 @@ export type MpTokenProbe = {
   liveMode: boolean | null;
 };
 
+const PROBE_TIMEOUT_MS = 5_000;
+const PROBE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Whether a token is test or production doesn't change, but this probe used to
+ * run on every payment operation and on every checkout render — two blocking,
+ * untimed calls to Mercado Pago before any HTML was produced.
+ */
+const probeCache = new Map<string, { probe: MpTokenProbe; expiresAt: number }>();
+
 /** Consulta a API do MP para saber se o token é de teste ou produção. */
 export async function probeMpAccessTokenEnv(accessToken: string): Promise<MpTokenProbe> {
   const token = accessToken.trim();
   if (!token) return { env: "unknown", liveMode: null };
 
+  const cached = probeCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) return cached.probe;
+
+  const probe = await fetchMpAccessTokenEnv(token);
+  // "unknown" means the API was unreachable; don't cache that.
+  if (probe.env !== "unknown") {
+    probeCache.set(token, { probe, expiresAt: Date.now() + PROBE_TTL_MS });
+  }
+  return probe;
+}
+
+async function fetchMpAccessTokenEnv(token: string): Promise<MpTokenProbe> {
   try {
     const res = await fetch("https://api.mercadopago.com/users/me", {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
 
     if (res.ok) {

@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+import { CATALOG_TAGS } from "@/lib/data/cache-tags";
 import { isDatabaseAvailable } from "@/lib/data/db-available";
 import { siteImages } from "@/lib/images";
 import { getDb, TABLES } from "@/lib/supabase/db";
@@ -21,6 +23,15 @@ const defaultSlide: StorefrontBannerSlide = {
 };
 
 export async function getActiveBanners(): Promise<StorefrontBannerSlide[]> {
+  const cached = unstable_cache(fetchActiveBanners, ["active-banners"], {
+    tags: [CATALOG_TAGS.banners],
+    // Banners have start/end dates, so the cache must expire on its own.
+    revalidate: 300,
+  });
+  return cached();
+}
+
+async function fetchActiveBanners(): Promise<StorefrontBannerSlide[]> {
   if (!(await isDatabaseAvailable())) return [defaultSlide];
 
   try {

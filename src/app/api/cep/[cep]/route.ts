@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
+import { getClientIp, jsonError } from "@/lib/api-utils";
 import { fetchViaCep } from "@/lib/cep/viacep";
+import { rateLimitPublicApi } from "@/lib/rate-limit";
 
 export const maxDuration = 15;
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ cep: string }> },
 ) {
+  const limited = await rateLimitPublicApi(`cep:${getClientIp(request)}`);
+  if (!limited.success) return jsonError("Too many requests", 429);
+
   const { cep } = await params;
   const result = await fetchViaCep(cep);
 

@@ -2,7 +2,9 @@
 
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { categorySchema } from "@/lib/validations/admin";
-import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin, revalidateCatalog } from "./_helpers";
+import { CATALOG_TAGS } from "@/lib/data/cache-tags";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listCategories() {
   return withAdminRead(async () => {
@@ -56,6 +58,7 @@ export async function upsertCategory(
       entityId: rowId!,
     });
     revalidateAdmin(["/admin/categorias"]);
+    revalidateCatalog(CATALOG_TAGS.categories, CATALOG_TAGS.products);
     return { success: true, data: { id: rowId! } };
   });
 }
@@ -66,6 +69,7 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
     if (error) return { success: false, error: error.message };
     await auditMutation(actor, { action: "DELETE", entity: "Category", entityId: id });
     revalidateAdmin(["/admin/categorias"]);
+    revalidateCatalog(CATALOG_TAGS.categories, CATALOG_TAGS.products);
     return { success: true };
   });
 }

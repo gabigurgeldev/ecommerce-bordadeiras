@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { jsonError, parseBody } from "@/lib/api-utils";
+import { getClientIp, jsonError, parseBody } from "@/lib/api-utils";
+import { rateLimitPublicApi } from "@/lib/rate-limit";
 import { getDb, TABLES } from "@/lib/supabase/db";
 import { calculateShippingForProduct } from "@/lib/shipping/calculate";
 import { toDisplayShippingOptions } from "@/lib/shipping/display-options";
@@ -18,6 +19,10 @@ const quoteSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  // Each quote triggers a billed Melhor Envio call.
+  const limited = await rateLimitPublicApi(`shipping:${getClientIp(request)}`);
+  if (!limited.success) return jsonError("Too many requests", 429);
+
   try {
     const body = await request.json();
     const parsed = parseBody(quoteSchema, body);

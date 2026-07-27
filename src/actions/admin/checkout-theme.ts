@@ -13,13 +13,8 @@ import {
   checkoutThemeSchema,
   partialCheckoutThemeSchema,
 } from "@/lib/validations/checkout-theme";
-import {
-  auditMutation,
-  revalidateAdmin,
-  withAdmin,
-  withAdminRead,
-  type ActionResult,
-} from "./_utils";
+import { auditMutation, revalidateAdmin } from "./_helpers";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 // ---------------------------------------------------------------------------
 // Admin — read

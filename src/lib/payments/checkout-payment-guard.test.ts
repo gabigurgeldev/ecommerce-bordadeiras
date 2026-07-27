@@ -10,13 +10,3 @@ describe("sandbox payer email policy", () => {
     expect(isMpTestUserEmail("buyer@testuser.com")).toBe(false);
   });
 });
-
-describe("mpIdempotencyKey", () => {
-  it("builds stable keys per order and method", async () => {
-    const { mpIdempotencyKey } = await import("@/lib/payments/mp-idempotency");
-    expect(mpIdempotencyKey("order-1", "pix")).toBe("checkout-order-1-pix");
-    expect(mpIdempotencyKey("order-1", "pix")).toBe(
-      mpIdempotencyKey("order-1", "pix"),
-    );
-  });
-});

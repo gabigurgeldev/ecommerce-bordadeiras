@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { findUserByEmailAddress, upsertUserFromAuthUser } from "@/lib/auth/sync-user";
 import { Role, type Role as RoleType } from "@/lib/types/database";
@@ -13,8 +14,12 @@ export type AppSession = {
   user: AppSessionUser;
 };
 
-/** Server session from Supabase `getUser()` + app User role (never trust client getSession alone). */
-export async function auth(): Promise<AppSession | null> {
+/**
+ * Server session from Supabase `getUser()` + app User role (never trust client
+ * getSession alone). Memoized per request: layout, page and nested server
+ * components used to repeat the same auth + DB round trip 4-6 times per render.
+ */
+export const auth = cache(async (): Promise<AppSession | null> => {
   try {
     const supabase = await createClient();
     const {
@@ -54,7 +59,7 @@ export async function auth(): Promise<AppSession | null> {
   } catch {
     return null;
   }
-}
+});
 
 export async function getSession() {
   return auth();

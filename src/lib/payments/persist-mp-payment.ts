@@ -12,6 +12,25 @@ function raiseSupabaseError(error: unknown, fallback: string): never {
   throw new Error(fallback);
 }
 
+/**
+ * The deduct_stock_on_payment trigger fires on any Payment row written as
+ * APPROVED, so the Mercado Pago amount must be reconciled with the order total
+ * before that write — not after it.
+ */
+export async function orderAmountMatches(
+  orderId: string,
+  amountCents: number,
+): Promise<boolean> {
+  const { data: order, error } = await getDb()
+    .from(TABLES.Order)
+    .select("totalCents")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) raiseSupabaseError(error, "Order total lookup failed");
+  if (!order) return false;
+  return Number(order.totalCents) === amountCents;
+}
+
 export function mapMpStatusToDb(status: string): string {
   if (status === "approved") return "APPROVED";
   if (status === "rejected" || status === "cancelled") return "REJECTED";
@@ -139,10 +158,26 @@ export async function syncMpPaymentStatus(input: {
   orderId: string;
   mpPaymentId: string | number;
   status: string;
+  amountCents: number;
 }) {
   const db = getDb();
   const now = new Date().toISOString();
-  const dbStatus = mapMpStatusToDb(input.status);
+
+  const approved =
+    input.status === "approved" &&
+    (await orderAmountMatches(input.orderId, input.amountCents));
+  if (input.status === "approved" && !approved) {
+    console.error("[payments/status] amount mismatch", {
+      orderId: input.orderId,
+      mpPaymentId: String(input.mpPaymentId),
+      amountCents: input.amountCents,
+    });
+  }
+
+  const dbStatus =
+    input.status === "approved" && !approved
+      ? "PENDING"
+      : mapMpStatusToDb(input.status);
 
   const { data: payment, error: paymentLookupError } = await db
     .from(TABLES.Payment)
@@ -159,12 +194,8 @@ export async function syncMpPaymentStatus(input: {
     if (updateError) raiseSupabaseError(updateError, "Payment status update failed");
   }
 
-  if (input.status === "approved" && payment?.id) {
-    await markOrderPaidIfApproved(
-      input.orderId,
-      String(payment.id),
-      input.status,
-    );
+  if (approved && payment?.id) {
+    await finalizeApprovedOrder(input.orderId, String(payment.id));
   }
 
   return { dbStatus, localPaymentId: payment?.id ?? null };

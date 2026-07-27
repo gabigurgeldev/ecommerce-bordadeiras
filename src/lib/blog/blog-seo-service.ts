@@ -8,6 +8,17 @@ const SITE_NAME = siteConfig.name;
 const MAX_TITLE = 70;
 const MAX_DESCRIPTION = 160;
 
+/**
+ * BlogPost.publishedAt is nullable even for PUBLISHED rows, and cached posts
+ * come back as strings. A single bad value used to throw "Invalid time value"
+ * and take down the whole RSS feed / sitemap.
+ */
+function safeIso(value: unknown): string | null {
+  if (value == null) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 export function buildBlogMetaTags(post: BlogPostWithRelations) {
   const title = (post.seoTitle || post.title).slice(0, MAX_TITLE);
   const description = (
@@ -29,8 +40,8 @@ export function buildBlogMetaTags(post: BlogPostWithRelations) {
       type: "article" as const,
       // publishedAt/updatedAt podem chegar como string quando o post volta do
       // unstable_cache (JSON serializa os Date). Normaliza antes de formatar.
-      publishedTime: post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined,
-      modifiedTime: post.updatedAt ? new Date(post.updatedAt).toISOString() : undefined,
+      publishedTime: safeIso(post.publishedAt) ?? undefined,
+      modifiedTime: safeIso(post.updatedAt) ?? undefined,
       images: image ? [{ url: image }] : [],
     },
     twitter: {
@@ -64,10 +75,11 @@ export async function getBlogSitemapEntries(): Promise<BlogSitemapEntry[]> {
     .order("publishedAt", { ascending: false });
   if (error) throw error;
 
+  const fallback = new Date().toISOString();
   return (data ?? []).map((row) => ({
     slug: String(row.slug),
-    updatedAt: new Date(String(row.updatedAt)).toISOString(),
-    publishedAt: row.publishedAt ? new Date(String(row.publishedAt)).toISOString() : null,
+    updatedAt: safeIso(row.updatedAt) ?? safeIso(row.publishedAt) ?? fallback,
+    publishedAt: safeIso(row.publishedAt),
   }));
 }
 
@@ -80,9 +92,10 @@ export async function getBlogCategorySitemapEntries(): Promise<BlogCategorySitem
     .order("sortOrder", { ascending: true });
   if (error) throw error;
 
+  const fallback = new Date().toISOString();
   return (data ?? []).map((row) => ({
     slug: String(row.slug),
-    updatedAt: new Date(String(row.updatedAt)).toISOString(),
+    updatedAt: safeIso(row.updatedAt) ?? fallback,
   }));
 }
 
@@ -96,6 +109,7 @@ export async function getBlogRssItems(limit = 50): Promise<BlogRssItem[]> {
     .limit(limit);
   if (error) throw error;
 
+  const fallback = new Date().toISOString();
   return (data ?? []).map((row) => {
     const category = row.BlogCategory as { name?: string } | null;
     return {
@@ -104,7 +118,7 @@ export async function getBlogRssItems(limit = 50): Promise<BlogRssItem[]> {
       excerpt: row.excerpt ? String(row.excerpt) : null,
       content: String(row.content),
       coverImage: row.coverImage ? String(row.coverImage) : null,
-      publishedAt: new Date(String(row.publishedAt)).toISOString(),
+      publishedAt: safeIso(row.publishedAt) ?? fallback,
       categoryName: category?.name ?? null,
     };
   });

@@ -2,7 +2,8 @@
 
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { whatsappTemplateSchema } from "@/lib/validations/admin";
-import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin } from "./_helpers";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 import type { WhatsappTemplate } from "@/lib/types/database";
 
 export async function listWhatsappTemplates() {

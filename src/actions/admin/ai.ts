@@ -9,7 +9,8 @@ import {
   type AiImproveContext,
   type AiImproveScope,
 } from "@/lib/validations/ai";
-import { auditMutation, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+import { auditMutation } from "./_helpers";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 import { buildEnrichedModelsCatalog } from "@/lib/openrouter/models-api";
 import type { EnrichedCatalogModel } from "@/lib/openrouter/models-catalog";
 

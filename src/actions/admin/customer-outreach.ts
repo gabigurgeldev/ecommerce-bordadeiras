@@ -35,7 +35,8 @@ import {
 } from "@/lib/whatsapp-client";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-auth";
-import { auditMutation, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+import { auditMutation } from "./_helpers";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 const NOT_CONFIGURED =
   "Configure a API do OpenRouter em Configurações → Inteligência Artificial";

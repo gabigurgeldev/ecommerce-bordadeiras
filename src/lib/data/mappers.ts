@@ -6,6 +6,9 @@ import {
   type ProductWithRelations,
 } from "@/lib/types/database";
 
+/** Local fallback: the previous Unsplash URLs now 404. */
+const PLACEHOLDER_IMAGE = "/blog-placeholder.svg";
+
 export function mapCategory(c: DbCategory & { _count?: { products: number } }): Category {
   return {
     id: c.id,
@@ -16,7 +19,7 @@ export function mapCategory(c: DbCategory & { _count?: { products: number } }): 
     seoDescription: c.seoDescription ?? undefined,
     imageUrl:
       c.imageUrl ??
-      "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800&q=80",
+      PLACEHOLDER_IMAGE,
     productCount: c._count?.products,
   };
 }
@@ -102,7 +105,7 @@ export function mapProduct(p: ProductWithRelations): Product {
         ? imagesFromRelation
         : legacyImages.length > 0
           ? legacyImages
-          : ["https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800&q=80"],
+          : [PLACEHOLDER_IMAGE],
   };
 }
 
@@ -115,7 +118,7 @@ export function mapBlogPost(p: DbBlogPost): BlogPost {
     content: p.content,
     coverImage:
       p.coverImage ??
-      "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=1200&q=80",
+      PLACEHOLDER_IMAGE,
     author: "Equipe Bordadeiras",
     publishedAt: (p.publishedAt ?? p.createdAt).toISOString(),
     tags: [],

@@ -21,19 +21,20 @@ export default async function CheckoutRoutePage({ searchParams }: Props) {
 
   const { order: orderParam } = await searchParams;
 
-  const [addresses, paymentConfig, checkoutTheme, initialResume] = await Promise.all([
-    fetchUserAddresses(),
-    getCheckoutPaymentConfig(),
-    getPublicCheckoutTheme(),
-    getPendingCheckoutOrderForUser(sessionUser.id, orderParam),
-  ]);
+  const [addresses, paymentConfig, checkoutTheme, initialResume, userResult] =
+    await Promise.all([
+      fetchUserAddresses(),
+      getCheckoutPaymentConfig(),
+      getPublicCheckoutTheme(),
+      getPendingCheckoutOrderForUser(sessionUser.id, orderParam),
+      getDb()
+        .from(TABLES.User)
+        .select("name, phone")
+        .eq("id", sessionUser.id)
+        .maybeSingle(),
+    ]);
 
-  const db = getDb();
-  const { data: userRow } = await db
-    .from(TABLES.User)
-    .select("name, phone")
-    .eq("id", sessionUser.id)
-    .maybeSingle();
+  const userRow = userResult.data;
 
   return (
     <CheckoutPage

@@ -14,6 +14,9 @@ import { MercadoPagoConfig, Payment, Preference } from "mercadopago";
 import type { PaymentMethod } from "@/lib/types/database";
 import { getMercadoPagoSettingsFromDb } from "@/lib/mercadopago-config";
 
+/** A hung Mercado Pago upstream must not hold a server worker open. */
+const MP_TIMEOUT_MS = 10_000;
+
 async function getValidatedMercadoPagoSettings() {
   const settings = await getMercadoPagoSettingsFromDb();
   const check = validateMpCredentialPair({
@@ -157,6 +160,7 @@ async function fetchMpOrder(orderId: string): Promise<MpOrderResponse> {
   const res = await fetch(`https://api.mercadopago.com/v1/orders/${orderId}`, {
     headers: { Authorization: `Bearer ${settings.accessToken}` },
     cache: "no-store",
+    signal: AbortSignal.timeout(MP_TIMEOUT_MS),
   });
 
   let payload: unknown = null;
@@ -210,11 +214,17 @@ async function getOrderAsPayment(orderId: string) {
 async function createMpOrder(
   orderId: string,
   methodKey: string,
+  amountCents: number,
   body: Record<string, unknown>,
   idempotencySuffix?: string,
 ) {
   const settings = await getValidatedMercadoPagoSettings();
-  const idempotencyKey = mpIdempotencyKey(orderId, methodKey, idempotencySuffix);
+  const idempotencyKey = mpIdempotencyKey(
+    orderId,
+    methodKey,
+    amountCents,
+    idempotencySuffix,
+  );
 
   const res = await fetch("https://api.mercadopago.com/v1/orders", {
     method: "POST",
@@ -224,6 +234,7 @@ async function createMpOrder(
       "X-Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(MP_TIMEOUT_MS),
   });
 
   let payload: unknown = null;
@@ -348,10 +359,11 @@ function formatMpApiError(e: unknown, sandbox?: boolean): string {
 async function createMpPayment(
   orderId: string,
   method: string,
+  amountCents: number,
   body: Record<string, unknown>,
 ) {
   const settings = await getValidatedMercadoPagoSettings();
-  const idempotencyKey = mpIdempotencyKey(orderId, method);
+  const idempotencyKey = mpIdempotencyKey(orderId, method, amountCents);
 
   const res = await fetch("https://api.mercadopago.com/v1/payments", {
     method: "POST",
@@ -361,6 +373,7 @@ async function createMpPayment(
       "X-Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(MP_TIMEOUT_MS),
   });
 
   let payload: unknown = null;
@@ -440,7 +453,12 @@ export async function createPixPayment(input: {
     },
   };
 
-  const order = await createMpOrder(input.orderId, "pix-order", body);
+  const order = await createMpOrder(
+    input.orderId,
+    "pix-order",
+    input.amountCents,
+    body,
+  );
   const payment = order.transactions?.payments?.[0];
   const pm = payment?.payment_method;
 
@@ -482,7 +500,12 @@ export async function createBoletoPayment(input: {
   };
   appendNotificationUrl(body);
 
-  const result = await createMpPayment(input.orderId, "boleto", body);
+  const result = await createMpPayment(
+    input.orderId,
+    "boleto",
+    input.amountCents,
+    body,
+  );
   const txDetails = result.transaction_details as
     | { external_resource_url?: string }
     | undefined;
@@ -551,6 +574,7 @@ export async function createBrickPayment(input: {
   const order = await createMpOrder(
     input.orderId,
     `card-${paymentMethodId}`,
+    input.amountCents,
     body,
     input.formData.token.slice(-20),
   );
@@ -580,6 +604,7 @@ async function mpFetch<T>(
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
+    signal: init?.signal ?? AbortSignal.timeout(MP_TIMEOUT_MS),
   });
   if (!res.ok) {
     const err = await res.text();

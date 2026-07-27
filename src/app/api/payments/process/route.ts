@@ -13,6 +13,7 @@ import { getMercadoPagoSettingsFromDb } from "@/lib/mercadopago-config";
 import { guardCheckoutPayment } from "@/lib/payments/checkout-payment-guard";
 import { persistMpPayment } from "@/lib/payments/persist-mp-payment";
 import { orderIdSchema } from "@/lib/validations/ids";
+import { rateLimitPayment } from "@/lib/rate-limit";
 
 const schema = z.object({
   orderId: orderIdSchema,
@@ -31,6 +32,9 @@ export async function POST(request: Request) {
 
   const sessionUser = await getSessionUser();
   if (!sessionUser?.id) return jsonError("Unauthorized", 401);
+
+  const limited = await rateLimitPayment(`card:${sessionUser.id}`);
+  if (!limited.success) return jsonError("Too many requests", 429);
 
   let body: unknown;
   try {

@@ -1,16 +1,14 @@
+import { Suspense } from "react";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { StorefrontTheme } from "@/components/providers/storefront-theme";
-import { CustomerActivityTracker } from "@/components/tracking/customer-activity-tracker";
-import { fetchNotificationPrefs } from "@/actions/account/notifications";
+import { CustomerActivityGate } from "@/components/tracking/customer-activity-gate";
 import { JsonLdScript } from "@/components/seo/json-ld-script";
 import { getCategories } from "@/lib/data/categories";
 import { isDatabaseAvailable } from "@/lib/data/db-available";
-import { getProducts } from "@/lib/data/products";
+import { getCategoryPreviews } from "@/lib/data/products";
 import { getStorefrontUtilitySettings } from "@/lib/data/storefront-settings";
 import { organizationJsonLd } from "@/lib/seo/json-ld";
-
-export const dynamic = "force-dynamic";
 
 export default async function StorefrontLayout({
   children,
@@ -19,27 +17,25 @@ export default async function StorefrontLayout({
 }) {
   await isDatabaseAvailable();
 
-  const [categories, utilitySettings, notificationPrefs] = await Promise.all([
+  const [categories, utilitySettings] = await Promise.all([
     getCategories(),
     getStorefrontUtilitySettings(),
-    fetchNotificationPrefs(),
   ]);
 
-  const categoryPreviews = await Promise.all(
-    categories.map(async (category) => ({
-      category,
-      products: (
-        await getProducts({ categorySlug: category.slug, sort: "newest" })
-      ).slice(0, 5),
-    })),
+  const previewsByCategory = await getCategoryPreviews(
+    categories.map((c) => c.id),
   );
+  const categoryPreviews = categories.map((category) => ({
+    category,
+    products: previewsByCategory.get(category.id) ?? [],
+  }));
 
   return (
     <StorefrontTheme>
       <div className="light flex min-h-full min-w-0 flex-col bg-[var(--color-bg)] text-[var(--foreground)]">
-        <CustomerActivityTracker
-          behavioralAnalyticsConsent={notificationPrefs.behavioralAnalytics}
-        />
+        <Suspense fallback={null}>
+          <CustomerActivityGate />
+        </Suspense>
         <JsonLdScript data={organizationJsonLd()} />
         <Header
           categories={categories}

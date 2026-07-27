@@ -1,7 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Refreshes Supabase Auth cookies on each matched request. */
+/**
+ * Refreshes Supabase Auth cookies on each matched request and hands back the
+ * authenticated user, so protected routes don't have to call getUser() again.
+ */
 export async function updateSession(request: NextRequest, requestHeaders = request.headers) {
   let supabaseResponse = NextResponse.next({
     request: { headers: requestHeaders },
@@ -11,7 +14,7 @@ export async function updateSession(request: NextRequest, requestHeaders = reque
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) {
-    return supabaseResponse;
+    return { response: supabaseResponse, user: null };
   }
 
   const supabase = createServerClient(url, anonKey, {
@@ -31,7 +34,9 @@ export async function updateSession(request: NextRequest, requestHeaders = reque
     },
   });
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return supabaseResponse;
+  return { response: supabaseResponse, user };
 }

@@ -2,7 +2,9 @@
 
 import { getDb, newId, TABLES } from "@/lib/supabase/db";
 import { bannerSchema } from "@/lib/validations/admin";
-import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin, revalidateCatalog } from "./_helpers";
+import { CATALOG_TAGS } from "@/lib/data/cache-tags";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 export async function listBanners() {
   return withAdminRead(async () => {
@@ -65,6 +67,7 @@ export async function upsertBanner(
       entityId: bannerId!,
     });
     revalidateAdmin(["/admin/banners", "/"]);
+    revalidateCatalog(CATALOG_TAGS.banners);
     return { success: true, data: { id: bannerId! } };
   });
 }
@@ -79,6 +82,7 @@ export async function deleteBanner(id: string): Promise<ActionResult> {
       entityId: id,
     });
     revalidateAdmin(["/admin/banners", "/"]);
+    revalidateCatalog(CATALOG_TAGS.banners);
     return { success: true };
   });
 }
@@ -100,6 +104,7 @@ export async function toggleBannerActive(
       metadata: { active },
     });
     revalidateAdmin(["/admin/banners", "/"]);
+    revalidateCatalog(CATALOG_TAGS.banners);
     return { success: true };
   });
 }
@@ -126,6 +131,7 @@ export async function reorderBanners(
       metadata: { reorder: orders },
     });
     revalidateAdmin(["/admin/banners", "/"]);
+    revalidateCatalog(CATALOG_TAGS.banners);
     return { success: true };
   });
 }

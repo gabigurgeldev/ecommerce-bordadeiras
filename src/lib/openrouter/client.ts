@@ -3,6 +3,9 @@ import { buildImprovePrompt, maxTokensFor } from "@/lib/openrouter/prompts";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+/** LLM calls are slow but must still be bounded. */
+const OPENROUTER_TIMEOUT_MS = 60_000;
+
 export class OpenRouterError extends Error {
   constructor(message: string) {
     super(message);
@@ -41,6 +44,7 @@ export async function callOpenRouterJson(params: {
       max_tokens: maxTokensFor(params.context, params.scope),
       response_format: { type: "json_object" },
     }),
+    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -92,6 +96,7 @@ export async function callOpenRouterPrompt(params: {
       max_tokens: params.maxTokens ?? 2048,
       response_format: { type: "json_object" },
     }),
+    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
   });
 
   if (!res.ok) {

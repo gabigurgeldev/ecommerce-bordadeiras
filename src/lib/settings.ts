@@ -11,26 +11,47 @@ export async function getSettings(keys: string[]): Promise<Record<string, string
   return map;
 }
 
+/**
+ * One upsert instead of a select + update/insert per key (saving ~15 admin
+ * settings meant ~30 sequential round trips), and the write errors are no
+ * longer swallowed — a failed save used to report success.
+ */
 export async function setSettings(entries: Record<string, string>): Promise<void> {
+  const rows = Object.entries(entries);
+  if (rows.length === 0) return;
+
   const db = getDb();
+  const keys = rows.map(([key]) => key);
+
+  // Reuse the existing row ids: "key" is the conflict target, so sending a new
+  // id would rewrite the primary key of every setting that already exists.
+  const { data: existing, error: lookupError } = await db
+    .from(TABLES.Setting)
+    .select("id, key")
+    .in("key", keys);
+  if (lookupError) {
+    throw new Error(
+      `Não foi possível ler as configurações: ${lookupError.message}`,
+    );
+  }
+  const idByKey = new Map(
+    (existing ?? []).map((row) => [String(row.key), String(row.id)]),
+  );
+
   const now = new Date().toISOString();
-  for (const [key, value] of Object.entries(entries)) {
-    const { data: existing } = await db
-      .from(TABLES.Setting)
-      .select("id")
-      .eq("key", key)
-      .maybeSingle();
-    if (existing) {
-      await db.from(TABLES.Setting).update({ value, updatedAt: now }).eq("key", key);
-    } else {
-      await db.from(TABLES.Setting).insert({
-        id: newId(),
-        key,
-        value,
-        group: "general",
-        updatedAt: now,
-      });
-    }
+  const { error } = await db.from(TABLES.Setting).upsert(
+    rows.map(([key, value]) => ({
+      id: idByKey.get(key) ?? newId(),
+      key,
+      value,
+      group: "general",
+      updatedAt: now,
+    })),
+    { onConflict: "key" },
+  );
+
+  if (error) {
+    throw new Error(`Não foi possível salvar as configurações: ${error.message}`);
   }
 }
 

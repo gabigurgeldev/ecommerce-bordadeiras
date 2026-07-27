@@ -16,7 +16,9 @@ import {
   productVariantInputSchema,
 } from "@/lib/validations/admin";
 import { slugify } from "@/lib/utils";
-import { auditMutation, revalidateAdmin, withAdmin, withAdminRead, type ActionResult } from "./_utils";
+import { auditMutation, revalidateAdmin, revalidateCatalog } from "./_helpers";
+import { CATALOG_TAGS } from "@/lib/data/cache-tags";
+import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 
 function normalizeProductPayload(data: z.infer<typeof productSchema>) {
   return {
@@ -105,6 +107,7 @@ export async function upsertProduct(
       entityId: productId!,
     });
     revalidateAdmin(["/admin/produtos", `/admin/produtos/${productId}`]);
+    revalidateCatalog(CATALOG_TAGS.products);
     return { success: true, data: { id: productId! } };
   });
 }
@@ -115,6 +118,7 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
     if (error) return { success: false, error: error.message };
     await auditMutation(actor, { action: "DELETE", entity: "Product", entityId: id });
     revalidateAdmin(["/admin/produtos"]);
+    revalidateCatalog(CATALOG_TAGS.products);
     return { success: true };
   });
 }
@@ -184,6 +188,7 @@ export async function duplicateProduct(id: string): Promise<ActionResult<{ id: s
       metadata: { duplicatedFrom: id },
     });
     revalidateAdmin(["/admin/produtos"]);
+    revalidateCatalog(CATALOG_TAGS.products);
     return { success: true, data: { id: copyId } };
   });
 }
@@ -223,6 +228,7 @@ export async function syncProductImages(
       metadata: { images: parsed.data.length },
     });
     revalidateAdmin(["/admin/produtos", `/admin/produtos/${productId}`]);
+    revalidateCatalog(CATALOG_TAGS.products);
     return { success: true };
   });
 }
@@ -278,6 +284,7 @@ export async function syncProductOptions(
       metadata: { options: parsed.data.length },
     });
     revalidateAdmin(["/admin/produtos", `/admin/produtos/${productId}`]);
+    revalidateCatalog(CATALOG_TAGS.products);
     return { success: true };
   });
 }
@@ -321,6 +328,7 @@ export async function syncProductVariants(
       metadata: { variants: parsed.data.length },
     });
     revalidateAdmin(["/admin/produtos", `/admin/produtos/${productId}`]);
+    revalidateCatalog(CATALOG_TAGS.products);
     return { success: true };
   });
 }

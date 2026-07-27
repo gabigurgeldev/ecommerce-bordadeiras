@@ -79,6 +79,7 @@ export type ProductFilters = {
   maxPriceCents?: number;
   inStock?: boolean;
   sort?: "newest" | "price-asc" | "price-desc" | "name";
+  limit?: number;
 };
 
 export type ShippingAddress = {

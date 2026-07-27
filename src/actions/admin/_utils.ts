@@ -1,13 +1,20 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-auth";
-import { createAuditLog } from "@/lib/audit";
-import type { AuditAction } from "@/lib/types/database";
+import { ActionError } from "./_helpers";
 
 export type ActionResult<T = void> =
   | { success: true; data?: T }
   | { success: false; error: string };
+
+/** redirect()/notFound() signal control flow by throwing; never swallow them. */
+function isNextControlFlowError(e: unknown): boolean {
+  const digest = (e as { digest?: unknown })?.digest;
+  return (
+    typeof digest === "string" &&
+    (digest.startsWith("NEXT_REDIRECT") || digest === "NEXT_NOT_FOUND")
+  );
+}
 
 export async function withAdmin<T>(
   fn: (actor: Awaited<ReturnType<typeof requireAdmin>>) => Promise<ActionResult<T>>,
@@ -16,32 +23,14 @@ export async function withAdmin<T>(
     const actor = await requireAdmin();
     return await fn(actor);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Erro desconhecido";
-    return { success: false, error: message };
+    if (isNextControlFlowError(e)) throw e;
+    if (e instanceof ActionError) return { success: false, error: e.message };
+    console.error("[admin action]", e);
+    return { success: false, error: "Não foi possível concluir a operação" };
   }
 }
 
 export async function withAdminRead<T>(fn: () => Promise<T>): Promise<T> {
   await requireAdmin();
   return fn();
-}
-
-export async function auditMutation(
-  actor: { id: string; email: string },
-  params: {
-    action: AuditAction;
-    entity: string;
-    entityId?: string;
-    metadata?: Record<string, unknown>;
-  },
-) {
-  await createAuditLog({
-    ...params,
-    userId: actor.id,
-    userEmail: actor.email,
-  });
-}
-
-export async function revalidateAdmin(paths: string[]) {
-  for (const p of paths) revalidatePath(p);
 }

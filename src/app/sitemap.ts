@@ -36,16 +36,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let products: Awaited<ReturnType<typeof getProducts>> = [];
   let shopCategories: Awaited<ReturnType<typeof getCategories>> = [];
 
-  try {
-    [blogPosts, blogCategories, products, shopCategories] = await Promise.all([
+  // allSettled, not all: one failing source used to drop every dynamic URL and
+  // leave the sitemap with the static routes only.
+  const [postsResult, blogCategoriesResult, productsResult, categoriesResult] =
+    await Promise.allSettled([
       getBlogSitemapEntries(),
       getBlogCategorySitemapEntries(),
       getProducts({ sort: "newest" }),
       getCategories(),
     ]);
-  } catch (e) {
-    console.error("[sitemap]", e);
-  }
+
+  if (postsResult.status === "fulfilled") blogPosts = postsResult.value;
+  else console.error("[sitemap] blog posts", postsResult.reason);
+
+  if (blogCategoriesResult.status === "fulfilled") {
+    blogCategories = blogCategoriesResult.value;
+  } else console.error("[sitemap] blog categories", blogCategoriesResult.reason);
+
+  if (productsResult.status === "fulfilled") products = productsResult.value;
+  else console.error("[sitemap] products", productsResult.reason);
+
+  if (categoriesResult.status === "fulfilled") {
+    shopCategories = categoriesResult.value;
+  } else console.error("[sitemap] shop categories", categoriesResult.reason);
 
   const blogPostEntries: MetadataRoute.Sitemap = blogPosts.map((post) => ({
     url: `${base}/blog/${post.slug}`,

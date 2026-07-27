@@ -46,6 +46,7 @@ export async function GET(
       orderId: String(payment.orderId),
       mpPaymentId,
       status,
+      amountCents: Math.round((mpPayment.transaction_amount ?? 0) * 100),
     });
 
     return NextResponse.json({

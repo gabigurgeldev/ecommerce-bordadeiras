@@ -4,7 +4,12 @@ export type MelhorEnvioHttpResponse = {
   body: string;
 };
 
-const DEFAULT_TIMEOUT_MS = 20_000;
+/**
+ * 8s, not 20s: melhorEnvioFetch retries once, so the old value could burn 40s
+ * against the 20s maxDuration of /api/shipping/quote and 504 instead of falling
+ * back to the local shipping estimate.
+ */
+const DEFAULT_TIMEOUT_MS = 8_000;
 
 const BASE_HEADERS: Record<string, string> = {
   Accept: "application/json, */*;q=0.8",

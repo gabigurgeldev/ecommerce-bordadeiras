@@ -99,6 +99,7 @@ describe("mapMercadoPagoApiError", () => {
 });
 
 describe("probeMpAccessTokenEnv", () => {
+  // Distinct tokens per case: the probe result is memoized per access token.
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -112,7 +113,7 @@ describe("probeMpAccessTokenEnv", () => {
       })),
     );
 
-    const probe = await probeMpAccessTokenEnv("APP_USR-token");
+    const probe = await probeMpAccessTokenEnv("APP_USR-live-token");
     expect(probe.env).toBe("production");
   });
 
@@ -125,7 +126,7 @@ describe("probeMpAccessTokenEnv", () => {
       })),
     );
 
-    const probe = await probeMpAccessTokenEnv("APP_USR-token");
+    const probe = await probeMpAccessTokenEnv("APP_USR-livemode-false-token");
     expect(probe.env).toBe("test");
   });
 
@@ -138,7 +139,7 @@ describe("probeMpAccessTokenEnv", () => {
       })),
     );
 
-    const probe = await probeMpAccessTokenEnv("APP_USR-token");
+    const probe = await probeMpAccessTokenEnv("APP_USR-test-user-token");
     expect(probe.env).toBe("test");
   });
 });

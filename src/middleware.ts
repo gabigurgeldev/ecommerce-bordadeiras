@@ -3,7 +3,7 @@ import { Role } from "@/lib/types/database";
 import { hasAdminAccess } from "@/lib/admin-access";
 import { resolveAppRoleForEmail } from "@/lib/middleware-admin-role";
 import { updateSession } from "@/lib/supabase/middleware";
-import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 
 /** Customer routes that require authentication (extend as storefront ships). */
 const PROTECTED_CUSTOMER_PREFIXES = ["/conta", "/pedidos", "/checkout"] as const;
@@ -49,23 +49,17 @@ function withCsp(response: NextResponse, csp: string): NextResponse {
   return response;
 }
 
-async function getMiddlewareSessionUser(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url?.trim() || !key?.trim()) return null;
+type MiddlewareUser = { id: string; email: string; role: Role };
 
-  const supabase = createServerClient(url, key, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll() {},
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+/**
+ * Builds the middleware user from the session updateSession already fetched.
+ * The DB role lookup only runs for /admin — customer routes just need to know
+ * that someone is signed in.
+ */
+async function resolveMiddlewareUser(
+  user: User | null,
+  needsRole: boolean,
+): Promise<MiddlewareUser | null> {
   if (!user?.email) return null;
 
   const meta = user.app_metadata as { prisma_id?: string; role?: string } | undefined;
@@ -73,12 +67,11 @@ async function getMiddlewareSessionUser(request: NextRequest) {
     meta?.role === Role.ADMIN || meta?.role === Role.USER
       ? (meta.role as Role)
       : Role.USER;
-  const role = await resolveAppRoleForEmail(user.email, jwtRole);
 
   return {
     id: meta?.prisma_id ?? user.id,
     email: user.email,
-    role,
+    role: needsRole ? await resolveAppRoleForEmail(user.email, jwtRole) : jwtRole,
   };
 }
 
@@ -90,7 +83,7 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
 
-  const response = await updateSession(request, requestHeaders);
+  const { response, user } = await updateSession(request, requestHeaders);
 
   const isCustomerProtected = PROTECTED_CUSTOMER_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
@@ -101,7 +94,7 @@ export async function middleware(request: NextRequest) {
     return withCsp(response, csp);
   }
 
-  const sessionUser = await getMiddlewareSessionUser(request);
+  const sessionUser = await resolveMiddlewareUser(user, isAdminRoute);
 
   if (isCustomerProtected) {
     if (!sessionUser) {

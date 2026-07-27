@@ -7,6 +7,7 @@ import { createPixPayment } from "@/lib/mercadopago";
 import { guardCheckoutPayment } from "@/lib/payments/checkout-payment-guard";
 import { persistMpPayment } from "@/lib/payments/persist-mp-payment";
 import { findReusablePixForOrder } from "@/lib/payments/reuse-pending-payment";
+import { rateLimitPayment } from "@/lib/rate-limit";
 import { cpfSchema, orderIdSchema } from "@/lib/validations/ids";
 
 const schema = z.object({
@@ -24,6 +25,9 @@ export async function POST(request: Request) {
 
   const sessionUser = await getSessionUser();
   if (!sessionUser?.id) return jsonError("Unauthorized", 401);
+
+  const limited = await rateLimitPayment(`pix:${sessionUser.id}`);
+  if (!limited.success) return jsonError("Too many requests", 429);
 
   let body: unknown;
   try {
@@ -43,7 +47,10 @@ export async function POST(request: Request) {
   if (!guard.ok) return jsonError(guard.error, guard.status);
 
   if (parsed.data.reuse !== false) {
-    const reusable = await findReusablePixForOrder(parsed.data.orderId);
+    const reusable = await findReusablePixForOrder(
+      parsed.data.orderId,
+      guard.amountCents,
+    );
     if (reusable) {
       return NextResponse.json({
         paymentId: reusable.paymentId,
