@@ -1,7 +1,8 @@
 export const siteConfig = {
   name: "Bordadeiras",
   tagline: "de Serra Pelada",
-  legalName: "Ecommerce Bordadeiras",
+  legalName: "Associação das Bordadeiras de Serra Pelada",
+  cnpj: "69.177.300/0001-47",
   description:
     "Máquinas de bordado, insumos e acessórios premium para ateliês e indústria têxtil.",
   newsletter:
@@ -10,9 +11,17 @@ export const siteConfig = {
   locale: "pt_BR",
   contact: {
     email: "contato@bordadeiras.com.br",
-    phone: "+55 94 99901-2596",
+    phone: "+55 94 9199-8912",
     whatsapp: "5594999012596",
-    address: "São Paulo, SP — Brasil",
+    address:
+      "Av. Nova República, 672 — Centrovila Serra Pelada, Curionópolis/PA, 68523-000",
+    postalAddress: {
+      streetAddress: "Av. Nova República, 672 — Centrovila Serra Pelada",
+      addressLocality: "Curionópolis",
+      addressRegion: "PA",
+      postalCode: "68523-000",
+      addressCountry: "BR",
+    },
   },
   social: {
     instagram: "https://instagram.com/bordadeiras",

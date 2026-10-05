@@ -102,6 +102,10 @@ export default function PrivacidadePage() {
 
         <h2>8. Contato</h2>
         <p>
+          Controlador dos dados: {siteConfig.legalName}, CNPJ {siteConfig.cnpj},{" "}
+          {siteConfig.contact.address}.
+        </p>
+        <p>
           E-mail:{" "}
           <a href={`mailto:${siteConfig.contact.email}`}>{siteConfig.contact.email}</a>
           <br />

@@ -30,6 +30,9 @@ export default function ContatoPage() {
             <MapPin className="h-5 w-5 text-rose-500" />
             {siteConfig.contact.address}
           </p>
+          <p className="text-xs text-zinc-500">
+            {siteConfig.legalName} — CNPJ {siteConfig.cnpj}
+          </p>
         </div>
         <form className="space-y-4 rounded-3xl bg-white p-8 dark:bg-zinc-900">
           <div>

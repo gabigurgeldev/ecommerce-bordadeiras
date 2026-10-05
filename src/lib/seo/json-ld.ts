@@ -10,6 +10,8 @@ export function organizationJsonLd() {
     name: siteConfig.legalName,
     url: siteConfig.url,
     logo: `${siteConfig.url}/brand/logo.png`,
+    taxID: siteConfig.cnpj,
+    address: { "@type": "PostalAddress", ...siteConfig.contact.postalAddress },
     contactPoint: {
       "@type": "ContactPoint",
       telephone: siteConfig.contact.phone,

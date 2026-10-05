@@ -53,6 +53,9 @@ export default function TermosPage() {
 
         <h2>6. Contato</h2>
         <p>
+          {siteConfig.legalName}, CNPJ {siteConfig.cnpj}, {siteConfig.contact.address}.
+        </p>
+        <p>
           Dúvidas sobre estes termos:{" "}
           <a href={`mailto:${siteConfig.contact.email}`}>{siteConfig.contact.email}</a>
         </p>

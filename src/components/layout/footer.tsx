@@ -238,8 +238,8 @@ export function Footer({ categories }: { categories: FooterCategoryLink[] }) {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 py-5 text-xs text-[var(--footer-fg-muted)]/80 sm:flex-row sm:justify-between sm:px-6 lg:px-8">
           <p className="text-center sm:text-left">
-            © {new Date().getFullYear()} {siteConfig.legalName}. Todos os
-            direitos reservados.
+            © {new Date().getFullYear()} {siteConfig.legalName} — CNPJ{" "}
+            {siteConfig.cnpj}. Todos os direitos reservados.
           </p>
           <nav
             className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1"
