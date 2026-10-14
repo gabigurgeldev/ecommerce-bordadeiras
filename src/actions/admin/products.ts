@@ -23,7 +23,7 @@ import { withAdmin, withAdminRead, type ActionResult } from "./_utils";
 function normalizeProductPayload(data: z.infer<typeof productSchema>) {
   return {
     ...data,
-    slug: data.slug || slugify(data.name),
+    slug: slugify(data.slug) || slugify(data.name),
     description: data.description || null,
     sku: data.sku || null,
     compareCents: data.compareCents ?? null,

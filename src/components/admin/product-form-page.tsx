@@ -298,8 +298,8 @@ export function ProductFormPage({
   }, []);
 
   const saveProduct = async (statusOverride?: ProductStatus) => {
-    const slug = values.slug?.trim() || slugify(values.name);
-    if (!values.slug?.trim()) {
+    const slug = slugify(values.slug ?? "") || slugify(values.name);
+    if (values.slug !== slug) {
       form.setValue("slug", slug, { shouldValidate: true });
     }
 
@@ -475,8 +475,14 @@ export function ProductFormPage({
               ) : null}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="pf-slug">Endereço na loja (slug)</Label>
-              <Input id="pf-slug" {...form.register("slug")} placeholder="kit-bordado-floral" />
+              {/* Rótulo sem "Endereço": o autofill do navegador preenchia o slug com o endereço do usuário. */}
+              <Label htmlFor="pf-slug">URL do produto (slug)</Label>
+              <Input
+                id="pf-slug"
+                autoComplete="off"
+                {...form.register("slug")}
+                placeholder="kit-bordado-floral"
+              />
             </div>
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
