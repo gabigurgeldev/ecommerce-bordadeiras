@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -228,6 +228,10 @@ export function ProductFormPage({
   const isEdit = Boolean(product);
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState(product?.id);
+  const serverHasRef = useRef({
+    options: Boolean(product?.productOptions?.length),
+    variants: Boolean(product?.productVariants?.length),
+  });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [videoOpen, setVideoOpen] = useState(Boolean(product?.videoUrl));
   const [dragOver, setDragOver] = useState(false);
@@ -371,28 +375,25 @@ export function ProductFormPage({
       const productId = res.data!.id;
       // Retrying after a failed image upload must update this product, not create another.
       setSavedId(productId);
-      const imagePayload: { url: string; alt: null; sortOrder: number; isPrimary: boolean }[] = [];
-
-      for (let i = 0; i < gallery.length; i++) {
-        const item = gallery[i];
-        if (item.file) {
-          let url: string | null;
-          try {
-            url = await uploadImageViaApi(item.file, "product", productId);
-          } catch (e) {
-            toast.error(
-              `Falha no upload da imagem ${i + 1}: ${e instanceof Error ? e.message : "erro desconhecido"}`,
-            );
-            return;
-          }
-          if (!url) {
-            toast.error(`Falha no upload da imagem ${i + 1}`);
-            return;
-          }
-          imagePayload.push({ url, alt: null, sortOrder: i, isPrimary: i === 0 });
-        } else {
-          imagePayload.push({ url: item.url, alt: null, sortOrder: i, isPrimary: i === 0 });
-        }
+      let imagePayload: { url: string; alt: null; sortOrder: number; isPrimary: boolean }[];
+      try {
+        imagePayload = await Promise.all(
+          gallery.map(async (item, i) => {
+            let url: string | null = item.url;
+            if (item.file) {
+              try {
+                url = await uploadImageViaApi(item.file, "product", productId);
+              } catch (e) {
+                throw new Error(`imagem ${i + 1}: ${e instanceof Error ? e.message : "erro desconhecido"}`);
+              }
+              if (!url) throw new Error(`imagem ${i + 1}`);
+            }
+            return { url, alt: null, sortOrder: i, isPrimary: i === 0 };
+          }),
+        );
+      } catch (e) {
+        toast.error(`Falha no upload da ${e instanceof Error ? e.message : "imagem"}`);
+        return;
       }
 
       const syncImg = await syncProductImages(productId, imagePayload);
@@ -409,10 +410,14 @@ export function ProductFormPage({
           values: o.values.map((v, vi) => ({ value: v, sortOrder: vi })),
         }));
 
-      const syncOpt = await syncProductOptions(productId, optionsPayload);
-      if (!syncOpt.success) {
-        toast.error(syncOpt.error);
-        return;
+      // Each sync is a full server round trip; skip it when there is nothing to write or clear.
+      if (optionsPayload.length || serverHasRef.current.options) {
+        const syncOpt = await syncProductOptions(productId, optionsPayload);
+        if (!syncOpt.success) {
+          toast.error(syncOpt.error);
+          return;
+        }
+        serverHasRef.current.options = optionsPayload.length > 0;
       }
 
       const variantsPayload = variants.map((v, i) => ({
@@ -427,10 +432,13 @@ export function ProductFormPage({
         active: v.active,
       }));
 
-      const syncVar = await syncProductVariants(productId, variantsPayload);
-      if (!syncVar.success) {
-        toast.error(syncVar.error);
-        return;
+      if (variantsPayload.length || serverHasRef.current.variants) {
+        const syncVar = await syncProductVariants(productId, variantsPayload);
+        if (!syncVar.success) {
+          toast.error(syncVar.error);
+          return;
+        }
+        serverHasRef.current.variants = variantsPayload.length > 0;
       }
 
       toast.success(isEdit ? "Produto atualizado" : "Produto salvo");
