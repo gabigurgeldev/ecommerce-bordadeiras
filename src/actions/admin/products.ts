@@ -200,7 +200,8 @@ export async function syncProductImages(
   return withAdmin(async (actor) => {
     const parsed = z.array(productImageInputSchema).safeParse(images);
     if (!parsed.success) {
-      return { success: false, error: parsed.error.flatten().formErrors.join(", ") };
+      // Issues sit on item paths (e.g. [0].url), so formErrors would be empty.
+      return { success: false, error: `Imagem inválida: ${parsed.error.issues[0]?.message ?? "dados inválidos"}` };
     }
 
     const db = getDb();

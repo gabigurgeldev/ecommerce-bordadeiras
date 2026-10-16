@@ -227,6 +227,7 @@ export function ProductFormPage({
   const router = useRouter();
   const isEdit = Boolean(product);
   const [saving, setSaving] = useState(false);
+  const [savedId, setSavedId] = useState(product?.id);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [videoOpen, setVideoOpen] = useState(Boolean(product?.videoUrl));
   const [dragOver, setDragOver] = useState(false);
@@ -361,19 +362,29 @@ export function ProductFormPage({
         ),
       };
 
-      const res = await upsertProduct(payload, product?.id);
+      const res = await upsertProduct(payload, savedId);
       if (!res.success) {
         toast.error(res.error);
         return;
       }
 
       const productId = res.data!.id;
+      // Retrying after a failed image upload must update this product, not create another.
+      setSavedId(productId);
       const imagePayload: { url: string; alt: null; sortOrder: number; isPrimary: boolean }[] = [];
 
       for (let i = 0; i < gallery.length; i++) {
         const item = gallery[i];
         if (item.file) {
-          const url = await uploadImageViaApi(item.file, "product", productId);
+          let url: string | null;
+          try {
+            url = await uploadImageViaApi(item.file, "product", productId);
+          } catch (e) {
+            toast.error(
+              `Falha no upload da imagem ${i + 1}: ${e instanceof Error ? e.message : "erro desconhecido"}`,
+            );
+            return;
+          }
           if (!url) {
             toast.error(`Falha no upload da imagem ${i + 1}`);
             return;
