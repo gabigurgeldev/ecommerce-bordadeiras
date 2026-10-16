@@ -207,7 +207,7 @@ export function ProductVariantsEditor({
                 <th className="px-3 py-2">SKU</th>
                 <th className="px-3 py-2">Imagem (URL)</th>
                 <th className="px-3 py-2">Preço (R$)</th>
-                <th className="px-3 py-2">Promo (R$)</th>
+                <th className="px-3 py-2">De (R$)</th>
                 <th className="px-3 py-2">Estoque</th>
                 <th className="px-3 py-2">Ativo</th>
               </tr>

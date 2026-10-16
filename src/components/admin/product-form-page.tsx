@@ -309,6 +309,20 @@ export function ProductFormPage({
       return;
     }
 
+    if (values.compareReais && reaisToCents(values.compareReais) < reaisToCents(values.priceReais)) {
+      toast.error("Preço original (de) deve ser maior ou igual ao preço de venda");
+      return;
+    }
+    const invalidVariant = variants.find((v) => {
+      const compare = reaisToCentsOptional(v.compareReais);
+      const price = reaisToCentsOptional(v.priceReais);
+      return compare != null && price != null && compare < price;
+    });
+    if (invalidVariant) {
+      toast.error("Variação: preço original (de) deve ser maior ou igual ao preço");
+      return;
+    }
+
     setSaving(true);
     try {
       const tags = (values.tagsInput ?? "")
@@ -710,12 +724,15 @@ export function ProductFormPage({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="pf-compare">Preço promocional</Label>
+              <Label htmlFor="pf-compare">Preço original (de)</Label>
               <MoneyInput
                 id="pf-compare"
                 value={values.compareReais ?? ""}
                 onChange={(v) => form.setValue("compareReais", v)}
               />
+              <p className="text-xs text-muted-foreground">
+                Opcional. Aparece riscado na loja — deve ser maior que o preço de venda.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pf-cost">Custo</Label>

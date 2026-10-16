@@ -39,6 +39,12 @@ export const productSchema = productSchemaFields.superRefine((data, ctx) => {
       path: ["fixedShippingCents"],
     });
   }
+  if (data.compareCents != null && data.compareCents < data.priceCents) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Preço original (de) deve ser maior ou igual ao preço de venda",
+    });
+  }
 });
 
 export const productOptionInputSchema = z.object({
